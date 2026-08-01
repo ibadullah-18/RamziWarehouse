@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RamziWarehouse.Api/RamziWarehouse.Api.csproj" />
+    <Project Path="src/RamziWarehouse.Application/RamziWarehouse.Application.csproj" />
+    <Project Path="src/RamziWarehouse.Domain/RamziWarehouse.Domain.csproj" />
+    <Project Path="src/RamziWarehouse.Infrastructure/RamziWarehouse.Infrastructure.csproj" />
+  </Folder>
+</Solution>

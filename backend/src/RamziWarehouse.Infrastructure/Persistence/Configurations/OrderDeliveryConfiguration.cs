@@ -1,0 +1,37 @@
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using RamziWarehouse.Domain.Entities;
+
+namespace RamziWarehouse.Infrastructure.Persistence.Configurations;
+
+public sealed class OrderDeliveryConfiguration
+    : IEntityTypeConfiguration<OrderDelivery>
+{
+    public void Configure(EntityTypeBuilder<OrderDelivery> builder)
+    {
+        builder.ToTable("OrderDeliveries");
+
+        builder.HasKey(delivery => delivery.Id);
+
+        builder.HasIndex(delivery => delivery.OrderId)
+            .IsUnique();
+
+        builder.Property(delivery => delivery.DeliveredAtUtc)
+            .IsRequired();
+
+        builder.Property(delivery => delivery.Note)
+            .HasMaxLength(1000);
+
+        builder.HasIndex(delivery => delivery.DeliveredAtUtc);
+
+        builder.HasOne(delivery => delivery.DeliveredByUser)
+            .WithMany()
+            .HasForeignKey(delivery => delivery.DeliveredByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasMany(delivery => delivery.Photos)
+            .WithOne(photo => photo.OrderDelivery)
+            .HasForeignKey(photo => photo.OrderDeliveryId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
