@@ -46,4 +46,11 @@ public sealed class OrderDto
 
     public IReadOnlyList<OrderStatusHistoryDto> StatusHistory { get; init; }
         = [];
+
+    public IReadOnlyList<OrderPreparationPhotoDto> PreparationPhotos
+    {
+        get;
+        init;
+    } = [];
 }
+

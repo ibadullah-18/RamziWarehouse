@@ -11,6 +11,8 @@ using RamziWarehouse.Application.Abstractions.Users;
 using RamziWarehouse.Application.Abstractions.Customers;
 using RamziWarehouse.Application.Abstractions.Warehouses;
 using RamziWarehouse.Application.Abstractions.Orders;
+using RamziWarehouse.Application.Abstractions.Files;
+using RamziWarehouse.Infrastructure.Storage.Cloudinary;
 
 namespace RamziWarehouse.Infrastructure;
 
@@ -54,6 +56,15 @@ public static class DependencyInjection
         services.AddScoped<IWarehouseService, WarehouseService>();
 
         services.AddScoped<IOrderService, OrderService>();
+
+        services.Configure<CloudinarySettings>(
+            configuration.GetSection(CloudinarySettings.SectionName));
+
+        services.AddScoped<IFileStorageService, CloudinaryFileStorageService>();
+
+        services.AddScoped<
+            IOrderPreparationService,
+            OrderPreparationService>();
 
         return services;
     }
