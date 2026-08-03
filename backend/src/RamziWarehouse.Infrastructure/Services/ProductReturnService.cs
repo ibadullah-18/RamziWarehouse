@@ -239,9 +239,9 @@ public sealed class ProductReturnService : IProductReturnService
     }
 
     public async Task<ProductReturnDto> CompleteAsync(
-        Guid productReturnId,
-        ProcessProductReturnDto request,
-        CancellationToken cancellationToken = default)
+    Guid productReturnId,
+    ProcessProductReturnDto request,
+    CancellationToken cancellationToken = default)
     {
         EnsureManager();
 
@@ -278,14 +278,16 @@ public sealed class ProductReturnService : IProductReturnService
             _currentUserService.UserId,
             utcNow);
 
-        productReturn.StatusHistory.Add(
-            new ProductReturnStatusHistory
-            {
-                PreviousStatus = previousStatus,
-                NewStatus = ReturnStatus.Completed,
-                ChangedByUserId = _currentUserService.UserId,
-                Note = note ?? "Vazvrad tamamlandı."
-            });
+        var statusHistory = new ProductReturnStatusHistory
+        {
+            ProductReturnId = productReturn.Id,
+            PreviousStatus = previousStatus,
+            NewStatus = ReturnStatus.Completed,
+            ChangedByUserId = _currentUserService.UserId,
+            Note = note ?? "Vazvrad tamamlandı."
+        };
+
+        _dbContext.ProductReturnStatusHistories.Add(statusHistory);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -295,9 +297,9 @@ public sealed class ProductReturnService : IProductReturnService
     }
 
     public async Task<ProductReturnDto> CancelAsync(
-        Guid productReturnId,
-        ProcessProductReturnDto request,
-        CancellationToken cancellationToken = default)
+    Guid productReturnId,
+    ProcessProductReturnDto request,
+    CancellationToken cancellationToken = default)
     {
         EnsureManager();
 
@@ -327,14 +329,16 @@ public sealed class ProductReturnService : IProductReturnService
             _currentUserService.UserId,
             utcNow);
 
-        productReturn.StatusHistory.Add(
-            new ProductReturnStatusHistory
-            {
-                PreviousStatus = previousStatus,
-                NewStatus = ReturnStatus.Cancelled,
-                ChangedByUserId = _currentUserService.UserId,
-                Note = note ?? "Vazvrad ləğv edildi."
-            });
+        var statusHistory = new ProductReturnStatusHistory
+        {
+            ProductReturnId = productReturn.Id,
+            PreviousStatus = previousStatus,
+            NewStatus = ReturnStatus.Cancelled,
+            ChangedByUserId = _currentUserService.UserId,
+            Note = note ?? "Vazvrad ləğv edildi."
+        };
+
+        _dbContext.ProductReturnStatusHistories.Add(statusHistory);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 

@@ -11,6 +11,11 @@ namespace RamziWarehouse.Infrastructure.Storage.Cloudinary;
 public sealed class CloudinaryFileStorageService : IFileStorageService
 {
     private const long MaxImageFileSizeBytes = 10 * 1024 * 1024;
+    private static readonly HttpClient ImageDownloadClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(30),
+        MaxResponseContentBufferSize = MaxImageFileSizeBytes
+    };
 
     private static readonly HashSet<string> AllowedContentTypes =
         new(StringComparer.OrdinalIgnoreCase)
@@ -100,6 +105,68 @@ public sealed class CloudinaryFileStorageService : IFileStorageService
             FileSizeBytes = uploadResult.Bytes > 0
                 ? uploadResult.Bytes
                 : request.FileSizeBytes
+        };
+    }
+
+    public async Task<StoredFileContentDto> DownloadImageAsync(
+    string publicId,
+    CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(publicId))
+        {
+            throw new ArgumentException(
+                "Cloudinary public ID boş ola bilməz.",
+                nameof(publicId));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var deliveryUrl = _cloudinary.Api.UrlImgUp
+            .BuildUrl(publicId);
+
+        using var response = await ImageDownloadClient.GetAsync(
+            deliveryUrl,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        if (response.StatusCode ==
+            System.Net.HttpStatusCode.NotFound)
+        {
+            throw new FileNotFoundException(
+                "Şəkil Cloudinary-də tapılmadı.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(
+                $"Şəkil Cloudinary-dən oxunmadı. " +
+                $"Status: {(int)response.StatusCode}");
+        }
+
+        var content = await response.Content
+            .ReadAsByteArrayAsync(cancellationToken);
+
+        if (content.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "Cloudinary boş şəkil faylı qaytardı.");
+        }
+
+        if (content.Length > MaxImageFileSizeBytes)
+        {
+            throw new InvalidOperationException(
+                "Cloudinary-dən gələn şəkil maksimum ölçünü keçir.");
+        }
+
+        var contentType =
+            response.Content.Headers.ContentType?.MediaType;
+
+        return new StoredFileContentDto
+        {
+            Content = content,
+            ContentType = string.IsNullOrWhiteSpace(contentType)
+                ? "application/octet-stream"
+                : contentType
         };
     }
 

@@ -9,6 +9,10 @@ public interface IFileStorageService
         string folder,
         CancellationToken cancellationToken = default);
 
+    Task<StoredFileContentDto> DownloadImageAsync(
+        string publicId,
+        CancellationToken cancellationToken = default);
+
     Task DeleteImageAsync(
         string publicId,
         CancellationToken cancellationToken = default);

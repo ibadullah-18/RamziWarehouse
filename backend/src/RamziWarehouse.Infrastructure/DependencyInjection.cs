@@ -69,6 +69,10 @@ public static class DependencyInjection
 
         services.AddScoped<IProductReturnService, ProductReturnService>();
 
+        services.AddScoped<
+            IProductReturnPhotoService,
+            ProductReturnPhotoService>();
+
         return services;
     }
 }
