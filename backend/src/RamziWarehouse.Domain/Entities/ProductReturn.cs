@@ -17,7 +17,8 @@ public sealed class ProductReturn : ExpirableEntity
 
     public string? AdditionalNote { get; set; }
 
-    public ReturnStatus Status { get; private set; } = ReturnStatus.Pending;
+    public ReturnStatus Status { get; private set; }
+        = ReturnStatus.Pending;
 
     public Guid CreatedByUserId { get; set; }
 
@@ -36,9 +37,11 @@ public sealed class ProductReturn : ExpirableEntity
         = new List<ProductReturnPhoto>();
 
     public ICollection<ProductReturnStatusHistory> StatusHistory { get; set; }
-    = new List<ProductReturnStatusHistory>();
+        = new List<ProductReturnStatusHistory>();
 
-    public void Complete(Guid processedByUserId, DateTime completedAtUtc)
+    public void Complete(
+        Guid processedByUserId,
+        DateTime completedAtUtc)
     {
         if (Status != ReturnStatus.Pending)
         {
@@ -53,7 +56,9 @@ public sealed class ProductReturn : ExpirableEntity
         StartRetentionPeriod(completedAtUtc);
     }
 
-    public void Cancel(Guid processedByUserId, DateTime cancelledAtUtc)
+    public void Cancel(
+        Guid processedByUserId,
+        DateTime cancelledAtUtc)
     {
         if (Status != ReturnStatus.Pending)
         {

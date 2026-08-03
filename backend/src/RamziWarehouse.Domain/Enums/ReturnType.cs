@@ -1,7 +1,7 @@
 ﻿namespace RamziWarehouse.Domain.Enums;
 
-public enum ProductType
+public enum ReturnType
 {
-    Product = 1,  // Adi aboy
+    Product = 1,  // Vazvrad — aboyun özü
     Showcase = 2 // Vitrin
 }
