@@ -5,11 +5,14 @@ using Microsoft.Extensions.DependencyInjection;
 using RamziWarehouse.Application.Abstractions.Authentication;
 using RamziWarehouse.Application.Abstractions.Customers;
 using RamziWarehouse.Application.Abstractions.Files;
+using RamziWarehouse.Application.Abstractions.Notifications;
 using RamziWarehouse.Application.Abstractions.Orders;
 using RamziWarehouse.Application.Abstractions.ProductReturns;
+using RamziWarehouse.Application.Abstractions.Retention;
 using RamziWarehouse.Application.Abstractions.Users;
 using RamziWarehouse.Application.Abstractions.Warehouses;
 using RamziWarehouse.Domain.Entities;
+using RamziWarehouse.Infrastructure.Notifications.Telegram;
 using RamziWarehouse.Infrastructure.Persistence;
 using RamziWarehouse.Infrastructure.Security;
 using RamziWarehouse.Infrastructure.Services;
@@ -72,6 +75,31 @@ public static class DependencyInjection
         services.AddScoped<
             IProductReturnPhotoService,
             ProductReturnPhotoService>();
+
+        services.AddScoped<
+            IOrderPhotoFileService,
+            OrderPhotoFileService>();
+
+        services.AddScoped<
+            IDataRetentionCleanupService,
+            DataRetentionCleanupService>();
+
+        services.Configure<TelegramSettings>(
+            configuration.GetSection(
+                TelegramSettings.SectionName));
+
+        services.AddHttpClient<
+        ITelegramNotificationService,
+        TelegramNotificationService>(
+        client =>
+        {
+            client.BaseAddress =
+                new Uri("https://api.telegram.org/");
+
+            client.Timeout =
+                TimeSpan.FromSeconds(20);
+        })
+    .RemoveAllLoggers();
 
         return services;
     }

@@ -6,6 +6,7 @@ using RamziWarehouse.Infrastructure;
 using RamziWarehouse.Infrastructure.Persistence;
 using RamziWarehouse.Api.Services;
 using RamziWarehouse.Application.Abstractions.Identity;
+using RamziWarehouse.Api.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +30,9 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
+
+builder.Services.AddHostedService<
+    DataRetentionBackgroundService>();
 
 var app = builder.Build();
 
