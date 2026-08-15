@@ -13,6 +13,7 @@ using RamziWarehouse.Application.Abstractions.Users;
 using RamziWarehouse.Application.Abstractions.Warehouses;
 using RamziWarehouse.Domain.Entities;
 using RamziWarehouse.Infrastructure.Notifications.Telegram;
+using RamziWarehouse.Infrastructure.Notifications.Telegram.Outbox;
 using RamziWarehouse.Infrastructure.Persistence;
 using RamziWarehouse.Infrastructure.Security;
 using RamziWarehouse.Infrastructure.Services;
@@ -87,6 +88,18 @@ public static class DependencyInjection
         services.Configure<TelegramSettings>(
             configuration.GetSection(
                 TelegramSettings.SectionName));
+
+        services.AddScoped<
+            ITelegramOutboxService,
+            TelegramOutboxService>();
+
+        services.AddScoped<
+            ITelegramOutboxService,
+            TelegramOutboxService>();
+
+        services.AddScoped<
+            ITelegramOutboxProcessor,
+            TelegramOutboxProcessor>();
 
         services.AddHttpClient<
         ITelegramNotificationService,

@@ -33,6 +33,8 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 
 builder.Services.AddHostedService<
     DataRetentionBackgroundService>();
+builder.Services.AddHostedService<
+    TelegramOutboxBackgroundService>();
 
 var app = builder.Build();
 

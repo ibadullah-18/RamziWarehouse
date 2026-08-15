@@ -1,11 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RamziWarehouse.Application.Abstractions.Identity;
+using RamziWarehouse.Application.Abstractions.Notifications;
 using RamziWarehouse.Application.Abstractions.Orders;
 using RamziWarehouse.Application.Common.Exceptions;
 using RamziWarehouse.Application.Common.Models;
+using RamziWarehouse.Application.Common.Notifications;
 using RamziWarehouse.Application.Features.Orders.Dtos;
 using RamziWarehouse.Domain.Entities;
 using RamziWarehouse.Domain.Enums;
+using RamziWarehouse.Infrastructure.Notifications.Telegram.Formatting;
 using RamziWarehouse.Infrastructure.Persistence;
 
 namespace RamziWarehouse.Infrastructure.Services;
@@ -15,15 +18,18 @@ public sealed class OrderService : IOrderService
     private readonly AppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
     private readonly TimeProvider _timeProvider;
+    private readonly ITelegramOutboxService _telegramOutboxService;
 
     public OrderService(
-        AppDbContext dbContext,
-        ICurrentUserService currentUserService,
-        TimeProvider timeProvider)
+    AppDbContext dbContext,
+    ICurrentUserService currentUserService,
+    TimeProvider timeProvider,
+    ITelegramOutboxService telegramOutboxService)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
         _timeProvider = timeProvider;
+        _telegramOutboxService = telegramOutboxService;
     }
 
     public async Task<PagedResultDto<OrderListItemDto>> GetAllAsync(
@@ -307,6 +313,17 @@ public sealed class OrderService : IOrderService
 
         var currentUserId = _currentUserService.UserId;
 
+        var createdByFullName = await _dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == currentUserId)
+            .Select(user => user.FullName)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(createdByFullName))
+        {
+            createdByFullName = "Naməlum istifadəçi";
+        }
+
         var order = new Order
         {
             OrderNumber = normalizedOrderNumber,
@@ -340,6 +357,25 @@ public sealed class OrderService : IOrderService
         _dbContext.Orders.Add(order);
         _dbContext.OrderItems.AddRange(orderItems);
         _dbContext.Set<OrderStatusHistory>().Add(createdHistory);
+
+        var telegramMessages =
+            OrderCreatedTelegramMessageBuilder.Build(
+                order,
+                orderItems,
+                customer.Name,
+                warehouse.Name,
+                createdByFullName);
+
+        foreach (var telegramMessage in telegramMessages)
+        {
+            await _telegramOutboxService.EnqueueAsync(
+                TelegramChannel.Orders,
+                telegramMessage,
+                TelegramRelatedEntityTypes.Order,
+                order.Id,
+                photos: null,
+                cancellationToken);
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 

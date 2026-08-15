@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RamziWarehouse.Domain.Common;
 using RamziWarehouse.Domain.Entities;
+using RamziWarehouse.Infrastructure.Notifications.Telegram.Outbox;
 
 namespace RamziWarehouse.Infrastructure.Persistence;
 
@@ -10,7 +11,7 @@ public sealed class AppDbContext : DbContext
         : base(options)
     {
     }
-
+        
     public DbSet<User> Users => Set<User>();
 
     public DbSet<AttendanceRecord> AttendanceRecords =>
@@ -46,6 +47,12 @@ public sealed class AppDbContext : DbContext
 
     public DbSet<ProductReturnStatusHistory> ProductReturnStatusHistories =>
         Set<ProductReturnStatusHistory>();
+
+    public DbSet<TelegramOutboxMessage> TelegramOutboxMessages =>
+        Set<TelegramOutboxMessage>();
+
+    public DbSet<TelegramOutboxPhoto> TelegramOutboxPhotos =>
+        Set<TelegramOutboxPhoto>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
