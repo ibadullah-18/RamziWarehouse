@@ -1,4 +1,6 @@
 ﻿using System.Globalization;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using RamziWarehouse.Application.Abstractions.Notifications;
@@ -10,6 +12,10 @@ public sealed class TelegramNotificationService
     : ITelegramNotificationService
 {
     private const int MaximumMessageLength = 4000;
+    private const int MaximumMediaGroupSize = 10;
+
+    private static readonly JsonSerializerOptions JsonOptions =
+        new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _httpClient;
     private readonly TelegramSettings _settings;
@@ -27,11 +33,8 @@ public sealed class TelegramNotificationService
         string message,
         CancellationToken cancellationToken = default)
     {
-        if (!_settings.Enabled)
-        {
-            throw new InvalidOperationException(
-                "Telegram bildirişləri aktiv deyil.");
-        }
+        var channelSettings =
+            GetValidatedChannelSettings(channel);
 
         if (string.IsNullOrWhiteSpace(message))
         {
@@ -45,93 +48,266 @@ public sealed class TelegramNotificationService
         if (message.Length > MaximumMessageLength)
         {
             throw new ArgumentException(
-                $"Telegram mesajı {MaximumMessageLength} simvoldan çox ola bilməz.",
+                $"Telegram mesajı {MaximumMessageLength} " +
+                "simvoldan çox ola bilməz.",
                 nameof(message));
         }
-
-        var channelSettings = GetChannelSettings(channel);
-
-        ValidateChannelSettings(
-            channel,
-            channelSettings);
 
         using var content = new FormUrlEncodedContent(
             new Dictionary<string, string>
             {
-                ["chat_id"] = channelSettings.ChatId.ToString(
-                    CultureInfo.InvariantCulture),
+                ["chat_id"] =
+                    channelSettings.ChatId.ToString(
+                        CultureInfo.InvariantCulture),
 
                 ["text"] = message
             });
 
-        var requestUri = new Uri(
-            $"./bot{channelSettings.BotToken}/sendMessage",
-            UriKind.Relative);
-
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
-            requestUri)
+            CreateRequestUri(
+                channelSettings.BotToken,
+                "sendMessage"))
         {
             Content = content
         };
 
-        using var response = await _httpClient.SendAsync(
+        await SendRequestAsync(
             request,
-            HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
+    }
 
-        var responseBody = await response.Content.ReadAsStringAsync(
-            cancellationToken);
+    public async Task SendPhotosAsync(
+        TelegramChannel channel,
+        IReadOnlyCollection<TelegramPhotoContent> photos,
+        CancellationToken cancellationToken = default)
+    {
+        var channelSettings =
+            GetValidatedChannelSettings(channel);
 
-        TelegramApiResponse? telegramResponse;
-
-        try
+        if (photos is null || photos.Count == 0)
         {
-            telegramResponse =
-                JsonSerializer.Deserialize<TelegramApiResponse>(
-                    responseBody,
-                    new JsonSerializerOptions(
-                        JsonSerializerDefaults.Web));
-        }
-        catch (JsonException)
-        {
-            throw new InvalidOperationException(
-                "Telegram serverindən düzgün cavab alınmadı.");
+            throw new ArgumentException(
+                "Ən azı bir Telegram şəkli olmalıdır.",
+                nameof(photos));
         }
 
-        if (!response.IsSuccessStatusCode ||
-            telegramResponse is null ||
-            !telegramResponse.Ok)
-        {
-            var description =
-                telegramResponse?.Description ??
-                "Naməlum Telegram xətası.";
+        var normalizedPhotos = photos
+            .Select(NormalizePhoto)
+            .ToList();
 
-            throw new InvalidOperationException(
-                $"Telegram mesajı göndərilmədi: {description}");
+        for (
+            var startIndex = 0;
+            startIndex < normalizedPhotos.Count;
+            startIndex += MaximumMediaGroupSize)
+        {
+            var photoBatch = normalizedPhotos
+                .Skip(startIndex)
+                .Take(MaximumMediaGroupSize)
+                .ToList();
+
+            if (photoBatch.Count == 1)
+            {
+                await SendSinglePhotoAsync(
+                    channelSettings,
+                    photoBatch[0],
+                    cancellationToken);
+            }
+            else
+            {
+                await SendPhotoGroupAsync(
+                    channelSettings,
+                    photoBatch,
+                    cancellationToken);
+            }
         }
     }
 
-    private TelegramChannelSettings GetChannelSettings(
-        TelegramChannel channel)
+    private async Task SendSinglePhotoAsync(
+        TelegramChannelSettings channelSettings,
+        TelegramPhotoContent photo,
+        CancellationToken cancellationToken)
     {
-        return channel switch
+        using var content = new MultipartFormDataContent();
+
+        content.Add(
+            new StringContent(
+                channelSettings.ChatId.ToString(
+                    CultureInfo.InvariantCulture)),
+            "chat_id");
+
+        var fileContent =
+            CreateFileContent(photo);
+
+        content.Add(
+            fileContent,
+            "photo",
+            photo.FileName);
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            CreateRequestUri(
+                channelSettings.BotToken,
+                "sendPhoto"))
         {
-            TelegramChannel.Orders => _settings.Orders,
-            TelegramChannel.Returns => _settings.Returns,
-            TelegramChannel.Delivery => _settings.Delivery,
+            Content = content
+        };
+
+        await SendRequestAsync(
+            request,
+            cancellationToken);
+    }
+
+    private async Task SendPhotoGroupAsync(
+        TelegramChannelSettings channelSettings,
+        IReadOnlyList<TelegramPhotoContent> photos,
+        CancellationToken cancellationToken)
+    {
+        using var content = new MultipartFormDataContent();
+
+        content.Add(
+            new StringContent(
+                channelSettings.ChatId.ToString(
+                    CultureInfo.InvariantCulture)),
+            "chat_id");
+
+        var media = photos
+            .Select(
+                (_, index) =>
+                    new Dictionary<string, string>
+                    {
+                        ["type"] = "photo",
+                        ["media"] = $"attach://photo{index}"
+                    })
+            .ToList();
+
+        var mediaJson = JsonSerializer.Serialize(
+            media,
+            JsonOptions);
+
+        content.Add(
+            new StringContent(
+                mediaJson,
+                Encoding.UTF8,
+                "application/json"),
+            "media");
+
+        for (var index = 0; index < photos.Count; index++)
+        {
+            var photo = photos[index];
+
+            var fileContent =
+                CreateFileContent(photo);
+
+            content.Add(
+                fileContent,
+                $"photo{index}",
+                photo.FileName);
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            CreateRequestUri(
+                channelSettings.BotToken,
+                "sendMediaGroup"))
+        {
+            Content = content
+        };
+
+        await SendRequestAsync(
+            request,
+            cancellationToken);
+    }
+
+    private async Task SendRequestAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        HttpResponseMessage response;
+
+        try
+        {
+            response = await _httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+            when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new InvalidOperationException(
+                "Telegram sorğusunun vaxtı bitdi.");
+        }
+        catch (HttpRequestException)
+        {
+            throw new InvalidOperationException(
+                "Telegram serveri ilə bağlantı qurulmadı.");
+        }
+
+        using (response)
+        {
+            var responseBody =
+                await response.Content.ReadAsStringAsync(
+                    cancellationToken);
+
+            TelegramApiResponse? telegramResponse;
+
+            try
+            {
+                telegramResponse =
+                    JsonSerializer.Deserialize<
+                        TelegramApiResponse>(
+                        responseBody,
+                        JsonOptions);
+            }
+            catch (JsonException)
+            {
+                throw new InvalidOperationException(
+                    "Telegram serverindən düzgün cavab alınmadı.");
+            }
+
+            if (!response.IsSuccessStatusCode ||
+                telegramResponse is null ||
+                !telegramResponse.Ok)
+            {
+                var description =
+                    telegramResponse?.Description ??
+                    "Naməlum Telegram xətası.";
+
+                throw new InvalidOperationException(
+                    $"Telegram göndərişi uğursuz oldu: " +
+                    description);
+            }
+        }
+    }
+
+    private TelegramChannelSettings
+        GetValidatedChannelSettings(
+            TelegramChannel channel)
+    {
+        if (!_settings.Enabled)
+        {
+            throw new InvalidOperationException(
+                "Telegram bildirişləri aktiv deyil.");
+        }
+
+        var channelSettings = channel switch
+        {
+            TelegramChannel.Orders =>
+                _settings.Orders,
+
+            TelegramChannel.Returns =>
+                _settings.Returns,
+
+            TelegramChannel.Delivery =>
+                _settings.Delivery,
 
             _ => throw new ArgumentOutOfRangeException(
                 nameof(channel),
                 channel,
                 "Düzgün Telegram kanalı seçilməyib.")
         };
-    }
 
-    private static void ValidateChannelSettings(
-        TelegramChannel channel,
-        TelegramChannelSettings channelSettings)
-    {
         if (string.IsNullOrWhiteSpace(
                 channelSettings.BotToken))
         {
@@ -144,6 +320,71 @@ public sealed class TelegramNotificationService
             throw new InvalidOperationException(
                 $"{channel} ChatId konfiqurasiya edilməyib.");
         }
+
+        return channelSettings;
+    }
+
+    private static TelegramPhotoContent NormalizePhoto(
+        TelegramPhotoContent photo)
+    {
+        ArgumentNullException.ThrowIfNull(photo);
+
+        if (photo.Content.Length == 0)
+        {
+            throw new ArgumentException(
+                "Telegram şəkil faylı boş ola bilməz.");
+        }
+
+        if (string.IsNullOrWhiteSpace(photo.FileName))
+        {
+            throw new ArgumentException(
+                "Telegram şəkil adı boş ola bilməz.");
+        }
+
+        if (string.IsNullOrWhiteSpace(photo.ContentType))
+        {
+            throw new ArgumentException(
+                "Telegram şəkil tipi boş ola bilməz.");
+        }
+
+        if (!MediaTypeHeaderValue.TryParse(
+                photo.ContentType,
+                out _))
+        {
+            throw new ArgumentException(
+                "Telegram şəkil tipi düzgün deyil.");
+        }
+
+        return new TelegramPhotoContent
+        {
+            Content = photo.Content,
+            FileName = Path.GetFileName(
+                photo.FileName.Trim()),
+
+            ContentType = photo.ContentType.Trim()
+        };
+    }
+
+    private static ByteArrayContent CreateFileContent(
+        TelegramPhotoContent photo)
+    {
+        var fileContent =
+            new ByteArrayContent(photo.Content);
+
+        fileContent.Headers.ContentType =
+            MediaTypeHeaderValue.Parse(
+                photo.ContentType);
+
+        return fileContent;
+    }
+
+    private static Uri CreateRequestUri(
+        string botToken,
+        string methodName)
+    {
+        return new Uri(
+            $"./bot{botToken}/{methodName}",
+            UriKind.Relative);
     }
 
     private sealed class TelegramApiResponse

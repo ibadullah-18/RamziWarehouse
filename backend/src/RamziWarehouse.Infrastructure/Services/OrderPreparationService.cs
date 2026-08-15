@@ -2,12 +2,15 @@
 using Microsoft.Extensions.Logging;
 using RamziWarehouse.Application.Abstractions.Files;
 using RamziWarehouse.Application.Abstractions.Identity;
+using RamziWarehouse.Application.Abstractions.Notifications;
 using RamziWarehouse.Application.Abstractions.Orders;
 using RamziWarehouse.Application.Common.Exceptions;
 using RamziWarehouse.Application.Common.Files;
+using RamziWarehouse.Application.Common.Notifications;
 using RamziWarehouse.Application.Features.Orders.Dtos;
 using RamziWarehouse.Domain.Entities;
 using RamziWarehouse.Domain.Enums;
+using RamziWarehouse.Infrastructure.Notifications.Telegram.Formatting;
 using RamziWarehouse.Infrastructure.Persistence;
 
 namespace RamziWarehouse.Infrastructure.Services;
@@ -23,12 +26,14 @@ public sealed class OrderPreparationService
     private readonly IOrderService _orderService;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<OrderPreparationService> _logger;
+    private readonly ITelegramOutboxService _telegramOutboxService;
 
     public OrderPreparationService(
         AppDbContext dbContext,
         ICurrentUserService currentUserService,
         IFileStorageService fileStorageService,
         IOrderService orderService,
+        ITelegramOutboxService telegramOutboxService,
         TimeProvider timeProvider,
         ILogger<OrderPreparationService> logger)
     {
@@ -36,6 +41,7 @@ public sealed class OrderPreparationService
         _currentUserService = currentUserService;
         _fileStorageService = fileStorageService;
         _orderService = orderService;
+        _telegramOutboxService = telegramOutboxService;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -146,50 +152,83 @@ public sealed class OrderPreparationService
     }
 
     public async Task<OrderDto> CompletePreparationAsync(
-        Guid orderId,
-        CancellationToken cancellationToken = default)
+    Guid orderId,
+    CancellationToken cancellationToken = default)
     {
         var order = await _dbContext.Orders
+            .Include(currentOrder => currentOrder.Customer)
+            .Include(currentOrder => currentOrder.Warehouse)
+            .Include(currentOrder => currentOrder.Items)
+            .Include(currentOrder =>
+                currentOrder.PreparationPhotos)
+            .Include(currentOrder =>
+                currentOrder.PreparedByUser)
             .FirstOrDefaultAsync(
-                order => order.Id == orderId,
+                currentOrder =>
+                    currentOrder.Id == orderId,
                 cancellationToken);
 
         if (order is null)
         {
-            throw new NotFoundException("Sifariş tapılmadı.");
+            throw new NotFoundException(
+                "Sifariş tapılmadı.");
         }
 
         if (order.Status != OrderStatus.InPreparation)
         {
             throw new ConflictException(
-                "Yalnız hazırlanmaqda olan sifariş tamamlana bilər.");
+                "Yalnız hazırlanmaqda olan sifariş " +
+                "tamamlana bilər.");
         }
 
-        var currentUserId = _currentUserService.UserId;
+        var currentUserId =
+            _currentUserService.UserId;
 
         if (!order.PreparedByUserId.HasValue ||
             order.PreparedByUserId.Value != currentUserId)
         {
             throw new ForbiddenException(
-                "Bu sifarişi hazırlayan istifadəçi siz deyilsiniz.");
+                "Bu sifarişi hazırlayan istifadəçi " +
+                "siz deyilsiniz.");
         }
 
-        var hasPreparationPhoto = await _dbContext
-            .Set<OrderPreparationPhoto>()
-            .AnyAsync(
-                photo => photo.OrderId == order.Id,
-                cancellationToken);
-
-        if (!hasPreparationPhoto)
+        if (order.PreparationPhotos.Count == 0)
         {
             throw new ConflictException(
-                "Sifarişi tamamlamaq üçün ən azı bir sübut şəkli əlavə edilməlidir.");
+                "Sifarişi tamamlamaq üçün ən azı bir " +
+                "sübut şəkli əlavə edilməlidir.");
+        }
+
+        var preparedByFullName =
+            order.PreparedByUser?.FullName;
+
+        if (string.IsNullOrWhiteSpace(
+                preparedByFullName))
+        {
+            preparedByFullName = await _dbContext.Users
+                .AsNoTracking()
+                .Where(user =>
+                    user.Id == currentUserId)
+                .Select(user => user.FullName)
+                .FirstOrDefaultAsync(
+                    cancellationToken);
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                preparedByFullName))
+        {
+            preparedByFullName =
+                "Naməlum istifadəçi";
         }
 
         var previousStatus = order.Status;
-        var preparedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
 
-        order.CompletePreparation(preparedAtUtc);
+        var preparedAtUtc = _timeProvider
+            .GetUtcNow()
+            .UtcDateTime;
+
+        order.CompletePreparation(
+            preparedAtUtc);
 
         var history = new OrderStatusHistory
         {
@@ -200,9 +239,65 @@ public sealed class OrderPreparationService
             Note = "Sifarişin hazırlanması tamamlandı."
         };
 
-        _dbContext.Set<OrderStatusHistory>().Add(history);
+        _dbContext
+            .Set<OrderStatusHistory>()
+            .Add(history);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        var telegramMessages =
+            OrderPreparationCompletedTelegramMessageBuilder
+                .Build(
+                    order,
+                    order.Items.ToList(),
+                    order.Customer.Name,
+                    order.Warehouse.Name,
+                    preparedByFullName,
+                    preparedAtUtc,
+                    order.PreparationPhotos.Count);
+
+        var telegramPhotos =
+            order.PreparationPhotos
+                .OrderBy(photo => photo.CreatedAtUtc)
+                .Select(
+                    photo =>
+                        new TelegramOutboxPhotoRequest
+                        {
+                            CloudinaryPublicId =
+                                photo.CloudinaryPublicId,
+
+                            OriginalFileName =
+                                photo.OriginalFileName,
+
+                            ContentType =
+                                photo.ContentType
+                        })
+                .ToList();
+
+        for (
+            var messageIndex = 0;
+            messageIndex < telegramMessages.Count;
+            messageIndex++)
+        {
+            var isLastMessage =
+                messageIndex ==
+                telegramMessages.Count - 1;
+
+            IReadOnlyCollection<
+                TelegramOutboxPhotoRequest>? photos =
+                    isLastMessage
+                        ? telegramPhotos
+                        : null;
+
+            await _telegramOutboxService.EnqueueAsync(
+                TelegramChannel.Orders,
+                telegramMessages[messageIndex],
+                TelegramRelatedEntityTypes.OrderPreparation,
+                order.Id,
+                photos: photos,
+                cancellationToken: cancellationToken);
+        }
+
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
 
         return await _orderService.GetByIdAsync(
             order.Id,

@@ -101,6 +101,10 @@ public static class DependencyInjection
             ITelegramOutboxProcessor,
             TelegramOutboxProcessor>();
 
+        services.AddScoped<
+            IOrderDeliveryService,
+            OrderDeliveryService>();
+
         services.AddHttpClient<
         ITelegramNotificationService,
         TelegramNotificationService>(

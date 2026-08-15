@@ -8,4 +8,9 @@ public interface ITelegramNotificationService
         TelegramChannel channel,
         string message,
         CancellationToken cancellationToken = default);
+
+    Task SendPhotosAsync(
+        TelegramChannel channel,
+        IReadOnlyCollection<TelegramPhotoContent> photos,
+        CancellationToken cancellationToken = default);
 }

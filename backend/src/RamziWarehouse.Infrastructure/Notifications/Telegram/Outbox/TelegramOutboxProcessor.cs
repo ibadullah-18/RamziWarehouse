@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using RamziWarehouse.Application.Abstractions.Files;
 using RamziWarehouse.Application.Abstractions.Notifications;
+using RamziWarehouse.Application.Common.Notifications;
 using RamziWarehouse.Infrastructure.Persistence;
 
 namespace RamziWarehouse.Infrastructure.Notifications.Telegram.Outbox;
@@ -16,18 +18,22 @@ public sealed class TelegramOutboxProcessor
     private readonly AppDbContext _dbContext;
     private readonly ITelegramNotificationService
         _telegramNotificationService;
+    private readonly IFileStorageService _fileStorageService;
 
     private readonly TimeProvider _timeProvider;
 
     public TelegramOutboxProcessor(
         AppDbContext dbContext,
         ITelegramNotificationService telegramNotificationService,
+        IFileStorageService fileStorageService,
         TimeProvider timeProvider)
     {
         _dbContext = dbContext;
+
         _telegramNotificationService =
             telegramNotificationService;
 
+        _fileStorageService = fileStorageService;
         _timeProvider = timeProvider;
     }
 
@@ -124,16 +130,42 @@ public sealed class TelegramOutboxProcessor
 
         try
         {
-            if (message.Photos.Count > 0)
-            {
-                throw new InvalidOperationException(
-                    "Telegram photo delivery is not enabled yet.");
-            }
-
             await _telegramNotificationService.SendTextAsync(
                 message.Channel,
                 message.Text,
                 cancellationToken);
+
+            if (message.Photos.Count > 0)
+            {
+                var telegramPhotos =
+                    new List<TelegramPhotoContent>();
+
+                foreach (
+                    var outboxPhoto in message.Photos
+                        .OrderBy(photo => photo.SortOrder))
+                {
+                    var storedFile =
+                        await _fileStorageService.DownloadImageAsync(
+                            outboxPhoto.CloudinaryPublicId,
+                            cancellationToken);
+
+                    telegramPhotos.Add(
+                        new TelegramPhotoContent
+                        {
+                            Content = storedFile.Content,
+                            FileName =
+                                outboxPhoto.OriginalFileName,
+
+                            ContentType =
+                                storedFile.ContentType
+                        });
+                }
+
+                await _telegramNotificationService.SendPhotosAsync(
+                    message.Channel,
+                    telegramPhotos,
+                    cancellationToken);
+            }
         }
         catch (OperationCanceledException)
             when (cancellationToken.IsCancellationRequested)
