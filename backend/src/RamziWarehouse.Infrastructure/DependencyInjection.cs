@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using RamziWarehouse.Application.Abstractions.Attendance;
 using RamziWarehouse.Application.Abstractions.Authentication;
 using RamziWarehouse.Application.Abstractions.Customers;
 using RamziWarehouse.Application.Abstractions.Files;
@@ -72,6 +73,14 @@ public static class DependencyInjection
             OrderPreparationService>();
 
         services.AddScoped<IProductReturnService, ProductReturnService>();
+
+        services.AddScoped<
+            IAttendanceService,
+            AttendanceService>();
+
+        services.AddScoped<
+            IProductReturnSubmissionService,
+            ProductReturnSubmissionService>();
 
         services.AddScoped<
             IProductReturnPhotoService,

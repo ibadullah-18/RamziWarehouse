@@ -1,10 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RamziWarehouse.Application.Abstractions.Identity;
+using RamziWarehouse.Application.Abstractions.Notifications;
 using RamziWarehouse.Application.Abstractions.ProductReturns;
 using RamziWarehouse.Application.Common.Exceptions;
+using RamziWarehouse.Application.Common.Notifications;
 using RamziWarehouse.Application.Features.ProductReturns.Dtos;
 using RamziWarehouse.Domain.Entities;
 using RamziWarehouse.Domain.Enums;
+using RamziWarehouse.Infrastructure.Notifications.Telegram.Formatting;
 using RamziWarehouse.Infrastructure.Persistence;
 
 namespace RamziWarehouse.Infrastructure.Services;
@@ -13,13 +16,19 @@ public sealed class ProductReturnService : IProductReturnService
 {
     private readonly AppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ITelegramOutboxService _telegramOutboxService;
+    private readonly TimeProvider _timeProvider;
 
     public ProductReturnService(
         AppDbContext dbContext,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ITelegramOutboxService telegramOutboxService,
+        TimeProvider timeProvider)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _telegramOutboxService = telegramOutboxService;
+        _timeProvider = timeProvider;
     }
 
     public async Task<ProductReturnListDto> GetAllAsync(
@@ -239,14 +248,18 @@ public sealed class ProductReturnService : IProductReturnService
     }
 
     public async Task<ProductReturnDto> CompleteAsync(
-    Guid productReturnId,
-    ProcessProductReturnDto request,
-    CancellationToken cancellationToken = default)
+        Guid productReturnId,
+        ProcessProductReturnDto request,
+        CancellationToken cancellationToken = default)
     {
         EnsureManager();
 
         var productReturn = await _dbContext.ProductReturns
+            .Include(currentReturn => currentReturn.Customer)
+            .Include(currentReturn => currentReturn.Warehouse)
+            .Include(currentReturn => currentReturn.Items)
             .Include(currentReturn => currentReturn.Photos)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(
                 currentReturn =>
                     currentReturn.Id == productReturnId,
@@ -258,10 +271,10 @@ public sealed class ProductReturnService : IProductReturnService
                 "Vazvrad məlumatı tapılmadı.");
         }
 
-        if (productReturn.Status != ReturnStatus.Pending)
+        if (productReturn.Status != ReturnStatus.Submitted)
         {
             throw new ConflictException(
-                "Yalnız gözləmədə olan vazvrad tamamlana bilər.");
+                "Yalnız işçi tərəfindən təqdim edilmiş vazvrad tamamlana bilər.");
         }
 
         if (productReturn.Photos.Count == 0)
@@ -271,7 +284,10 @@ public sealed class ProductReturnService : IProductReturnService
         }
 
         var previousStatus = productReturn.Status;
-        var utcNow = DateTime.UtcNow;
+
+        var utcNow =
+            _timeProvider.GetUtcNow().UtcDateTime;
+
         var note = NormalizeOptionalText(request.Note);
 
         productReturn.Complete(
@@ -287,23 +303,35 @@ public sealed class ProductReturnService : IProductReturnService
             Note = note ?? "Vazvrad tamamlandı."
         };
 
-        _dbContext.ProductReturnStatusHistories.Add(statusHistory);
+        _dbContext.ProductReturnStatusHistories.Add(
+            statusHistory);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await EnqueueProcessingNotificationAsync(
+            productReturn,
+            note,
+            utcNow,
+            cancellationToken);
+
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
 
         return await GetByIdAsync(
             productReturn.Id,
             cancellationToken);
     }
-
     public async Task<ProductReturnDto> CancelAsync(
-    Guid productReturnId,
-    ProcessProductReturnDto request,
-    CancellationToken cancellationToken = default)
+        Guid productReturnId,
+        ProcessProductReturnDto request,
+        CancellationToken cancellationToken = default)
     {
         EnsureManager();
 
         var productReturn = await _dbContext.ProductReturns
+            .Include(currentReturn => currentReturn.Customer)
+            .Include(currentReturn => currentReturn.Warehouse)
+            .Include(currentReturn => currentReturn.Items)
+            .Include(currentReturn => currentReturn.Photos)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(
                 currentReturn =>
                     currentReturn.Id == productReturnId,
@@ -315,14 +343,18 @@ public sealed class ProductReturnService : IProductReturnService
                 "Vazvrad məlumatı tapılmadı.");
         }
 
-        if (productReturn.Status != ReturnStatus.Pending)
+        if (productReturn.Status != ReturnStatus.Pending &&
+            productReturn.Status != ReturnStatus.Submitted)
         {
             throw new ConflictException(
-                "Yalnız gözləmədə olan vazvrad ləğv edilə bilər.");
+                "Yalnız gözləmədə və ya təqdim edilmiş vazvrad ləğv edilə bilər.");
         }
 
         var previousStatus = productReturn.Status;
-        var utcNow = DateTime.UtcNow;
+
+        var utcNow =
+            _timeProvider.GetUtcNow().UtcDateTime;
+
         var note = NormalizeOptionalText(request.Note);
 
         productReturn.Cancel(
@@ -338,13 +370,54 @@ public sealed class ProductReturnService : IProductReturnService
             Note = note ?? "Vazvrad ləğv edildi."
         };
 
-        _dbContext.ProductReturnStatusHistories.Add(statusHistory);
+        _dbContext.ProductReturnStatusHistories.Add(
+            statusHistory);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await EnqueueProcessingNotificationAsync(
+            productReturn,
+            note,
+            utcNow,
+            cancellationToken);
+
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
 
         return await GetByIdAsync(
             productReturn.Id,
             cancellationToken);
+    }
+
+    private async Task EnqueueProcessingNotificationAsync(
+    ProductReturn productReturn,
+    string? processNote,
+    DateTime processedAtUtc,
+    CancellationToken cancellationToken)
+    {
+        var orderedItems = productReturn.Items
+            .OrderBy(item => item.CreatedAtUtc)
+            .ToList();
+
+        var messages =
+            ProductReturnProcessedTelegramMessageBuilder.Build(
+                productReturn,
+                orderedItems,
+                productReturn.Customer.Name,
+                productReturn.Warehouse.Name,
+                _currentUserService.FullName,
+                processedAtUtc,
+                processNote,
+                productReturn.Photos.Count);
+
+        foreach (var message in messages)
+        {
+            await _telegramOutboxService.EnqueueAsync(
+                TelegramChannel.Returns,
+                message,
+                TelegramRelatedEntityTypes.ProductReturn,
+                productReturn.Id,
+                photos: null,
+                cancellationToken);
+        }
     }
 
     private IQueryable<ProductReturn> GetProductReturnQuery()

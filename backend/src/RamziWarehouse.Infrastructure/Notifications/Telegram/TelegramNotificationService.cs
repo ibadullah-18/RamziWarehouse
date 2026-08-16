@@ -302,6 +302,9 @@ public sealed class TelegramNotificationService
             TelegramChannel.Delivery =>
                 _settings.Delivery,
 
+            TelegramChannel.Attendance =>
+                _settings.Attendance,
+
             _ => throw new ArgumentOutOfRangeException(
                 nameof(channel),
                 channel,

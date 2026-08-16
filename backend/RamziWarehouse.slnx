@@ -5,4 +5,8 @@
     <Project Path="src/RamziWarehouse.Domain/RamziWarehouse.Domain.csproj" />
     <Project Path="src/RamziWarehouse.Infrastructure/RamziWarehouse.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RamziWarehouse.Api.IntegrationTests/RamziWarehouse.Api.IntegrationTests.csproj" />
+    <Project Path="tests/RamziWarehouse.Domain.UnitTests/RamziWarehouse.Domain.UnitTests.csproj" />
+  </Folder>
 </Solution>

@@ -14,4 +14,7 @@ public sealed class TelegramSettings
 
     public TelegramChannelSettings Delivery { get; set; }
         = new();
+
+    public TelegramChannelSettings Attendance { get; set; }
+        = new();
 }

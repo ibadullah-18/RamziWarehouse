@@ -15,13 +15,19 @@ public sealed class ProductReturnsController : ControllerBase
     private readonly IProductReturnService _productReturnService;
     private readonly IProductReturnPhotoService
     _productReturnPhotoService;
+    private readonly IProductReturnSubmissionService
+    _productReturnSubmissionService;
 
     public ProductReturnsController(
         IProductReturnService productReturnService,
-        IProductReturnPhotoService productReturnPhotoService)
+        IProductReturnPhotoService productReturnPhotoService,
+        IProductReturnSubmissionService
+            productReturnSubmissionService)
     {
         _productReturnService = productReturnService;
         _productReturnPhotoService = productReturnPhotoService;
+        _productReturnSubmissionService =
+            productReturnSubmissionService;
     }
 
     [HttpGet]
@@ -194,5 +200,24 @@ public sealed class ProductReturnsController : ControllerBase
             cancellationToken);
 
         return NoContent();
+    }
+
+    [HttpPost("{productReturnId:guid}/submit")]
+    [ProducesResponseType(
+    typeof(ProductReturnDto),
+    StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ProductReturnDto>> Submit(
+    Guid productReturnId,
+    CancellationToken cancellationToken)
+    {
+        var result =
+            await _productReturnSubmissionService.SubmitAsync(
+                productReturnId,
+                cancellationToken);
+
+        return Ok(result);
     }
 }

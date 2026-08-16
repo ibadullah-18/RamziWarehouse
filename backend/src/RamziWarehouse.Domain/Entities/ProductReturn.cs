@@ -36,17 +36,28 @@ public sealed class ProductReturn : ExpirableEntity
     public ICollection<ProductReturnPhoto> Photos { get; set; }
         = new List<ProductReturnPhoto>();
 
-    public ICollection<ProductReturnStatusHistory> StatusHistory { get; set; }
-        = new List<ProductReturnStatusHistory>();
+    public ICollection<ProductReturnStatusHistory> StatusHistory
+    { get; set; } = new List<ProductReturnStatusHistory>();
+
+    public void Submit()
+    {
+        if (Status != ReturnStatus.Pending)
+        {
+            throw new InvalidOperationException(
+                "Only a pending return can be submitted.");
+        }
+
+        Status = ReturnStatus.Submitted;
+    }
 
     public void Complete(
         Guid processedByUserId,
         DateTime completedAtUtc)
     {
-        if (Status != ReturnStatus.Pending)
+        if (Status != ReturnStatus.Submitted)
         {
             throw new InvalidOperationException(
-                "Only a pending return can be completed.");
+                "Only a submitted return can be completed.");
         }
 
         ProcessedByUserId = processedByUserId;
@@ -60,10 +71,11 @@ public sealed class ProductReturn : ExpirableEntity
         Guid processedByUserId,
         DateTime cancelledAtUtc)
     {
-        if (Status != ReturnStatus.Pending)
+        if (Status != ReturnStatus.Pending &&
+            Status != ReturnStatus.Submitted)
         {
             throw new InvalidOperationException(
-                "Only a pending return can be cancelled.");
+                "Only a pending or submitted return can be cancelled.");
         }
 
         ProcessedByUserId = processedByUserId;
