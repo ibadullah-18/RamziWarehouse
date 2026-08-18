@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RamziWarehouse.Application.Abstractions.Attendance;
 using RamziWarehouse.Application.Abstractions.Authentication;
 using RamziWarehouse.Application.Abstractions.Customers;
+using RamziWarehouse.Application.Abstractions.Dashboard;
 using RamziWarehouse.Application.Abstractions.Files;
 using RamziWarehouse.Application.Abstractions.Notifications;
 using RamziWarehouse.Application.Abstractions.Orders;
@@ -61,6 +62,8 @@ public static class DependencyInjection
 
         services.AddScoped<IWarehouseService, WarehouseService>();
 
+        services.AddScoped<IDashboardService, DashboardService>();
+
         services.AddScoped<IOrderService, OrderService>();
 
         services.Configure<CloudinarySettings>(
@@ -89,6 +92,10 @@ public static class DependencyInjection
         services.AddScoped<
             IOrderPhotoFileService,
             OrderPhotoFileService>();
+
+        services.AddScoped<
+            IOrderReceiptService,
+            OrderReceiptService>();
 
         services.AddScoped<
             IDataRetentionCleanupService,

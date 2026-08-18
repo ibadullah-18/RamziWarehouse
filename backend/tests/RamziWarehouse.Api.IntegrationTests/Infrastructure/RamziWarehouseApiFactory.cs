@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using RamziWarehouse.Api.BackgroundServices;
+using RamziWarehouse.Api.IntegrationTests.Fakes;
+using RamziWarehouse.Application.Abstractions.Files;
 using RamziWarehouse.Infrastructure.Persistence;
 
 namespace RamziWarehouse.Api.IntegrationTests.Infrastructure;
@@ -105,6 +107,12 @@ public sealed class RamziWarehouseApiFactory
                     options.UseInMemoryDatabase(
                         _databaseName);
                 });
+
+            services.RemoveAll<IFileStorageService>();
+
+            services.AddSingleton<
+                IFileStorageService,
+                FakeFileStorageService>();
         });
     }
 

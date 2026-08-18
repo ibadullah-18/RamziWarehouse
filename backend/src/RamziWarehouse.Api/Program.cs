@@ -52,7 +52,10 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwaggerDocumentation();
 }
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 
