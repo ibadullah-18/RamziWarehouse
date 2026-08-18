@@ -9,6 +9,12 @@ public interface IOrderService
         OrderQueryDto query,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<ProductSuggestionDto>>
+        GetProductSuggestionsAsync(
+            string? search,
+            int take,
+            CancellationToken cancellationToken = default);
+
     Task<OrderDto> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default);

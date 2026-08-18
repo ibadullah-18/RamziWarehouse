@@ -34,6 +34,13 @@
     "plugins": [
       "expo-router",
       [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Ram Collection sifarişin sübut şəklini çəkmək üçün kameradan istifadə edir.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#F4F6FA",

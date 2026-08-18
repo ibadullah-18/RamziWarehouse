@@ -141,6 +141,26 @@ export default function AppTabsLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="order-detail"
+        options={{
+          href: null,
+          tabBarStyle: {
+            display: 'none',
+          },
+        }}
+      />
+
+      <Tabs.Screen
+        name="create-order"
+        options={{
+          href: null,
+          tabBarStyle: {
+            display: 'none',
+          },
+        }}
+      />
     </Tabs>
   );
 }

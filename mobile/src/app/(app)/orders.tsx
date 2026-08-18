@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { Href } from 'expo-router';
+import { router } from 'expo-router';
 import {
   useEffect,
   useState,
@@ -22,6 +24,7 @@ import {
   OrdersApiError,
 } from '../../api/orders-api';
 import { useAuth } from '../../auth/auth-context';
+import { UserRole } from '../../auth/auth-types';
 import { OrderListCard } from '../../components/order-list-card';
 import {
   orderStatusFilters,
@@ -306,13 +309,35 @@ export default function OrdersScreen() {
           </Text>
         </View>
 
-        <View style={styles.headerIcon}>
-          <Ionicons
-            name="receipt-outline"
-            size={24}
-            color={colors.primary}
-          />
-        </View>
+       {session?.role === UserRole.Manager ? (
+          <Pressable
+           onPress={() => {
+            router.push('/create-order' as Href);
+          }}
+            style={({ pressed }) => [
+              styles.newOrderButton,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Ionicons
+              name="add"
+              size={20}
+              color={colors.white}
+            />
+
+            <Text style={styles.newOrderButtonText}>
+              Yeni
+            </Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerIcon}>
+            <Ionicons
+              name="receipt-outline"
+              size={24}
+              color={colors.primary}
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.searchContainer}>
@@ -465,7 +490,23 @@ export default function OrdersScreen() {
         }
         keyExtractor={order => order.id}
         renderItem={({ item }) => (
-          <OrderListCard order={item} />
+         <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.orderNumber} nömrəli qaiməni aç`}
+            onPress={() => {
+              router.push({
+                pathname: '/order-detail/[id]',
+                params: {
+                  id: item.id,
+                },
+              });
+            }}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.72 : 1,
+            })}
+          >
+            <OrderListCard order={item} />
+          </Pressable>
         )}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
@@ -530,6 +571,24 @@ export default function OrdersScreen() {
 }
 
 const styles = StyleSheet.create({
+
+  newOrderButton: {
+  minHeight: 44,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: spacing.sm,
+  paddingHorizontal: spacing.lg,
+  borderRadius: radius.md,
+  backgroundColor: colors.primary,
+},
+
+newOrderButtonText: {
+  color: colors.white,
+  fontSize: fontSize.sm,
+  fontWeight: '800',
+},
+
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,

@@ -155,9 +155,71 @@ public sealed class OrderService : IOrderService
         };
     }
 
-    public async Task<OrderDto> GetByIdAsync(
-        Guid id,
+    public async Task<IReadOnlyList<ProductSuggestionDto>>
+    GetProductSuggestionsAsync(
+        string? search,
+        int take,
         CancellationToken cancellationToken = default)
+    {
+        var normalizedTake = Math.Clamp(
+            take,
+            1,
+            20);
+
+        var orderItems = _dbContext.OrderItems
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim();
+
+            orderItems = orderItems.Where(item =>
+                item.ProductCode.Contains(
+                    normalizedSearch) ||
+                item.BatchNumber.Contains(
+                    normalizedSearch));
+        }
+
+        return await orderItems
+            .GroupBy(item => new
+            {
+                item.ProductCode,
+                item.BatchNumber,
+                item.ProductType
+            })
+            .Select(group =>
+                new ProductSuggestionDto
+                {
+                    ProductCode =
+                        group.Key.ProductCode,
+
+                    PartyNumber =
+                        group.Key.BatchNumber,
+
+                    ProductType =
+                        group.Key.ProductType,
+
+                    UsageCount =
+                        group.Count(),
+
+                    LastUsedAtUtc =
+                        group.Max(item =>
+                            item.CreatedAtUtc)
+                })
+            .OrderByDescending(suggestion =>
+                suggestion.LastUsedAtUtc)
+            .ThenByDescending(suggestion =>
+                suggestion.UsageCount)
+            .ThenBy(suggestion =>
+                suggestion.ProductCode)
+            .Take(normalizedTake)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<OrderDto> GetByIdAsync(
+    Guid id,
+    CancellationToken cancellationToken = default)
     {
         var order = await _dbContext.Orders
             .AsNoTracking()
@@ -167,24 +229,28 @@ public sealed class OrderService : IOrderService
 
         if (order is null)
         {
-            throw new NotFoundException("Sifariş tapılmadı.");
+            throw new NotFoundException(
+                "Sifariş tapılmadı.");
         }
 
         var customerName = await _dbContext.Customers
             .AsNoTracking()
-            .Where(customer => customer.Id == order.CustomerId)
+            .Where(customer =>
+                customer.Id == order.CustomerId)
             .Select(customer => customer.Name)
             .FirstAsync(cancellationToken);
 
         var warehouseName = await _dbContext.Warehouses
             .AsNoTracking()
-            .Where(warehouse => warehouse.Id == order.WarehouseId)
+            .Where(warehouse =>
+                warehouse.Id == order.WarehouseId)
             .Select(warehouse => warehouse.Name)
             .FirstAsync(cancellationToken);
 
         var createdByFullName = await _dbContext.Users
             .AsNoTracking()
-            .Where(user => user.Id == order.CreatedByUserId)
+            .Where(user =>
+                user.Id == order.CreatedByUserId)
             .Select(user => user.FullName)
             .FirstAsync(cancellationToken);
 
@@ -194,14 +260,18 @@ public sealed class OrderService : IOrderService
         {
             preparedByFullName = await _dbContext.Users
                 .AsNoTracking()
-                .Where(user => user.Id == order.PreparedByUserId.Value)
+                .Where(user =>
+                    user.Id ==
+                    order.PreparedByUserId.Value)
                 .Select(user => user.FullName)
-                .FirstOrDefaultAsync(cancellationToken);
+                .FirstOrDefaultAsync(
+                    cancellationToken);
         }
 
         var orderItems = await _dbContext.OrderItems
             .AsNoTracking()
-            .Where(item => item.OrderId == order.Id)
+            .Where(item =>
+                item.OrderId == order.Id)
             .OrderBy(item => item.ProductCode)
             .ThenBy(item => item.BatchNumber)
             .Select(item => new OrderItemDto
@@ -217,48 +287,137 @@ public sealed class OrderService : IOrderService
         var statusHistory = await _dbContext
             .Set<OrderStatusHistory>()
             .AsNoTracking()
-            .Where(history => history.OrderId == order.Id)
-            .OrderBy(history => history.CreatedAtUtc)
-            .Select(history => new OrderStatusHistoryDto
-            {
-                Id = history.Id,
-                PreviousStatus = history.PreviousStatus,
-                NewStatus = history.NewStatus,
-                ChangedByUserId = history.ChangedByUserId,
+            .Where(history =>
+                history.OrderId == order.Id)
+            .OrderBy(history =>
+                history.CreatedAtUtc)
+            .Select(history =>
+                new OrderStatusHistoryDto
+                {
+                    Id = history.Id,
 
-                ChangedByFullName = _dbContext.Users
-                    .Where(user => user.Id == history.ChangedByUserId)
-                    .Select(user => user.FullName)
-                    .FirstOrDefault() ?? string.Empty,
+                    PreviousStatus =
+                        history.PreviousStatus,
 
-                Note = history.Note,
-                ChangedAtUtc = history.CreatedAtUtc
-            })
+                    NewStatus =
+                        history.NewStatus,
+
+                    ChangedByUserId =
+                        history.ChangedByUserId,
+
+                    ChangedByFullName =
+                        _dbContext.Users
+                            .Where(user =>
+                                user.Id ==
+                                history.ChangedByUserId)
+                            .Select(user =>
+                                user.FullName)
+                            .FirstOrDefault() ??
+                        string.Empty,
+
+                    Note = history.Note,
+
+                    ChangedAtUtc =
+                        history.CreatedAtUtc
+                })
+            .ToListAsync(cancellationToken);
+
+        var preparationPhotos = await _dbContext
+            .Set<OrderPreparationPhoto>()
+            .AsNoTracking()
+            .Where(photo =>
+                photo.OrderId == order.Id)
+            .OrderBy(photo =>
+                photo.CreatedAtUtc)
+            .Select(photo =>
+                new OrderPreparationPhotoDto
+                {
+                    Id = photo.Id,
+
+                    OriginalFileName =
+                        photo.OriginalFileName,
+
+                    ContentType =
+                        photo.ContentType,
+
+                    FileSizeBytes =
+                        photo.FileSizeBytes,
+
+                    UploadedByUserId =
+                        photo.UploadedByUserId,
+
+                    UploadedByFullName =
+                        _dbContext.Users
+                            .Where(user =>
+                                user.Id ==
+                                photo.UploadedByUserId)
+                            .Select(user =>
+                                user.FullName)
+                            .FirstOrDefault() ??
+                        string.Empty,
+
+                    UploadedAtUtc =
+                        photo.CreatedAtUtc
+                })
             .ToListAsync(cancellationToken);
 
         return new OrderDto
         {
             Id = order.Id,
+
             OrderNumber = order.OrderNumber,
+
             OrderDate = order.OrderDateUtc,
+
             CustomerId = order.CustomerId,
+
             CustomerName = customerName,
+
             WarehouseId = order.WarehouseId,
+
             WarehouseName = warehouseName,
+
             Note = order.AdditionalNote,
+
             Status = order.Status,
-            CreatedByUserId = order.CreatedByUserId,
-            CreatedByFullName = createdByFullName,
-            PreparedByUserId = order.PreparedByUserId,
-            PreparedByFullName = preparedByFullName,
-            PreparationStartedAtUtc = order.PreparationStartedAtUtc,
-            PreparedAtUtc = order.PreparedAtUtc,
-            CompletedAtUtc = order.CompletedAtUtc,
-            DeleteAfterUtc = order.DeleteAfterUtc,
-            CreatedAtUtc = order.CreatedAtUtc,
-            UpdatedAtUtc = order.UpdatedAtUtc,
+
+            CreatedByUserId =
+                order.CreatedByUserId,
+
+            CreatedByFullName =
+                createdByFullName,
+
+            PreparedByUserId =
+                order.PreparedByUserId,
+
+            PreparedByFullName =
+                preparedByFullName,
+
+            PreparationStartedAtUtc =
+                order.PreparationStartedAtUtc,
+
+            PreparedAtUtc =
+                order.PreparedAtUtc,
+
+            CompletedAtUtc =
+                order.CompletedAtUtc,
+
+            DeleteAfterUtc =
+                order.DeleteAfterUtc,
+
+            CreatedAtUtc =
+                order.CreatedAtUtc,
+
+            UpdatedAtUtc =
+                order.UpdatedAtUtc,
+
             Items = orderItems,
-            StatusHistory = statusHistory
+
+            StatusHistory =
+                statusHistory,
+
+            PreparationPhotos =
+                preparationPhotos
         };
     }
 
