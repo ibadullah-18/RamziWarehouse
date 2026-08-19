@@ -1,20 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../auth/auth-context';
 import {
-    colors,
-    fontSize,
-    radius,
-    spacing,
+  AdminUsersButton,
+} from '../../components/admin-users-button';
+import {
+  colors,
+  fontSize,
+  radius,
+  spacing,
 } from '../../theme';
 
 const getRoleName = (
@@ -144,6 +147,8 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
+
+        <AdminUsersButton />
 
         <Pressable
           disabled={isSigningOut}

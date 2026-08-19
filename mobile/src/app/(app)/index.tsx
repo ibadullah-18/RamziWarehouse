@@ -1,5 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import {
+  router,
+  type Href,
+} from 'expo-router';
 import {
   useEffect,
   useState,
@@ -21,6 +24,12 @@ import {
   type DashboardSummary,
 } from '../../api/dashboard-api';
 import { useAuth } from '../../auth/auth-context';
+import {
+  canManageOperations,
+} from '../../auth/permissions';
+import {
+  AttendanceCard,
+} from '../../components/attendance-card';
 import { DashboardMetricCard } from '../../components/dashboard-metric-card';
 import { QuickActionCard } from '../../components/quick-action-card';
 import { ScreenContainer } from '../../components/screen-container';
@@ -36,6 +45,7 @@ const roleNames: Record<number, string> = {
   1: 'Menecer',
   2: 'Anbar işçisi',
   3: 'Sürücü',
+  4: 'Admin',
 };
 
 function getInitials(fullName?: string) {
@@ -264,6 +274,8 @@ export default function DashboardScreen() {
           </Text>
         </View>
       </Animated.View>
+        
+      <AttendanceCard />
 
       <Animated.View
         entering={FadeInDown
@@ -386,6 +398,17 @@ export default function DashboardScreen() {
         />
 
         <QuickActionCard
+          title="İş vaxtı"
+          description="İşə giriş, çıxış və davamiyyət qeydlərinə bax"
+          icon="time-outline"
+          onPress={() => {
+            router.push(
+              '/attendance' as Href,
+            );
+          }}
+        />
+
+        <QuickActionCard
           title="Ümumi axtarış"
           description="Qaimə, müştəri və məhsul kodu ilə tap"
           icon="search-outline"
@@ -395,7 +418,9 @@ export default function DashboardScreen() {
         />
       </Animated.View>
 
-      {session?.role === 1 ? (
+      {canManageOperations(
+          session?.role,
+        ) ? (
         <Animated.View
           entering={FadeInDown
             .duration(350)
@@ -416,7 +441,7 @@ export default function DashboardScreen() {
             </Text>
 
             <Text style={styles.managerDescription}>
-              Bu əməliyyat yalnız menecer üçün açıqdır.
+              Bu əməliyyat Menecer və Admin üçün açıqdır.
             </Text>
           </View>
         </Animated.View>

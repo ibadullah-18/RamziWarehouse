@@ -1,46 +1,48 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
-    useEffect,
-    useRef,
-    useState,
+  useEffect,
+  useRef,
+  useState,
 } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
-    createOrder,
-    getActiveWarehouses,
-    getProductSuggestions,
+  createOrder,
+  getActiveWarehouses,
+  getProductSuggestions,
 } from '../../../api/create-order-api';
 import { useAuth } from '../../../auth/auth-context';
-import { UserRole } from '../../../auth/auth-types';
 import {
-    CustomerPickerModal,
+  canManageOperations,
+} from '../../../auth/permissions';
+import {
+  CustomerPickerModal,
 } from '../../../components/customer-picker-modal';
 import {
-    Customer,
-    DraftOrderItem,
-    ProductSuggestion,
-    ProductType,
-    Warehouse,
+  Customer,
+  DraftOrderItem,
+  ProductSuggestion,
+  ProductType,
+  Warehouse,
 } from '../../../features/orders/create-order-types';
 import {
-    colors,
-    fontSize,
-    radius,
-    spacing,
+  colors,
+  fontSize,
+  radius,
+  spacing,
 } from '../../../theme';
 
 type DraftValidationResult =
@@ -525,7 +527,7 @@ export default function CreateOrderScreen() {
   async function submitOrder() {
     if (
       !accessToken ||
-      session?.role !== UserRole.Manager ||
+      !canManageOperations(session?.role) ||
       isSaving
     ) {
       return;
@@ -668,7 +670,7 @@ export default function CreateOrderScreen() {
   }
 
   if (
-    session?.role !== UserRole.Manager
+    !canManageOperations(session?.role)
   ) {
     return (
       <SafeAreaView style={styles.safeArea}>

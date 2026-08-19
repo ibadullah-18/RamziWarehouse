@@ -1,49 +1,57 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-    router,
-    useLocalSearchParams,
+  router,
+  useLocalSearchParams,
 } from 'expo-router';
 import {
-    ReactNode,
-    useEffect,
-    useState,
+  ReactNode,
+  useEffect,
+  useState,
 } from 'react';
 import {
-    ActivityIndicator,
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-    OrderWorkflowActions,
+  OrderWorkflowActions,
 } from '../../../components/order-workflow-actions';
 
+
 import {
-    getOrderById,
+  getOrderById,
 } from '../../../api/order-detail-api';
 import { useAuth } from '../../../auth/auth-context';
 import {
-    AuthenticatedOrderPhoto,
+  canManageOperations,
+} from '../../../auth/permissions';
+import {
+  AuthenticatedOrderPhoto,
 } from '../../../components/authenticated-order-photo';
 import {
-    OrderDeliveryActions,
+  OrderDeliveryActions,
 } from '../../../components/order-delivery-actions';
 import {
-    OrderDetail,
+  OrderReceiptAction,
+} from '../../../components/order-receipt-action';
+import {
+  OrderDetail,
 } from '../../../features/orders/order-detail-types';
 import {
-    OrderStatus,
+  OrderStatus,
 } from '../../../features/orders/order-types';
 import {
-    colors,
-    fontSize,
-    radius,
-    spacing,
+  colors,
+  fontSize,
+  radius,
+  spacing,
 } from '../../../theme';
+
 
 
 type StatusAppearance = {
@@ -549,6 +557,15 @@ export default function OrderDetailScreen() {
                     onOrderChanged={setOrder}
                 />
                 ) : null}
+
+            {canManageOperations(
+              session?.role,
+            ) &&
+              order.status === OrderStatus.Delivered ? (
+                <OrderReceiptAction
+                  orderId={order.id}
+                />
+              ) : null}
 
         <Section
           icon="information-circle-outline"

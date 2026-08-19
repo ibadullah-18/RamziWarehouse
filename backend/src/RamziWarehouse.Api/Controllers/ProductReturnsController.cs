@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RamziWarehouse.Api.Authorization;
 using RamziWarehouse.Application.Abstractions.ProductReturns;
 using RamziWarehouse.Application.Common.Files;
 using RamziWarehouse.Application.Features.ProductReturns.Dtos;
@@ -86,7 +87,8 @@ public sealed class ProductReturnsController : ControllerBase
     }
 
     [HttpPost("{productReturnId:guid}/complete")]
-    [Authorize(Roles = nameof(UserRole.Manager))]
+    [Authorize(
+        Policy = AuthorizationPolicies.ManagerOrAdmin)]
     [ProducesResponseType(
         typeof(ProductReturnDto),
         StatusCodes.Status200OK)]
@@ -103,10 +105,11 @@ public sealed class ProductReturnsController : ControllerBase
             cancellationToken);
 
         return Ok(result);
-    }
+    } 
 
     [HttpPost("{productReturnId:guid}/cancel")]
-    [Authorize(Roles = nameof(UserRole.Manager))]
+    [Authorize(
+        Policy = AuthorizationPolicies.ManagerOrAdmin)]
     [ProducesResponseType(
         typeof(ProductReturnDto),
         StatusCodes.Status200OK)]

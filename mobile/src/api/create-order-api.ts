@@ -1,11 +1,11 @@
 import { fetch } from 'expo/fetch';
 
 import {
-    CreateOrderRequest,
-    CreateOrderResult,
-    Customer,
-    ProductSuggestion,
-    Warehouse,
+  CreateOrderRequest,
+  CreateOrderResult,
+  Customer,
+  ProductSuggestion,
+  Warehouse,
 } from '../features/orders/create-order-types';
 
 type ApiProblemDetails = {
@@ -18,6 +18,12 @@ type ApiRequestOptions = {
   method?: 'GET' | 'POST';
   body?: string;
   timeoutMilliseconds?: number;
+};
+
+export type CreateCustomerRequest = {
+  name: string;
+  phoneNumber: string | null;
+  note: string | null;
 };
 
 function getApiBaseUrl() {
@@ -59,8 +65,7 @@ async function getApiError(
       return new Error(problem.title);
     }
   } catch {
-    // JSON olmayan cavab üçün aşağıdakı
-    // standart xəta istifadə olunacaq.
+    // JSON olmayan cavab üçün standart xəta işləyəcək.
   }
 
   return new Error(
@@ -148,6 +153,20 @@ export async function getActiveCustomers(
   );
 }
 
+export async function createCustomer(
+  accessToken: string,
+  request: CreateCustomerRequest,
+): Promise<Customer> {
+  return authorizedRequest<Customer>(
+    accessToken,
+    '/api/Customers',
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    },
+  );
+}
+
 export async function getActiveWarehouses(
   accessToken: string,
 ): Promise<Warehouse[]> {
@@ -183,9 +202,7 @@ export async function getProductSuggestions(
     );
   }
 
-  return authorizedRequest<
-    ProductSuggestion[]
-  >(
+  return authorizedRequest<ProductSuggestion[]>(
     accessToken,
     '/api/Orders/product-suggestions' +
       `?${parameters.toString()}`,

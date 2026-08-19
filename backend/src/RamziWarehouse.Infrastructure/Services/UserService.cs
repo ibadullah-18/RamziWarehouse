@@ -13,9 +13,15 @@ namespace RamziWarehouse.Infrastructure.Services;
 public sealed class UserService : IUserService
 {
     private readonly AppDbContext _dbContext;
-    private readonly IPasswordHasher<User> _passwordHasher;
-    private readonly ICurrentUserService _currentUserService;
-    private readonly TimeProvider _timeProvider;
+
+    private readonly IPasswordHasher<User>
+        _passwordHasher;
+
+    private readonly ICurrentUserService
+        _currentUserService;
+
+    private readonly TimeProvider
+        _timeProvider;
 
     public UserService(
         AppDbContext dbContext,
@@ -29,9 +35,10 @@ public sealed class UserService : IUserService
         _timeProvider = timeProvider;
     }
 
-    public async Task<IReadOnlyList<UserDto>> GetAllAsync(
-        string? search,
-        CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<UserDto>>
+        GetAllAsync(
+            string? search,
+            CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Users
             .AsNoTracking()
@@ -47,7 +54,9 @@ public sealed class UserService : IUserService
         }
 
         return await query
-            .OrderBy(user => user.FullName)
+            .OrderByDescending(user =>
+                user.Role == UserRole.Admin)
+            .ThenBy(user => user.FullName)
             .Select(user => new UserDto
             {
                 Id = user.Id,
@@ -55,8 +64,10 @@ public sealed class UserService : IUserService
                 Username = user.Username,
                 Role = user.Role,
                 IsActive = user.IsActive,
-                LastLoginAtUtc = user.LastLoginAtUtc,
-                CreatedAtUtc = user.CreatedAtUtc
+                LastLoginAtUtc =
+                    user.LastLoginAtUtc,
+                CreatedAtUtc =
+                    user.CreatedAtUtc
             })
             .ToListAsync(cancellationToken);
     }
@@ -68,7 +79,8 @@ public sealed class UserService : IUserService
         var user = await _dbContext.Users
             .AsNoTracking()
             .SingleOrDefaultAsync(
-                currentUser => currentUser.Id == id,
+                currentUser =>
+                    currentUser.Id == id,
                 cancellationToken);
 
         if (user is null)
@@ -84,13 +96,16 @@ public sealed class UserService : IUserService
         CreateUserRequestDto request,
         CancellationToken cancellationToken = default)
     {
+        EnsureAdmin();
+
         var username = request.Username
             .Trim()
             .ToLowerInvariant();
 
-        var usernameExists = await _dbContext.Users
-            .AnyAsync(
-                user => user.Username == username,
+        var usernameExists =
+            await _dbContext.Users.AnyAsync(
+                user =>
+                    user.Username == username,
                 cancellationToken);
 
         if (usernameExists)
@@ -101,19 +116,25 @@ public sealed class UserService : IUserService
 
         var user = new User
         {
-            FullName = request.FullName.Trim(),
+            FullName =
+                request.FullName.Trim(),
+
             Username = username,
+
             Role = request.Role,
+
             IsActive = true
         };
 
-        user.PasswordHash = _passwordHasher.HashPassword(
-            user,
-            request.Password);
+        user.PasswordHash =
+            _passwordHasher.HashPassword(
+                user,
+                request.Password);
 
         _dbContext.Users.Add(user);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
 
         return MapToDto(user);
     }
@@ -123,9 +144,12 @@ public sealed class UserService : IUserService
         UpdateUserRequestDto request,
         CancellationToken cancellationToken = default)
     {
+        EnsureAdmin();
+
         var user = await _dbContext.Users
             .SingleOrDefaultAsync(
-                currentUser => currentUser.Id == id,
+                currentUser =>
+                    currentUser.Id == id,
                 cancellationToken);
 
         if (user is null)
@@ -138,11 +162,12 @@ public sealed class UserService : IUserService
             .Trim()
             .ToLowerInvariant();
 
-        var usernameExists = await _dbContext.Users
-            .AnyAsync(
+        var usernameExists =
+            await _dbContext.Users.AnyAsync(
                 currentUser =>
                     currentUser.Id != id &&
-                    currentUser.Username == username,
+                    currentUser.Username ==
+                    username,
                 cancellationToken);
 
         if (usernameExists)
@@ -151,39 +176,47 @@ public sealed class UserService : IUserService
                 "Bu istifadəçi adı artıq mövcuddur.");
         }
 
-        var newIsActive = request.IsActive!.Value;
+        var newIsActive =
+            request.IsActive!.Value;
 
-        if (id == _currentUserService.UserId && !newIsActive)
+        if (id == _currentUserService.UserId &&
+            !newIsActive)
         {
             throw new ConflictException(
-                "Hazırda daxil olduğunuz hesabı deaktiv edə bilməzsiniz.");
+                "Hazırda daxil olduğunuz hesabı " +
+                "deaktiv edə bilməzsiniz.");
         }
 
-        var removesActiveManager =
-            user.Role == UserRole.Manager &&
+        var removesActiveAdmin =
+            user.Role == UserRole.Admin &&
             user.IsActive &&
-            (request.Role != UserRole.Manager || !newIsActive);
+            (request.Role != UserRole.Admin ||
+             !newIsActive);
 
-        if (removesActiveManager)
+        if (removesActiveAdmin)
         {
-            var anotherManagerExists = await _dbContext.Users
-                .AnyAsync(
+            var anotherAdminExists =
+                await _dbContext.Users.AnyAsync(
                     currentUser =>
                         currentUser.Id != id &&
-                        currentUser.Role == UserRole.Manager &&
+                        currentUser.Role ==
+                        UserRole.Admin &&
                         currentUser.IsActive,
                     cancellationToken);
 
-            if (!anotherManagerExists)
+            if (!anotherAdminExists)
             {
                 throw new ConflictException(
-                    "Sistemdə ən az bir aktiv menecer qalmalıdır.");
+                    "Sistemdə ən azı bir aktiv " +
+                    "Admin qalmalıdır.");
             }
         }
 
         var wasActive = user.IsActive;
 
-        user.FullName = request.FullName.Trim();
+        user.FullName =
+            request.FullName.Trim();
+
         user.Username = username;
         user.Role = request.Role;
         user.IsActive = newIsActive;
@@ -195,7 +228,8 @@ public sealed class UserService : IUserService
                 cancellationToken);
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
 
         return MapToDto(user);
     }
@@ -205,9 +239,12 @@ public sealed class UserService : IUserService
         ChangeUserPasswordRequestDto request,
         CancellationToken cancellationToken = default)
     {
+        EnsureAdmin();
+
         var user = await _dbContext.Users
             .SingleOrDefaultAsync(
-                currentUser => currentUser.Id == id,
+                currentUser =>
+                    currentUser.Id == id,
                 cancellationToken);
 
         if (user is null)
@@ -216,28 +253,45 @@ public sealed class UserService : IUserService
                 "İstifadəçi tapılmadı.");
         }
 
-        user.PasswordHash = _passwordHasher.HashPassword(
-            user,
-            request.NewPassword);
+        user.PasswordHash =
+            _passwordHasher.HashPassword(
+                user,
+                request.NewPassword);
 
         await RevokeActiveTokensAsync(
             user.Id,
             cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
+    }
+
+    private void EnsureAdmin()
+    {
+        if (!_currentUserService.Role.IsAdmin())
+        {
+            throw new ForbiddenException(
+                "İşçi hesablarını yalnız Admin " +
+                "idarə edə bilər.");
+        }
     }
 
     private async Task RevokeActiveTokensAsync(
         Guid userId,
         CancellationToken cancellationToken)
     {
-        var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
+        var utcNow =
+            _timeProvider
+                .GetUtcNow()
+                .UtcDateTime;
 
-        var activeTokens = await _dbContext.RefreshTokens
-            .Where(token =>
-                token.UserId == userId &&
-                !token.RevokedAtUtc.HasValue)
-            .ToListAsync(cancellationToken);
+        var activeTokens =
+            await _dbContext.RefreshTokens
+                .Where(token =>
+                    token.UserId == userId &&
+                    !token.RevokedAtUtc.HasValue)
+                .ToListAsync(
+                    cancellationToken);
 
         foreach (var token in activeTokens)
         {
@@ -245,7 +299,8 @@ public sealed class UserService : IUserService
         }
     }
 
-    private static UserDto MapToDto(User user)
+    private static UserDto MapToDto(
+        User user)
     {
         return new UserDto
         {
@@ -254,8 +309,10 @@ public sealed class UserService : IUserService
             Username = user.Username,
             Role = user.Role,
             IsActive = user.IsActive,
-            LastLoginAtUtc = user.LastLoginAtUtc,
-            CreatedAtUtc = user.CreatedAtUtc
+            LastLoginAtUtc =
+                user.LastLoginAtUtc,
+            CreatedAtUtc =
+                user.CreatedAtUtc
         };
     }
 }

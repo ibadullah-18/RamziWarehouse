@@ -1,12 +1,14 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RamziWarehouse.Api.Authorization;
 using RamziWarehouse.Application.Abstractions.Orders;
 using RamziWarehouse.Application.Features.Orders.Dtos;
 
 namespace RamziWarehouse.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = "ManagerOnly")]
+[Authorize(
+    Policy = AuthorizationPolicies.ManagerOrAdmin)]
 [Route("api/orders/{orderId:guid}/receipt-data")]
 public sealed class OrderReceiptController : ControllerBase
 {

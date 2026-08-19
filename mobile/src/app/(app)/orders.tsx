@@ -24,7 +24,9 @@ import {
   OrdersApiError,
 } from '../../api/orders-api';
 import { useAuth } from '../../auth/auth-context';
-import { UserRole } from '../../auth/auth-types';
+import {
+  canManageOperations,
+} from '../../auth/permissions';
 import { OrderListCard } from '../../components/order-list-card';
 import {
   orderStatusFilters,
@@ -309,7 +311,7 @@ export default function OrdersScreen() {
           </Text>
         </View>
 
-       {session?.role === UserRole.Manager ? (
+       {canManageOperations(session?.role) ? (
           <Pressable
            onPress={() => {
             router.push('/create-order' as Href);

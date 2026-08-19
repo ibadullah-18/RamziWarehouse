@@ -121,6 +121,13 @@ export default function AppTabsLayout() {
       />
 
       <Tabs.Screen
+        name="attendance"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Hesab',
@@ -161,6 +168,64 @@ export default function AppTabsLayout() {
           },
         }}
       />
+
+      <Tabs.Screen
+        name="create-return"
+        options={{
+          href: null,
+          tabBarStyle: {
+            display: 'none',
+          },
+        }}
+      />
+
+      <Tabs.Screen
+        name="return-detail"
+        options={{
+          href: null,
+          tabBarStyle: {
+            display: 'none',
+          },
+        }}
+      />
+
+      <Tabs.Screen
+        name="order-receipt"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="users"
+        options={{
+          href: null,
+          tabBarStyle: {
+            display: 'none',
+          },
+        }}
+      />
+
+      <Tabs.Screen
+        name="create-user"
+        options={{
+          href: null,
+          tabBarStyle: {
+            display: 'none',
+          },
+        }}
+      />
+
+      <Tabs.Screen
+        name="edit-user"
+        options={{
+          href: null,
+          tabBarStyle: {
+            display: 'none',
+          },
+        }}
+      />
+
     </Tabs>
   );
 }

@@ -448,10 +448,12 @@ public sealed class ProductReturnService : IProductReturnService
     {
         EnsureAuthenticated();
 
-        if (_currentUserService.Role != UserRole.Manager)
+        if (!_currentUserService.Role
+        .CanManageOperations())
         {
             throw new ForbiddenException(
-                "Bu əməliyyatı yalnız menecer edə bilər.");
+                "Bu əməliyyatı yalnız Menecer " +
+                "və ya Admin edə bilər.");
         }
     }
 

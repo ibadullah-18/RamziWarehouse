@@ -21,6 +21,12 @@ public sealed class RamziWarehouseApiFactory
     public const string ManagerPassword =
         "IntegrationTest123!";
 
+    public const string AdminUsername =
+        "integration.admin";
+
+    public const string AdminPassword =
+        "IntegrationAdmin123!";
+
     private readonly string _databaseName =
         $"RamziWarehouseTests-{Guid.NewGuid():N}";
 
@@ -62,6 +68,18 @@ public sealed class RamziWarehouseApiFactory
         SetTestEnvironmentVariable(
             "Seed__ManagerPassword",
             ManagerPassword);
+
+        SetTestEnvironmentVariable(
+            "Seed__AdminFullName",
+            "Integration Test Admin");
+
+        SetTestEnvironmentVariable(
+            "Seed__AdminUsername",
+            AdminUsername);
+
+        SetTestEnvironmentVariable(
+            "Seed__AdminPassword",
+            AdminPassword);
 
         SetTestEnvironmentVariable(
             "Telegram__Enabled",

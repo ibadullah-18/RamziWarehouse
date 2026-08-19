@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RamziWarehouse.Api.Authorization;
 using RamziWarehouse.Application.Abstractions.Orders;
 using RamziWarehouse.Application.Common.Models;
 using RamziWarehouse.Application.Features.Orders.Dtos;
@@ -69,7 +70,8 @@ public sealed class OrdersController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "ManagerOnly")]
+    [Authorize(
+        Policy = AuthorizationPolicies.ManagerOrAdmin)]
     public async Task<ActionResult<OrderDto>>
         Create(
             [FromBody]

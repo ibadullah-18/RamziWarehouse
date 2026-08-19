@@ -2,6 +2,8 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using RamziWarehouse.Api.Authorization;
+using RamziWarehouse.Domain.Enums;
 using RamziWarehouse.Infrastructure.Security;
 
 namespace RamziWarehouse.Api.Extensions;
@@ -34,7 +36,8 @@ public static class AuthenticationExtensions
         }
 
         services
-            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddAuthentication(
+                JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
                 options.TokenValidationParameters =
@@ -47,8 +50,10 @@ public static class AuthenticationExtensions
                         ValidAudience = audience,
 
                         ValidateIssuerSigningKey = true,
-                        IssuerSigningKey = new SymmetricSecurityKey(
-                            Encoding.UTF8.GetBytes(key)),
+
+                        IssuerSigningKey =
+                            new SymmetricSecurityKey(
+                                Encoding.UTF8.GetBytes(key)),
 
                         ValidateLifetime = true,
                         ClockSkew = TimeSpan.Zero,
@@ -61,8 +66,15 @@ public static class AuthenticationExtensions
         services.AddAuthorization(options =>
         {
             options.AddPolicy(
-                "ManagerOnly",
-                policy => policy.RequireRole("Manager"));
+                AuthorizationPolicies.AdminOnly,
+                policy => policy.RequireRole(
+                    nameof(UserRole.Admin)));
+
+            options.AddPolicy(
+                AuthorizationPolicies.ManagerOrAdmin,
+                policy => policy.RequireRole(
+                    nameof(UserRole.Manager),
+                    nameof(UserRole.Admin)));
         });
 
         return services;

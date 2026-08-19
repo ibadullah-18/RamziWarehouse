@@ -154,7 +154,8 @@ public sealed class OrderPhotoFileService
             photo.UploadedByUserId == _currentUserService.UserId;
 
         var isManager =
-            _currentUserService.Role == UserRole.Manager;
+            _currentUserService.Role
+                .CanManageOperations();
 
         if (!isUploader && !isManager)
         {

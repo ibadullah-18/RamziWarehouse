@@ -255,8 +255,8 @@ public sealed class OrderDeliveryService
             photo.UploadedByUserId == currentUserId;
 
         var isManager =
-            _currentUserService.Role ==
-                UserRole.Manager;
+            _currentUserService.Role
+                .CanManageOperations();
 
         if (!isDeliveryOwner &&
             !isUploader &&
@@ -463,7 +463,7 @@ public sealed class OrderDeliveryService
                 TelegramChannel.Delivery,
                 telegramMessages[messageIndex],
                 TelegramRelatedEntityTypes.OrderDelivery,
-                delivery.Id,
+                order.Id,
                 photos: photos,
                 cancellationToken:
                     cancellationToken);

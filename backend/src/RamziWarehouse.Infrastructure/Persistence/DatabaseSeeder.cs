@@ -32,75 +32,120 @@ public sealed class DatabaseSeeder
     public async Task SeedAsync(
         CancellationToken cancellationToken = default)
     {
-        await SeedWarehousesAsync(cancellationToken);
-        await SeedManagerAsync(cancellationToken);
+        await SeedWarehousesAsync(
+            cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SeedConfiguredUserAsync(
+            configurationName: "Manager",
+            role: UserRole.Manager,
+            cancellationToken);
+
+        await SeedConfiguredUserAsync(
+            configurationName: "Admin",
+            role: UserRole.Admin,
+            cancellationToken);
+
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
     }
 
     private async Task SeedWarehousesAsync(
         CancellationToken cancellationToken)
     {
-        var existingNames = await _dbContext.Warehouses
-            .Select(warehouse => warehouse.Name)
-            .ToListAsync(cancellationToken);
+        var existingNames =
+            await _dbContext.Warehouses
+                .Select(warehouse => warehouse.Name)
+                .ToListAsync(cancellationToken);
 
-        foreach (var warehouseName in WarehouseNames)
+        foreach (
+            var warehouseName in WarehouseNames)
         {
             var exists = existingNames.Contains(
                 warehouseName,
                 StringComparer.OrdinalIgnoreCase);
 
-            if (!exists)
+            if (exists)
             {
-                _dbContext.Warehouses.Add(new Warehouse
+                continue;
+            }
+
+            _dbContext.Warehouses.Add(
+                new Warehouse
                 {
                     Name = warehouseName,
                     IsActive = true
                 });
-            }
         }
     }
 
-    private async Task SeedManagerAsync(
+    private async Task SeedConfiguredUserAsync(
+        string configurationName,
+        UserRole role,
         CancellationToken cancellationToken)
     {
-        var fullName = _configuration["Seed:ManagerFullName"];
-        var username = _configuration["Seed:ManagerUsername"];
-        var password = _configuration["Seed:ManagerPassword"];
+        var configurationPrefix =
+            $"Seed:{configurationName}";
+
+        var fullName =
+            _configuration[
+                $"{configurationPrefix}FullName"];
+
+        var username =
+            _configuration[
+                $"{configurationPrefix}Username"];
+
+        var password =
+            _configuration[
+                $"{configurationPrefix}Password"];
 
         if (string.IsNullOrWhiteSpace(fullName) ||
             string.IsNullOrWhiteSpace(username) ||
             string.IsNullOrWhiteSpace(password))
         {
             throw new InvalidOperationException(
-                "Initial manager settings are not configured.");
+                $"{configurationName} seed settings " +
+                "are not configured.");
         }
 
-        username = username.Trim();
+        var normalizedUsername =
+            username
+                .Trim()
+                .ToLowerInvariant();
 
-        var managerExists = await _dbContext.Users
-            .AnyAsync(
-                user => user.Username == username,
-                cancellationToken);
+        var existingUser =
+            await _dbContext.Users
+                .SingleOrDefaultAsync(
+                    user =>
+                        user.Username ==
+                        normalizedUsername,
+                    cancellationToken);
 
-        if (managerExists)
+        if (existingUser is not null)
         {
+            if (existingUser.Role != role)
+            {
+                throw new InvalidOperationException(
+                    $"The seed username " +
+                    $"'{normalizedUsername}' already " +
+                    "belongs to a different role.");
+            }
+
             return;
         }
 
-        var manager = new User
+        var user = new User
         {
             FullName = fullName.Trim(),
-            Username = username,
-            Role = UserRole.Manager,
+            Username = normalizedUsername,
+            Role = role,
             IsActive = true
         };
 
-        manager.PasswordHash = _passwordHasher.HashPassword(
-            manager,
-            password);
+        user.PasswordHash =
+            _passwordHasher.HashPassword(
+                user,
+                password);
 
-        _dbContext.Users.Add(manager);
+        _dbContext.Users.Add(user);
     }
 }
