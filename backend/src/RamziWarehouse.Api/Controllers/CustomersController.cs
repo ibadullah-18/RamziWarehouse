@@ -12,21 +12,24 @@ public sealed class CustomersController : ControllerBase
 {
     private readonly ICustomerService _customerService;
 
-    public CustomersController(ICustomerService customerService)
+    public CustomersController(
+        ICustomerService customerService)
     {
         _customerService = customerService;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<CustomerDto>>> GetAll(
-        [FromQuery] string? search,
-        [FromQuery] bool? isActive,
-        CancellationToken cancellationToken)
+    public async Task<
+        ActionResult<IReadOnlyList<CustomerDto>>> GetAll(
+            [FromQuery] string? search,
+            [FromQuery] bool? isActive,
+            CancellationToken cancellationToken)
     {
-        var customers = await _customerService.GetAllAsync(
-            search,
-            isActive,
-            cancellationToken);
+        var customers =
+            await _customerService.GetAllAsync(
+                search,
+                isActive,
+                cancellationToken);
 
         return Ok(customers);
     }
@@ -36,21 +39,24 @@ public sealed class CustomersController : ControllerBase
         Guid id,
         CancellationToken cancellationToken)
     {
-        var customer = await _customerService.GetByIdAsync(
-            id,
-            cancellationToken);
+        var customer =
+            await _customerService.GetByIdAsync(
+                id,
+                cancellationToken);
 
         return Ok(customer);
     }
 
     [HttpPost]
+    [Authorize(Policy = "ManagerOrAdmin")]
     public async Task<ActionResult<CustomerDto>> Create(
         [FromBody] CreateCustomerRequestDto request,
         CancellationToken cancellationToken)
     {
-        var customer = await _customerService.CreateAsync(
-            request,
-            cancellationToken);
+        var customer =
+            await _customerService.CreateAsync(
+                request,
+                cancellationToken);
 
         return CreatedAtAction(
             nameof(GetById),
@@ -59,15 +65,17 @@ public sealed class CustomersController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = "ManagerOrAdmin")]
     public async Task<ActionResult<CustomerDto>> Update(
         Guid id,
         [FromBody] UpdateCustomerRequestDto request,
         CancellationToken cancellationToken)
     {
-        var customer = await _customerService.UpdateAsync(
-            id,
-            request,
-            cancellationToken);
+        var customer =
+            await _customerService.UpdateAsync(
+                id,
+                request,
+                cancellationToken);
 
         return Ok(customer);
     }

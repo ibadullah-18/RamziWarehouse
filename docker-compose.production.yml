@@ -1,0 +1,104 @@
+name: ramziwarehouse
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ramziwarehouse-sqlserver
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Express"
+      MSSQL_SA_PASSWORD: "${SQL_SA_PASSWORD}"
+      TZ: "Asia/Baku"
+    volumes:
+      - ramziwarehouse_sql_data:/var/opt/mssql
+    networks:
+      - ramziwarehouse_private
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          SQLCMD=/opt/mssql-tools18/bin/sqlcmd;
+          if [ ! -x $$SQLCMD ]; then SQLCMD=/opt/mssql-tools/bin/sqlcmd; fi;
+          $$SQLCMD -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  api:
+    image: ramziwarehouse-api:latest
+    container_name: ramziwarehouse-api
+    restart: unless-stopped
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_HTTP_PORTS: "8080"
+      TZ: "Asia/Baku"
+
+      ConnectionStrings__DefaultConnection: >-
+        Server=sqlserver,1433;Database=RamziWarehouse;User Id=sa;Password=${SQL_SA_PASSWORD};Encrypt=True;TrustServerCertificate=True;MultipleActiveResultSets=True
+
+      Jwt__Issuer: "${JWT_ISSUER}"
+      Jwt__Audience: "${JWT_AUDIENCE}"
+      Jwt__Key: "${JWT_KEY}"
+      Jwt__AccessTokenMinutes: "15"
+      Jwt__RefreshTokenDays: "30"
+
+      Seed__AdminFullName: "${SEED_ADMIN_FULL_NAME}"
+      Seed__AdminUsername: "${SEED_ADMIN_USERNAME}"
+      Seed__AdminPassword: "${SEED_ADMIN_PASSWORD}"
+
+      Seed__ManagerFullName: "${SEED_MANAGER_FULL_NAME}"
+      Seed__ManagerUsername: "${SEED_MANAGER_USERNAME}"
+      Seed__ManagerPassword: "${SEED_MANAGER_PASSWORD}"
+
+      Cloudinary__CloudName: "${CLOUDINARY_CLOUD_NAME}"
+      Cloudinary__ApiKey: "${CLOUDINARY_API_KEY}"
+      Cloudinary__ApiSecret: "${CLOUDINARY_API_SECRET}"
+
+      Telegram__Enabled: "${TELEGRAM_ENABLED}"
+
+      Telegram__Orders__BotToken: "${TELEGRAM_ORDERS_BOT_TOKEN}"
+      Telegram__Orders__ChatId: "${TELEGRAM_ORDERS_CHAT_ID}"
+
+      Telegram__Returns__BotToken: "${TELEGRAM_RETURNS_BOT_TOKEN}"
+      Telegram__Returns__ChatId: "${TELEGRAM_RETURNS_CHAT_ID}"
+
+      Telegram__Delivery__BotToken: "${TELEGRAM_DELIVERY_BOT_TOKEN}"
+      Telegram__Delivery__ChatId: "${TELEGRAM_DELIVERY_CHAT_ID}"
+
+      Logging__LogLevel__Default: "Information"
+      "Logging__LogLevel__Microsoft.AspNetCore": "Warning"
+      "Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command": "Warning"
+
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - ramziwarehouse_private
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl --fail --silent --show-error
+          --header "X-Forwarded-Proto: https"
+          http://localhost:8080/health > /dev/null
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+networks:
+  ramziwarehouse_private:
+    name: ramziwarehouse-private
+    driver: bridge
+
+volumes:
+  ramziwarehouse_sql_data:
+    name: ramziwarehouse-sql-data

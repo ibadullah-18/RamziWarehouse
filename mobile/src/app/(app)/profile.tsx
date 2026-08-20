@@ -14,6 +14,9 @@ import {
   AdminUsersButton,
 } from '../../components/admin-users-button';
 import {
+  CustomersButton,
+} from '../../components/customers-button';
+import {
   colors,
   fontSize,
   radius,
@@ -149,7 +152,8 @@ export default function ProfileScreen() {
         </View>
 
         <AdminUsersButton />
-
+        
+        <CustomersButton />
         <Pressable
           disabled={isSigningOut}
           onPress={() => {

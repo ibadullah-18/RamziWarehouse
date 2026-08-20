@@ -1,0 +1,114 @@
+name: RamziWarehouse CI
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend build and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install .NET 10 SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore backend packages
+        run: >
+          dotnet restore
+          backend/RamziWarehouse.slnx
+
+      - name: Build backend
+        run: >
+          dotnet build
+          backend/RamziWarehouse.slnx
+          --configuration Release
+          --no-restore
+
+      - name: Run backend tests
+        run: >
+          dotnet test
+          backend/RamziWarehouse.slnx
+          --configuration Release
+          --no-build
+          --verbosity normal
+
+      - name: Check vulnerable NuGet packages
+        run: >
+          dotnet list
+          backend/RamziWarehouse.slnx
+          package
+          --vulnerable
+          --include-transitive
+
+  mobile:
+    name: Mobile validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile packages
+        run: npm ci
+
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Expo Doctor
+        run: npx --yes expo-doctor@1.20.2
+
+  docker:
+    name: Production Docker build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    needs:
+      - backend
+      - mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build production API image
+        run: >
+          docker build
+          --file backend/Dockerfile
+          --tag ramziwarehouse-api:ci
+          backend

@@ -3,6 +3,10 @@ import { Tabs } from 'expo-router';
 
 import { colors } from '../../theme';
 
+const hiddenTabBarStyle = {
+  display: 'none' as const,
+};
+
 export default function AppTabsLayout() {
   return (
     <Tabs
@@ -32,10 +36,13 @@ export default function AppTabsLayout() {
         tabBarHideOnKeyboard: true,
       }}
     >
+      {/* Əsas menyuda görünən səhifələr */}
+
       <Tabs.Screen
         name="index"
         options={{
           title: 'Ana səhifə',
+
           tabBarIcon: ({
             color,
             size,
@@ -58,6 +65,7 @@ export default function AppTabsLayout() {
         name="orders"
         options={{
           title: 'Qaimələr',
+
           tabBarIcon: ({
             color,
             size,
@@ -80,6 +88,7 @@ export default function AppTabsLayout() {
         name="returns"
         options={{
           title: 'Vazvrad',
+
           tabBarIcon: ({
             color,
             size,
@@ -102,6 +111,7 @@ export default function AppTabsLayout() {
         name="search"
         options={{
           title: 'Axtarış',
+
           tabBarIcon: ({
             color,
             size,
@@ -121,16 +131,10 @@ export default function AppTabsLayout() {
       />
 
       <Tabs.Screen
-        name="attendance"
-        options={{
-          href: null,
-        }}
-      />
-
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'Hesab',
+
           tabBarIcon: ({
             color,
             size,
@@ -149,13 +153,50 @@ export default function AppTabsLayout() {
         }}
       />
 
+      {/* Aşağı menyuda görünməyən səhifələr */}
+
+      <Tabs.Screen
+        name="attendance"
+        options={{
+          href: null,
+          tabBarStyle:
+            hiddenTabBarStyle,
+        }}
+      />
+
+      <Tabs.Screen
+        name="customers"
+        options={{
+          href: null,
+          tabBarStyle:
+            hiddenTabBarStyle,
+        }}
+      />
+
+      <Tabs.Screen
+        name="create-customer"
+        options={{
+          href: null,
+          tabBarStyle:
+            hiddenTabBarStyle,
+        }}
+      />
+
+      <Tabs.Screen
+        name="edit-customer/[id]"
+        options={{
+          href: null,
+          tabBarStyle:
+            hiddenTabBarStyle,
+        }}
+      />
+
       <Tabs.Screen
         name="order-detail"
         options={{
           href: null,
-          tabBarStyle: {
-            display: 'none',
-          },
+          tabBarStyle:
+            hiddenTabBarStyle,
         }}
       />
 
@@ -163,9 +204,8 @@ export default function AppTabsLayout() {
         name="create-order"
         options={{
           href: null,
-          tabBarStyle: {
-            display: 'none',
-          },
+          tabBarStyle:
+            hiddenTabBarStyle,
         }}
       />
 
@@ -173,9 +213,8 @@ export default function AppTabsLayout() {
         name="create-return"
         options={{
           href: null,
-          tabBarStyle: {
-            display: 'none',
-          },
+          tabBarStyle:
+            hiddenTabBarStyle,
         }}
       />
 
@@ -183,16 +222,17 @@ export default function AppTabsLayout() {
         name="return-detail"
         options={{
           href: null,
-          tabBarStyle: {
-            display: 'none',
-          },
+          tabBarStyle:
+            hiddenTabBarStyle,
         }}
       />
 
       <Tabs.Screen
-        name="order-receipt"
+        name="order-receipt/[id]"
         options={{
           href: null,
+          tabBarStyle:
+            hiddenTabBarStyle,
         }}
       />
 
@@ -200,9 +240,8 @@ export default function AppTabsLayout() {
         name="users"
         options={{
           href: null,
-          tabBarStyle: {
-            display: 'none',
-          },
+          tabBarStyle:
+            hiddenTabBarStyle,
         }}
       />
 
@@ -210,22 +249,19 @@ export default function AppTabsLayout() {
         name="create-user"
         options={{
           href: null,
-          tabBarStyle: {
-            display: 'none',
-          },
+          tabBarStyle:
+            hiddenTabBarStyle,
         }}
       />
 
       <Tabs.Screen
-        name="edit-user"
+        name="edit-user/[id]"
         options={{
           href: null,
-          tabBarStyle: {
-            display: 'none',
-          },
+          tabBarStyle:
+            hiddenTabBarStyle,
         }}
       />
-
     </Tabs>
   );
 }

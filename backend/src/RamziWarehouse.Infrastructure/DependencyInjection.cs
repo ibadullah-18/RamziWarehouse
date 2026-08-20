@@ -40,7 +40,15 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>(options =>
         {
-            options.UseSqlServer(connectionString);
+            options.UseSqlServer(
+                connectionString,
+                sqlServerOptions =>
+                {
+                    sqlServerOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(10),
+                        errorNumbersToAdd: null);
+                });
         });
 
         services.AddScoped<DatabaseSeeder>();
@@ -110,10 +118,6 @@ public static class DependencyInjection
             TelegramOutboxService>();
 
         services.AddScoped<
-            ITelegramOutboxService,
-            TelegramOutboxService>();
-
-        services.AddScoped<
             ITelegramOutboxProcessor,
             TelegramOutboxProcessor>();
 
@@ -121,18 +125,18 @@ public static class DependencyInjection
             IOrderDeliveryService,
             OrderDeliveryService>();
 
-        services.AddHttpClient<
-        ITelegramNotificationService,
-        TelegramNotificationService>(
-        client =>
-        {
-            client.BaseAddress =
-                new Uri("https://api.telegram.org/");
+        services
+            .AddHttpClient<
+                ITelegramNotificationService,
+                TelegramNotificationService>(client =>
+                {
+                    client.BaseAddress =
+                        new Uri("https://api.telegram.org/");
 
-            client.Timeout =
-                TimeSpan.FromSeconds(20);
-        })
-    .RemoveAllLoggers();
+                    client.Timeout =
+                        TimeSpan.FromSeconds(20);
+                })
+            .RemoveAllLoggers();
 
         return services;
     }
