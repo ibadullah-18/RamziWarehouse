@@ -79,6 +79,10 @@ export type ProductReturnQuery = {
   search?: string;
   status?: ReturnStatus;
   productType?: ProductType;
+
+  fromDateUtc?: string;
+  toDateUtc?: string;
+
   pageNumber?: number;
   pageSize?: number;
 };

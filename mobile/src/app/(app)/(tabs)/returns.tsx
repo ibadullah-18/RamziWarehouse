@@ -23,23 +23,31 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   getProductReturns,
-} from '../../api/product-return-api';
-import { useAuth } from '../../auth/auth-context';
+} from '../../../api/product-return-api';
+import { useAuth } from '../../../auth/auth-context';
+import { DateFilterBar } from '../../../components/date-filter-bar';
+import {
+  formatDateKey,
+  getBakuUtcDayRange,
+  getTodayDateKey,
+} from '../../../features/dates/date-filter';
 import {
   getReturnStatusLabel,
   getReturnTypeSummary,
-} from '../../features/product-returns/product-return-status';
-import {
+} from '../../../features/product-returns/product-return-status';
+import type {
   ProductReturn,
+} from '../../../features/product-returns/product-return-types';
+import {
   ProductType,
   ReturnStatus,
-} from '../../features/product-returns/product-return-types';
+} from '../../../features/product-returns/product-return-types';
 import {
   colors,
   fontSize,
   radius,
   spacing,
-} from '../../theme';
+} from '../../../theme';
 
 type StatusFilter =
   | 'all'
@@ -49,19 +57,24 @@ type ProductTypeFilter =
   | 'all'
   | ProductType;
 
-function getErrorMessage(error: unknown) {
+function getErrorMessage(
+  error: unknown,
+): string {
   return error instanceof Error
     ? error.message
     : 'Vazvradlar alınmadı.';
 }
 
-function formatDate(value: string) {
+function formatReturnDate(
+  value: string,
+): string {
   return new Date(value).toLocaleDateString(
     'az-AZ',
     {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
+      timeZone: 'Asia/Baku',
     },
   );
 }
@@ -104,8 +117,10 @@ export default function ReturnsScreen() {
       reload?: string;
     }>();
 
-  const accessToken =
-    session?.accessToken;
+  const accessToken = session?.accessToken;
+
+  const [selectedDateKey, setSelectedDateKey] =
+    useState(getTodayDateKey);
 
   const [searchText, setSearchText] =
     useState('');
@@ -113,10 +128,8 @@ export default function ReturnsScreen() {
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter>('all');
 
-  const [
-    productTypeFilter,
-    setProductTypeFilter,
-  ] = useState<ProductTypeFilter>('all');
+  const [productTypeFilter, setProductTypeFilter] =
+    useState<ProductTypeFilter>('all');
 
   const [returns, setReturns] =
     useState<ProductReturn[]>([]);
@@ -139,13 +152,16 @@ export default function ReturnsScreen() {
     }
 
     let isActive = true;
-
-    const currentAccessToken =
-      accessToken;
+    const currentAccessToken = accessToken;
 
     const timeoutId = setTimeout(() => {
       async function loadReturns() {
         try {
+          const dateRange =
+            getBakuUtcDayRange(
+              selectedDateKey,
+            );
+
           const result =
             await getProductReturns(
               currentAccessToken,
@@ -161,6 +177,12 @@ export default function ReturnsScreen() {
                   productTypeFilter === 'all'
                     ? undefined
                     : productTypeFilter,
+
+                fromDateUtc:
+                  dateRange.fromDateUtc,
+
+                toDateUtc:
+                  dateRange.toDateUtc,
 
                 pageNumber: 1,
                 pageSize: 100,
@@ -198,15 +220,26 @@ export default function ReturnsScreen() {
     productTypeFilter,
     reloadNumber,
     searchText,
+    selectedDateKey,
     statusFilter,
   ]);
 
   function refresh() {
     setIsRefreshing(true);
-
     setReloadNumber(
       currentValue => currentValue + 1,
     );
+  }
+
+  function changeDate(dateKey: string) {
+    if (dateKey === selectedDateKey) {
+      return;
+    }
+
+    setReturns([]);
+    setErrorMessage(null);
+    setIsLoading(true);
+    setSelectedDateKey(dateKey);
   }
 
   function changeStatusFilter(
@@ -224,300 +257,287 @@ export default function ReturnsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerCaption}>
-            ANBAR ƏMƏLİYYATLARI
-          </Text>
-
-          <Text style={styles.headerTitle}>
-            Vazvrad və Vitrin
-          </Text>
-        </View>
-
-        <Pressable
-          onPress={() => {
-            router.push(
-              '/create-return' as Href,
-            );
-          }}
-          style={({ pressed }) => [
-            styles.createButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons
-            name="add"
-            size={20}
-            color={colors.white}
-          />
-
-          <Text style={styles.createButtonText}>
-            Yeni
-          </Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <Ionicons
-          name="search-outline"
-          size={20}
-          color={colors.textLight}
-        />
-
-        <TextInput
-          value={searchText}
-          onChangeText={value => {
-            setSearchText(value);
-            setIsLoading(true);
-          }}
-          placeholder="Müştəri, kod və ya partiya..."
-          placeholderTextColor={
-            colors.textLight
-          }
-          autoCorrect={false}
-          style={styles.searchInput}
-        />
-
-        {searchText ? (
-          <Pressable
-            hitSlop={10}
-            onPress={() => {
-              setSearchText('');
-              setIsLoading(true);
-            }}
-          >
-            <Ionicons
-              name="close-circle"
-              size={21}
-              color={colors.textLight}
-            />
-          </Pressable>
-        ) : null}
-      </View>
-
-      <View style={styles.filters}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={
-            styles.filterContent
-          }
-        >
-          <Pressable
-            onPress={() => {
-              changeProductTypeFilter('all');
-            }}
-            style={[
-              styles.filterChip,
-              productTypeFilter === 'all' &&
-                styles.filterChipActive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                productTypeFilter === 'all' &&
-                  styles.filterTextActive,
-              ]}
-            >
-              Hamısı
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              changeProductTypeFilter(
-                ProductType.Product,
-              );
-            }}
-            style={[
-              styles.filterChip,
-              productTypeFilter ===
-                ProductType.Product &&
-                styles.filterChipActive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                productTypeFilter ===
-                  ProductType.Product &&
-                  styles.filterTextActive,
-              ]}
-            >
-              Vazvrad
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              changeProductTypeFilter(
-                ProductType.Showcase,
-              );
-            }}
-            style={[
-              styles.filterChip,
-              productTypeFilter ===
-                ProductType.Showcase &&
-                styles.filterChipActive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                productTypeFilter ===
-                  ProductType.Showcase &&
-                  styles.filterTextActive,
-              ]}
-            >
-              Vitrin
-            </Text>
-          </Pressable>
-        </ScrollView>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={
-            styles.filterContent
-          }
-        >
-          {[
-            {
-              value: 'all' as StatusFilter,
-              label: 'Bütün statuslar',
-            },
-            {
-              value:
-                ReturnStatus.Pending as StatusFilter,
-              label: 'Şəkil gözləyir',
-            },
-            {
-              value:
-                ReturnStatus.Submitted as StatusFilter,
-              label: 'Təsdiq gözləyir',
-            },
-            {
-              value:
-                ReturnStatus.Completed as StatusFilter,
-              label: 'Tamamlanıb',
-            },
-            {
-              value:
-                ReturnStatus.Cancelled as StatusFilter,
-              label: 'Ləğv edilib',
-            },
-          ].map(option => {
-            const isActive =
-              statusFilter === option.value;
-
-            return (
-              <Pressable
-                key={String(option.value)}
-                onPress={() => {
-                  changeStatusFilter(
-                    option.value,
-                  );
-                }}
-                style={[
-                  styles.statusChip,
-                  isActive &&
-                    styles.statusChipActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusChipText,
-                    isActive &&
-                      styles.statusChipTextActive,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {errorMessage ? (
-        <Pressable
-          onPress={refresh}
-          style={styles.errorCard}
-        >
-          <Ionicons
-            name="warning-outline"
-            size={21}
-            color={colors.danger}
-          />
-
-          <View style={styles.errorContent}>
-            <Text style={styles.errorTitle}>
-              Məlumatlar alınmadı
-            </Text>
-
-            <Text style={styles.errorDescription}>
-              {errorMessage}
-            </Text>
-          </View>
-
-          <Ionicons
-            name="refresh"
-            size={20}
-            color={colors.danger}
-          />
-        </Pressable>
-      ) : null}
-
+    <SafeAreaView
+      edges={['top']}
+      style={styles.safeArea}
+    >
       <FlatList
         data={isLoading ? [] : returns}
         keyExtractor={item => item.id}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={
-          styles.listContent
-        }
+        contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={refresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
+            progressBackgroundColor={colors.surface}
           />
+        }
+        ListHeaderComponent={
+          <View>
+            <View style={styles.header}>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerCaption}>
+                  ANBAR ƏMƏLİYYATLARI
+                </Text>
+
+                <Text style={styles.headerTitle}>
+                  Vazvrad və Vitrin
+                </Text>
+
+                <Text style={styles.headerSubtitle}>
+                  {returns.length > 0
+                    ? `${returns.length} nəticə tapıldı`
+                    : `${formatDateKey(selectedDateKey)} tarixinin qeydləri`}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => {
+                  router.push(
+                    '/create-return' as Href,
+                  );
+                }}
+                style={({ pressed }) => [
+                  styles.createButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="add"
+                  size={20}
+                  color={colors.white}
+                />
+
+                <Text style={styles.createButtonText}>
+                  Yeni
+                </Text>
+              </Pressable>
+            </View>
+
+            <DateFilterBar
+              dateKey={selectedDateKey}
+              onDateChange={changeDate}
+            />
+
+            <View style={styles.searchContainer}>
+              <Ionicons
+                name="search-outline"
+                size={20}
+                color={colors.textLight}
+              />
+
+              <TextInput
+                value={searchText}
+                onChangeText={value => {
+                  setSearchText(value);
+                  setIsLoading(true);
+                }}
+                placeholder="Müştəri, kod və ya partiya..."
+                placeholderTextColor={colors.textLight}
+                autoCorrect={false}
+                style={styles.searchInput}
+              />
+
+              {searchText ? (
+                <Pressable
+                  hitSlop={10}
+                  onPress={() => {
+                    setSearchText('');
+                    setIsLoading(true);
+                  }}
+                >
+                  <Ionicons
+                    name="close-circle"
+                    size={21}
+                    color={colors.textLight}
+                  />
+                </Pressable>
+              ) : null}
+            </View>
+
+            <View style={styles.filters}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterContent}
+              >
+                {[
+                  {
+                    value: 'all' as ProductTypeFilter,
+                    label: 'Hamısı',
+                  },
+                  {
+                    value: ProductType.Product as ProductTypeFilter,
+                    label: 'Vazvrad',
+                  },
+                  {
+                    value: ProductType.Showcase as ProductTypeFilter,
+                    label: 'Vitrin',
+                  },
+                ].map(option => {
+                  const isActive =
+                    productTypeFilter === option.value;
+
+                  return (
+                    <Pressable
+                      key={String(option.value)}
+                      onPress={() => {
+                        changeProductTypeFilter(
+                          option.value,
+                        );
+                      }}
+                      style={[
+                        styles.filterChip,
+                        isActive && styles.filterChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterText,
+                          isActive && styles.filterTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterContent}
+              >
+                {[
+                  {
+                    value: 'all' as StatusFilter,
+                    label: 'Bütün statuslar',
+                  },
+                  {
+                    value: ReturnStatus.Pending as StatusFilter,
+                    label: 'Şəkil gözləyir',
+                  },
+                  {
+                    value: ReturnStatus.Submitted as StatusFilter,
+                    label: 'Təsdiq gözləyir',
+                  },
+                  {
+                    value: ReturnStatus.Completed as StatusFilter,
+                    label: 'Tamamlanıb',
+                  },
+                  {
+                    value: ReturnStatus.Cancelled as StatusFilter,
+                    label: 'Ləğv edilib',
+                  },
+                ].map(option => {
+                  const isActive =
+                    statusFilter === option.value;
+
+                  return (
+                    <Pressable
+                      key={String(option.value)}
+                      onPress={() => {
+                        changeStatusFilter(option.value);
+                      }}
+                      style={[
+                        styles.statusChip,
+                        isActive && styles.statusChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusChipText,
+                          isActive && styles.statusChipTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {errorMessage ? (
+              <Pressable
+                onPress={refresh}
+                style={styles.errorCard}
+              >
+                <Ionicons
+                  name="warning-outline"
+                  size={21}
+                  color={colors.danger}
+                />
+
+                <View style={styles.errorContent}>
+                  <Text style={styles.errorTitle}>
+                    Məlumatlar alınmadı
+                  </Text>
+
+                  <Text style={styles.errorDescription}>
+                    {errorMessage}
+                  </Text>
+                </View>
+
+                <Ionicons
+                  name="refresh"
+                  size={20}
+                  color={colors.danger}
+                />
+              </Pressable>
+            ) : null}
+
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator
+                  size="small"
+                  color={colors.primary}
+                />
+
+                <Text style={styles.stateText}>
+                  Vazvradlar alınır...
+                </Text>
+              </View>
+            ) : null}
+          </View>
         }
         renderItem={({ item }) => {
           const statusColors =
             getStatusColors(item.status);
 
-          const totalQuantity =
-            item.items.reduce(
-              (total, returnItem) =>
-                total +
-                returnItem.quantity,
-              0,
-            );
+          const totalQuantity = item.items.reduce(
+            (total, returnItem) =>
+              total + returnItem.quantity,
+            0,
+          );
 
-          const returnType =
-            getReturnTypeSummary(
-              item.items.map(
-                returnItem =>
-                  returnItem.productType,
-              ),
-            );
+          const returnType = getReturnTypeSummary(
+            item.items.map(
+              returnItem => returnItem.productType,
+            ),
+          );
 
           return (
             <Pressable
-                onPress={() => {
-                  router.push(
-                    `/return-detail/${item.id}` as Href,
-                  );
-                }}
-                style={({ pressed }) => [
-                  styles.returnCard,
-                  pressed && styles.pressed,
-                ]}
-              >
+              onPress={() => {
+                router.push({
+                  pathname: '/return-detail/[id]',
+                  params: {
+                    id: item.id,
+                    returnTo: 'returns',
+                    returnDate: selectedDateKey,
+                  },
+                } as Href);
+              }}
+              style={({ pressed }) => [
+                styles.returnCard,
+                pressed && styles.pressed,
+              ]}
+            >
               <View style={styles.cardTop}>
                 <View style={styles.typeContainer}>
                   <Ionicons
@@ -544,14 +564,11 @@ export default function ReturnsScreen() {
                     style={[
                       styles.statusText,
                       {
-                        color:
-                          statusColors.text,
+                        color: statusColors.text,
                       },
                     ]}
                   >
-                    {getReturnStatusLabel(
-                      item.status,
-                    )}
+                    {getReturnStatusLabel(item.status)}
                   </Text>
                 </View>
               </View>
@@ -600,9 +617,7 @@ export default function ReturnsScreen() {
 
               <View style={styles.cardFooter}>
                 <Text style={styles.footerText}>
-                  {formatDate(
-                    item.returnDateUtc,
-                  )}
+                  {formatReturnDate(item.returnDateUtc)}
                 </Text>
 
                 <Text style={styles.footerText}>
@@ -613,18 +628,7 @@ export default function ReturnsScreen() {
           );
         }}
         ListEmptyComponent={
-          isLoading ? (
-            <View style={styles.stateContainer}>
-              <ActivityIndicator
-                size="small"
-                color={colors.primary}
-              />
-
-              <Text style={styles.stateText}>
-                Vazvradlar alınır...
-              </Text>
-            </View>
-          ) : !errorMessage ? (
+          !isLoading && !errorMessage ? (
             <View style={styles.stateContainer}>
               <View style={styles.emptyIcon}>
                 <Ionicons
@@ -639,8 +643,8 @@ export default function ReturnsScreen() {
               </Text>
 
               <Text style={styles.emptyDescription}>
-                Yeni Vazvrad və ya Vitrin
-                əlavə edə bilərsiniz.
+                {formatDateKey(selectedDateKey)} tarixində
+                uyğun Vazvrad və ya Vitrin yoxdur.
               </Text>
             </View>
           ) : null
@@ -656,15 +660,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
+  listContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: 100,
+  },
+
   header: {
     minHeight: 72,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+
+  headerTextContainer: {
+    flex: 1,
   },
 
   headerCaption: {
@@ -679,6 +692,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     fontWeight: '800',
     marginTop: 3,
+  },
+
+  headerSubtitle: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    marginTop: spacing.xs,
   },
 
   createButton: {
@@ -702,7 +721,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    margin: spacing.lg,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
@@ -721,6 +739,7 @@ const styles = StyleSheet.create({
   filters: {
     gap: spacing.sm,
     paddingBottom: spacing.md,
+    marginHorizontal: -spacing.lg,
   },
 
   filterContent: {
@@ -758,8 +777,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     borderRadius: radius.xl,
-    backgroundColor:
-      colors.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
   },
 
   statusChipActive: {
@@ -781,7 +799,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
     padding: spacing.md,
     borderWidth: 1,
@@ -806,19 +823,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  listContent: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 100,
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
   },
 
   returnCard: {
     padding: spacing.lg,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
-    marginBottom: spacing.md,
   },
 
   cardTop: {
@@ -934,6 +951,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSize.sm,
     textAlign: 'center',
+    lineHeight: 20,
     marginTop: spacing.sm,
   },
 

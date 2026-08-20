@@ -44,6 +44,10 @@ export interface PagedResult<T> {
 export interface OrderQuery {
   search?: string;
   status?: OrderStatus | null;
+
+  fromDate?: string;
+  toDate?: string;
+
   pageNumber?: number;
   pageSize?: number;
 }

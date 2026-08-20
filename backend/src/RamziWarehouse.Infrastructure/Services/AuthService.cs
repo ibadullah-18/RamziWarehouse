@@ -36,7 +36,8 @@ public sealed class AuthService : IAuthService
 
         var user = await _dbContext.Users
             .SingleOrDefaultAsync(
-                currentUser => currentUser.Username == username,
+                currentUser =>
+                    currentUser.Username == username,
                 cancellationToken);
 
         if (user is null || !user.IsActive)
@@ -51,7 +52,8 @@ public sealed class AuthService : IAuthService
                 user.PasswordHash,
                 request.Password);
 
-        if (verificationResult == PasswordVerificationResult.Failed)
+        if (verificationResult ==
+            PasswordVerificationResult.Failed)
         {
             throw new UnauthorizedException(
                 "İstifadəçi adı və ya şifrə yanlışdır.");
@@ -60,98 +62,151 @@ public sealed class AuthService : IAuthService
         if (verificationResult ==
             PasswordVerificationResult.SuccessRehashNeeded)
         {
-            user.PasswordHash = _passwordHasher.HashPassword(
-                user,
-                request.Password);
+            user.PasswordHash =
+                _passwordHasher.HashPassword(
+                    user,
+                    request.Password);
         }
 
-        var tokenResult = _tokenService.CreateTokens(user);
-        var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
+        var tokenResult =
+            _tokenService.CreateTokens(user);
+
+        var utcNow =
+            _timeProvider
+                .GetUtcNow()
+                .UtcDateTime;
 
         user.LastLoginAtUtc = utcNow;
 
-        _dbContext.RefreshTokens.Add(new RefreshToken
-        {
-            UserId = user.Id,
-            TokenHash = tokenResult.RefreshTokenHash,
-            ExpiresAtUtc = tokenResult.RefreshTokenExpiresAtUtc
-        });
+        _dbContext.RefreshTokens.Add(
+            new RefreshToken
+            {
+                UserId = user.Id,
+                TokenHash =
+                    tokenResult.RefreshTokenHash,
+                ExpiresAtUtc =
+                    tokenResult
+                        .RefreshTokenExpiresAtUtc
+            });
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
 
-        return CreateResponse(user, tokenResult);
+        return CreateResponse(
+            user,
+            tokenResult);
     }
 
     public async Task<AuthResponseDto> RefreshTokenAsync(
         RefreshTokenRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var tokenHash = _tokenService.HashRefreshToken(
-            request.RefreshToken);
+        var tokenHash =
+            _tokenService.HashRefreshToken(
+                request.RefreshToken);
 
-        await using var transaction =
-            await _dbContext.Database.BeginTransactionAsync(
-                IsolationLevel.Serializable,
-                cancellationToken);
+        var executionStrategy =
+            _dbContext.Database
+                .CreateExecutionStrategy();
 
-        var storedToken = await _dbContext.RefreshTokens
-            .Include(token => token.User)
-            .SingleOrDefaultAsync(
-                token => token.TokenHash == tokenHash,
-                cancellationToken);
+        return await executionStrategy.ExecuteAsync(
+            async () =>
+            {
+                await using var transaction =
+                    await _dbContext.Database
+                        .BeginTransactionAsync(
+                            IsolationLevel.Serializable,
+                            cancellationToken);
 
-        var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
+                var storedToken =
+                    await _dbContext.RefreshTokens
+                        .Include(token => token.User)
+                        .SingleOrDefaultAsync(
+                            token =>
+                                token.TokenHash ==
+                                tokenHash,
+                            cancellationToken);
 
-        if (storedToken is null ||
-            storedToken.RevokedAtUtc.HasValue ||
-            storedToken.ExpiresAtUtc <= utcNow ||
-            !storedToken.User.IsActive)
-        {
-            throw new UnauthorizedException(
-                "Refresh token etibarsızdır və ya vaxtı bitib.");
-        }
+                var utcNow =
+                    _timeProvider
+                        .GetUtcNow()
+                        .UtcDateTime;
 
-        var tokenResult = _tokenService.CreateTokens(
-            storedToken.User);
+                if (storedToken is null ||
+                    storedToken.RevokedAtUtc.HasValue ||
+                    storedToken.ExpiresAtUtc <= utcNow ||
+                    !storedToken.User.IsActive)
+                {
+                    throw new UnauthorizedException(
+                        "Refresh token etibarsızdır və ya vaxtı bitib.");
+                }
 
-        storedToken.RevokedAtUtc = utcNow;
-        storedToken.ReplacedByTokenHash =
-            tokenResult.RefreshTokenHash;
+                var tokenResult =
+                    _tokenService.CreateTokens(
+                        storedToken.User);
 
-        _dbContext.RefreshTokens.Add(new RefreshToken
-        {
-            UserId = storedToken.UserId,
-            TokenHash = tokenResult.RefreshTokenHash,
-            ExpiresAtUtc = tokenResult.RefreshTokenExpiresAtUtc
-        });
+                storedToken.RevokedAtUtc =
+                    utcNow;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+                storedToken.ReplacedByTokenHash =
+                    tokenResult.RefreshTokenHash;
 
-        return CreateResponse(storedToken.User, tokenResult);
+                _dbContext.RefreshTokens.Add(
+                    new RefreshToken
+                    {
+                        UserId =
+                            storedToken.UserId,
+
+                        TokenHash =
+                            tokenResult
+                                .RefreshTokenHash,
+
+                        ExpiresAtUtc =
+                            tokenResult
+                                .RefreshTokenExpiresAtUtc
+                    });
+
+                await _dbContext.SaveChangesAsync(
+                    cancellationToken);
+
+                await transaction.CommitAsync(
+                    cancellationToken);
+
+                return CreateResponse(
+                    storedToken.User,
+                    tokenResult);
+            });
     }
 
     public async Task LogoutAsync(
         RefreshTokenRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var tokenHash = _tokenService.HashRefreshToken(
-            request.RefreshToken);
+        var tokenHash =
+            _tokenService.HashRefreshToken(
+                request.RefreshToken);
 
-        var storedToken = await _dbContext.RefreshTokens
-            .SingleOrDefaultAsync(
-                token => token.TokenHash == tokenHash,
-                cancellationToken);
+        var storedToken =
+            await _dbContext.RefreshTokens
+                .SingleOrDefaultAsync(
+                    token =>
+                        token.TokenHash ==
+                        tokenHash,
+                    cancellationToken);
 
-        if (storedToken is null || storedToken.RevokedAtUtc.HasValue)
+        if (storedToken is null ||
+            storedToken.RevokedAtUtc.HasValue)
         {
             return;
         }
 
         storedToken.RevokedAtUtc =
-            _timeProvider.GetUtcNow().UtcDateTime;
+            _timeProvider
+                .GetUtcNow()
+                .UtcDateTime;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
     }
 
     private static AuthResponseDto CreateResponse(
@@ -160,10 +215,16 @@ public sealed class AuthService : IAuthService
     {
         return new AuthResponseDto
         {
-            AccessToken = tokenResult.AccessToken,
-            RefreshToken = tokenResult.RefreshToken,
+            AccessToken =
+                tokenResult.AccessToken,
+
+            RefreshToken =
+                tokenResult.RefreshToken,
+
             AccessTokenExpiresAtUtc =
-                tokenResult.AccessTokenExpiresAtUtc,
+                tokenResult
+                    .AccessTokenExpiresAtUtc,
+
             UserId = user.Id,
             FullName = user.FullName,
             Username = user.Username,
