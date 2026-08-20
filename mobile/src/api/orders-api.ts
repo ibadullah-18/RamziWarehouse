@@ -1,7 +1,7 @@
 import {
-    OrderListItem,
-    OrderQuery,
-    PagedResult,
+  OrderListItem,
+  OrderQuery,
+  PagedResult,
 } from '../features/orders/order-types';
 
 interface ApiProblemDetails {
@@ -39,8 +39,11 @@ function getApiBaseUrl() {
   return apiBaseUrl;
 }
 
-function createQueryString(query: OrderQuery) {
-  const parameters = new URLSearchParams();
+function createQueryString(
+  query: OrderQuery,
+): string {
+  const parameters =
+    new URLSearchParams();
 
   const normalizedSearch =
     query.search?.trim();
@@ -59,6 +62,20 @@ function createQueryString(query: OrderQuery) {
     parameters.set(
       'status',
       query.status.toString(),
+    );
+  }
+
+  if (query.fromDate) {
+    parameters.set(
+      'fromDate',
+      query.fromDate,
+    );
+  }
+
+  if (query.toDate) {
+    parameters.set(
+      'toDate',
+      query.toDate,
     );
   }
 

@@ -22,24 +22,24 @@ import {
   DashboardApiError,
   getDashboardSummary,
   type DashboardSummary,
-} from '../../api/dashboard-api';
-import { useAuth } from '../../auth/auth-context';
+} from '../../../api/dashboard-api';
+import { useAuth } from '../../../auth/auth-context';
 import {
   canManageOperations,
-} from '../../auth/permissions';
+} from '../../../auth/permissions';
 import {
   AttendanceCard,
-} from '../../components/attendance-card';
-import { DashboardMetricCard } from '../../components/dashboard-metric-card';
-import { QuickActionCard } from '../../components/quick-action-card';
-import { ScreenContainer } from '../../components/screen-container';
-import { SectionHeader } from '../../components/section-header';
+} from '../../../components/attendance-card';
+import { DashboardMetricCard } from '../../../components/dashboard-metric-card';
+import { QuickActionCard } from '../../../components/quick-action-card';
+import { ScreenContainer } from '../../../components/screen-container';
+import { SectionHeader } from '../../../components/section-header';
 import {
   colors,
   fontSize,
   radius,
   spacing,
-} from '../../theme';
+} from '../../../theme';
 
 const roleNames: Record<number, string> = {
   1: 'Menecer',

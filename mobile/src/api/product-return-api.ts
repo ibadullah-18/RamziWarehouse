@@ -139,26 +139,46 @@ export async function getProductReturns(
   accessToken: string,
   query: ProductReturnQuery = {},
 ): Promise<ProductReturnList> {
-  const parameters = new URLSearchParams();
+  const parameters =
+    new URLSearchParams();
 
-  if (query.search?.trim()) {
+  const normalizedSearch =
+    query.search?.trim();
+
+  if (normalizedSearch) {
     parameters.set(
       'search',
-      query.search.trim(),
+      normalizedSearch,
     );
   }
 
-  if (query.status) {
+  if (query.status !== undefined) {
     parameters.set(
       'status',
       String(query.status),
     );
   }
 
-  if (query.productType) {
+  if (
+    query.productType !== undefined
+  ) {
     parameters.set(
       'productType',
       String(query.productType),
+    );
+  }
+
+  if (query.fromDateUtc) {
+    parameters.set(
+      'fromDateUtc',
+      query.fromDateUtc,
+    );
+  }
+
+  if (query.toDateUtc) {
+    parameters.set(
+      'toDateUtc',
+      query.toDateUtc,
     );
   }
 

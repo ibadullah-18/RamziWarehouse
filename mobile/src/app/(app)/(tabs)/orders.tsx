@@ -22,31 +22,38 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   getOrders,
   OrdersApiError,
-} from '../../api/orders-api';
-import { useAuth } from '../../auth/auth-context';
+} from '../../../api/orders-api';
+import { useAuth } from '../../../auth/auth-context';
 import {
   canManageOperations,
-} from '../../auth/permissions';
-import { OrderListCard } from '../../components/order-list-card';
+} from '../../../auth/permissions';
+import { DateFilterBar } from '../../../components/date-filter-bar';
+import { OrderListCard } from '../../../components/order-list-card';
+import {
+  formatDateKey,
+  getTodayDateKey,
+} from '../../../features/dates/date-filter';
 import {
   orderStatusFilters,
-} from '../../features/orders/order-status';
-import {
+} from '../../../features/orders/order-status';
+import type {
   OrderListItem,
+} from '../../../features/orders/order-types';
+import {
   OrderStatus,
-} from '../../features/orders/order-types';
+} from '../../../features/orders/order-types';
 import {
   colors,
   fontSize,
   radius,
   spacing,
-} from '../../theme';
+} from '../../../theme';
 
 const PAGE_SIZE = 20;
 
 function getOrdersErrorMessage(
   error: unknown,
-) {
+): string {
   if (error instanceof OrdersApiError) {
     if (error.status === 401) {
       return 'Sessiyanın vaxtı bitib. Tətbiqi yenidən aç.';
@@ -60,6 +67,10 @@ function getOrdersErrorMessage(
 
 export default function OrdersScreen() {
   const { session } = useAuth();
+  const accessToken = session?.accessToken;
+
+  const [selectedDateKey, setSelectedDateKey] =
+    useState(getTodayDateKey);
 
   const [orders, setOrders] =
     useState<OrderListItem[]>([]);
@@ -94,15 +105,12 @@ export default function OrdersScreen() {
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
 
-  const accessToken = session?.accessToken;
-
   useEffect(() => {
-    let isActive = true;
-
     if (!accessToken) {
       return;
     }
 
+    let isActive = true;
     const currentAccessToken = accessToken;
 
     async function loadInitialOrders() {
@@ -112,6 +120,8 @@ export default function OrdersScreen() {
           {
             search: appliedSearch,
             status: selectedStatus,
+            fromDate: selectedDateKey,
+            toDate: selectedDateKey,
             pageNumber: 1,
             pageSize: PAGE_SIZE,
           },
@@ -127,16 +137,15 @@ export default function OrdersScreen() {
         setTotalCount(result.totalCount);
         setErrorMessage(null);
       } catch (error) {
-        if (!isActive) {
-          return;
+        if (isActive) {
+          setErrorMessage(
+            getOrdersErrorMessage(error),
+          );
         }
-
-        setErrorMessage(
-          getOrdersErrorMessage(error),
-        );
       } finally {
         if (isActive) {
           setIsInitialLoading(false);
+          setIsRefreshing(false);
         }
       }
     }
@@ -149,8 +158,27 @@ export default function OrdersScreen() {
   }, [
     accessToken,
     appliedSearch,
+    selectedDateKey,
     selectedStatus,
   ]);
+
+  function resetList() {
+    setOrders([]);
+    setPageNumber(1);
+    setTotalPages(0);
+    setTotalCount(0);
+    setErrorMessage(null);
+    setIsInitialLoading(true);
+  }
+
+  function changeDate(dateKey: string) {
+    if (dateKey === selectedDateKey) {
+      return;
+    }
+
+    resetList();
+    setSelectedDateKey(dateKey);
+  }
 
   function applySearch() {
     Keyboard.dismiss();
@@ -163,12 +191,7 @@ export default function OrdersScreen() {
       return;
     }
 
-    setOrders([]);
-    setPageNumber(1);
-    setTotalPages(0);
-    setTotalCount(0);
-    setErrorMessage(null);
-    setIsInitialLoading(true);
+    resetList();
     setAppliedSearch(normalizedSearch);
   }
 
@@ -176,12 +199,7 @@ export default function OrdersScreen() {
     setSearchText('');
 
     if (appliedSearch) {
-      setOrders([]);
-      setPageNumber(1);
-      setTotalPages(0);
-      setTotalCount(0);
-      setErrorMessage(null);
-      setIsInitialLoading(true);
+      resetList();
       setAppliedSearch('');
     }
   }
@@ -193,12 +211,7 @@ export default function OrdersScreen() {
       return;
     }
 
-    setOrders([]);
-    setPageNumber(1);
-    setTotalPages(0);
-    setTotalCount(0);
-    setErrorMessage(null);
-    setIsInitialLoading(true);
+    resetList();
     setSelectedStatus(status);
   }
 
@@ -216,6 +229,8 @@ export default function OrdersScreen() {
         {
           search: appliedSearch,
           status: selectedStatus,
+          fromDate: selectedDateKey,
+          toDate: selectedDateKey,
           pageNumber: 1,
           pageSize: PAGE_SIZE,
         },
@@ -249,30 +264,26 @@ export default function OrdersScreen() {
     setIsLoadingMore(true);
 
     try {
-      const nextPage = pageNumber + 1;
-
       const result = await getOrders(
         accessToken,
         {
           search: appliedSearch,
           status: selectedStatus,
-          pageNumber: nextPage,
+          fromDate: selectedDateKey,
+          toDate: selectedDateKey,
+          pageNumber: pageNumber + 1,
           pageSize: PAGE_SIZE,
         },
       );
 
       setOrders(currentOrders => {
-        const existingIds =
-          new Set(
-            currentOrders.map(
-              order => order.id,
-            ),
-          );
+        const existingIds = new Set(
+          currentOrders.map(order => order.id),
+        );
 
-        const newOrders =
-          result.items.filter(
-            order => !existingIds.has(order.id),
-          );
+        const newOrders = result.items.filter(
+          order => !existingIds.has(order.id),
+        );
 
         return [
           ...currentOrders,
@@ -295,7 +306,7 @@ export default function OrdersScreen() {
   const listHeader = (
     <View>
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerTextContainer}>
           <Text style={styles.brand}>
             RAM COLLECTION
           </Text>
@@ -307,15 +318,15 @@ export default function OrdersScreen() {
           <Text style={styles.subtitle}>
             {totalCount > 0
               ? `${totalCount} qaimə tapıldı`
-              : 'Sifarişləri idarə et'}
+              : `${formatDateKey(selectedDateKey)} tarixinin qaimələri`}
           </Text>
         </View>
 
-       {canManageOperations(session?.role) ? (
+        {canManageOperations(session?.role) ? (
           <Pressable
-           onPress={() => {
-            router.push('/create-order' as Href);
-          }}
+            onPress={() => {
+              router.push('/create-order' as Href);
+            }}
             style={({ pressed }) => [
               styles.newOrderButton,
               pressed && styles.buttonPressed,
@@ -341,6 +352,11 @@ export default function OrdersScreen() {
           </View>
         )}
       </View>
+
+      <DateFilterBar
+        dateKey={selectedDateKey}
+        onDateChange={changeDate}
+      />
 
       <View style={styles.searchContainer}>
         <Ionicons
@@ -391,9 +407,7 @@ export default function OrdersScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={
-          styles.filterContent
-        }
+        contentContainerStyle={styles.filterContent}
         style={styles.filterScroll}
       >
         {orderStatusFilters.map(filter => {
@@ -403,8 +417,7 @@ export default function OrdersScreen() {
           return (
             <Pressable
               key={
-                filter.value?.toString() ??
-                'all'
+                filter.value?.toString() ?? 'all'
               }
               onPress={() => {
                 selectStatus(filter.value);
@@ -485,23 +498,23 @@ export default function OrdersScreen() {
       style={styles.safeArea}
     >
       <FlatList
-        data={
-          isInitialLoading
-            ? []
-            : orders
-        }
+        data={isInitialLoading ? [] : orders}
         keyExtractor={order => order.id}
         renderItem={({ item }) => (
-         <Pressable
+          <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${item.orderNumber} nömrəli qaiməni aç`}
+            accessibilityLabel={
+              `${item.orderNumber} nömrəli qaiməni aç`
+            }
             onPress={() => {
               router.push({
                 pathname: '/order-detail/[id]',
                 params: {
                   id: item.id,
+                  returnTo: 'orders',
+                  returnDate: selectedDateKey,
                 },
-              });
+              } as Href);
             }}
             style={({ pressed }) => ({
               opacity: pressed ? 0.72 : 1,
@@ -512,8 +525,7 @@ export default function OrdersScreen() {
         )}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
-          !isInitialLoading &&
-          !errorMessage ? (
+          !isInitialLoading && !errorMessage ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIcon}>
                 <Ionicons
@@ -528,7 +540,8 @@ export default function OrdersScreen() {
               </Text>
 
               <Text style={styles.emptyDescription}>
-                Axtarışı və ya seçilmiş statusu dəyiş.
+                {formatDateKey(selectedDateKey)} tarixində
+                uyğun qaimə yoxdur.
               </Text>
             </View>
           ) : null
@@ -545,9 +558,7 @@ export default function OrdersScreen() {
             <View style={styles.footerSpace} />
           )
         }
-        contentContainerStyle={
-          styles.listContent
-        }
+        contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -558,9 +569,7 @@ export default function OrdersScreen() {
             }}
             tintColor={colors.primary}
             colors={[colors.primary]}
-            progressBackgroundColor={
-              colors.surface
-            }
+            progressBackgroundColor={colors.surface}
           />
         }
         onEndReached={() => {
@@ -573,24 +582,6 @@ export default function OrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-
-  newOrderButton: {
-  minHeight: 44,
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: spacing.sm,
-  paddingHorizontal: spacing.lg,
-  borderRadius: radius.md,
-  backgroundColor: colors.primary,
-},
-
-newOrderButtonText: {
-  color: colors.white,
-  fontSize: fontSize.sm,
-  fontWeight: '800',
-},
-
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -600,13 +591,19 @@ newOrderButtonText: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: 100,
   },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xl,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+
+  headerTextContainer: {
+    flex: 1,
   },
 
   brand: {
@@ -629,12 +626,29 @@ newOrderButtonText: {
     marginTop: spacing.xs,
   },
 
+  newOrderButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+  },
+
+  newOrderButtonText: {
+    color: colors.white,
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+  },
+
   headerIcon: {
     width: 50,
     height: 50,
-    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: radius.lg,
     backgroundColor: colors.primarySoft,
   },
 
@@ -643,12 +657,12 @@ newOrderButtonText: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
     paddingLeft: spacing.lg,
     paddingRight: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
   },
 
   searchInput: {
@@ -661,14 +675,10 @@ newOrderButtonText: {
   searchButton: {
     width: 40,
     height: 40,
-    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: radius.md,
     backgroundColor: colors.primary,
-  },
-
-  buttonPressed: {
-    opacity: 0.7,
   },
 
   filterScroll: {
@@ -682,12 +692,12 @@ newOrderButtonText: {
   },
 
   filterChip: {
-    borderRadius: radius.round,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
     paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.round,
+    backgroundColor: colors.surface,
   },
 
   filterChipSelected: {
@@ -709,12 +719,12 @@ newOrderButtonText: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: '#F4C5C9',
-    backgroundColor: colors.dangerSoft,
     padding: spacing.md,
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: '#F4C5C9',
+    borderRadius: radius.lg,
+    backgroundColor: colors.dangerSoft,
   },
 
   errorTextContainer: {
@@ -756,9 +766,9 @@ newOrderButtonText: {
   emptyIcon: {
     width: 62,
     height: 62,
-    borderRadius: radius.xl,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: radius.xl,
     backgroundColor: colors.primarySoft,
   },
 
@@ -784,5 +794,9 @@ newOrderButtonText: {
 
   footerSpace: {
     height: spacing.huge,
+  },
+
+  buttonPressed: {
+    opacity: 0.7,
   },
 });

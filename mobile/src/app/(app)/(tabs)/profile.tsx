@@ -9,19 +9,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '../../auth/auth-context';
+import { useAuth } from '../../../auth/auth-context';
 import {
   AdminUsersButton,
-} from '../../components/admin-users-button';
+} from '../../../components/admin-users-button';
 import {
   CustomersButton,
-} from '../../components/customers-button';
+} from '../../../components/customers-button';
 import {
   colors,
   fontSize,
   radius,
   spacing,
-} from '../../theme';
+} from '../../../theme';
 
 const getRoleName = (
   role: number,
