@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RamziWarehouse.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using RamziWarehouse.Infrastructure.Persistence;
 namespace RamziWarehouse.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260905174856_AddCustomerAccountLedger")]
+    partial class AddCustomerAccountLedger
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -162,7 +165,7 @@ namespace RamziWarehouse.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_CustomerAccountEntries_Amount_Positive", "[Amount] > 0");
 
-                            t.HasCheckConstraint("CK_CustomerAccountEntries_EntryType_Valid", "[EntryType] IN (1, 2, 3, 4, 5)");
+                            t.HasCheckConstraint("CK_CustomerAccountEntries_EntryType_Valid", "[EntryType] IN (1, 2, 3)");
                         });
                 });
 

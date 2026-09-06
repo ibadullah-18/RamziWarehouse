@@ -30,6 +30,41 @@ builder.Services.AddScoped<ValidationFilter>();
 
 builder.Services.AddHttpContextAccessor();
 
+const string localDevelopmentCorsPolicy =
+    "LocalDevelopment";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        localDevelopmentCorsPolicy,
+        policy =>
+        {
+            policy
+                .SetIsOriginAllowed(origin =>
+                {
+                    if (!Uri.TryCreate(
+                            origin,
+                            UriKind.Absolute,
+                            out var uri))
+                    {
+                        return false;
+                    }
+
+                    return
+                        string.Equals(
+                            uri.Host,
+                            "localhost",
+                            StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(
+                            uri.Host,
+                            "127.0.0.1",
+                            StringComparison.OrdinalIgnoreCase);
+                })
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+});
+
 builder.Services.AddScoped<
     ICurrentUserService,
     CurrentUserService>();
@@ -54,6 +89,9 @@ builder.Services
 
 builder.Services.AddHostedService<
     DataRetentionBackgroundService>();
+
+builder.Services.AddHostedService<
+    CustomerAccountRetentionBackgroundService>();
 
 builder.Services.AddHostedService<
     TelegramOutboxBackgroundService>();
@@ -88,6 +126,12 @@ else
 {
     app.UseHsts();
     app.UseHttpsRedirection();
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors(
+        localDevelopmentCorsPolicy);
 }
 
 app.UseAuthentication();

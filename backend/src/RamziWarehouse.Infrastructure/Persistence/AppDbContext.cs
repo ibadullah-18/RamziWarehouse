@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using RamziWarehouse.Domain.Common;
 using RamziWarehouse.Domain.Entities;
 using RamziWarehouse.Infrastructure.Notifications.Telegram.Outbox;
@@ -22,6 +22,9 @@ public sealed class AppDbContext : DbContext
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
 
     public DbSet<Customer> Customers => Set<Customer>();
+
+    public DbSet<CustomerAccountEntry> CustomerAccountEntries =>
+        Set<CustomerAccountEntry>();
 
     public DbSet<Order> Orders => Set<Order>();
 

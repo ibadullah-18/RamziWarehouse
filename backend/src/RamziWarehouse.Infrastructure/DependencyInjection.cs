@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -68,6 +68,10 @@ public static class DependencyInjection
 
         services.AddScoped<ICustomerService, CustomerService>();
 
+        services.AddScoped<
+            RamziWarehouse.Application.Abstractions.CustomerAccounts.ICustomerAccountService,
+            CustomerAccountService>();
+
         services.AddScoped<IWarehouseService, WarehouseService>();
 
         services.AddScoped<IDashboardService, DashboardService>();
@@ -108,6 +112,10 @@ public static class DependencyInjection
         services.AddScoped<
             IDataRetentionCleanupService,
             DataRetentionCleanupService>();
+
+        services.AddScoped<
+            RamziWarehouse.Application.Abstractions.CustomerAccounts.ICustomerAccountRetentionService,
+            CustomerAccountRetentionService>();
 
         services.Configure<TelegramSettings>(
             configuration.GetSection(
