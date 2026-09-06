@@ -9,7 +9,6 @@ import {
 } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -23,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createUser } from '../../api/users-api';
 import { useAuth } from '../../auth/auth-context';
+import { useAppToast } from '../../components/app-toast';
 import {
     UserRole,
 } from '../../auth/auth-types';
@@ -121,6 +121,7 @@ function RoleCard({
 
 export default function CreateUserScreen() {
   const { session } = useAuth();
+  const { showToast } = useAppToast();
 
   const accessToken =
     session?.accessToken;
@@ -183,6 +184,10 @@ export default function CreateUserScreen() {
       return 'Şifrə ən azı 8 simvol olmalıdır.';
     }
 
+    if (!confirmPassword) {
+      return 'Şifrənin təkrarını daxil edin.';
+    }
+
     if (password !== confirmPassword) {
       return 'Şifrələr bir-biri ilə eyni deyil.';
     }
@@ -208,19 +213,22 @@ export default function CreateUserScreen() {
       validateForm();
 
     if (validationError) {
-      Alert.alert(
-        'Məlumatları yoxla',
-        validationError,
-      );
+      showToast({
+        title: 'Məlumatları yoxla',
+        message: validationError,
+        variant: 'warning',
+      });
 
       return;
     }
 
     if (!accessToken || !hasPermission) {
-      Alert.alert(
-        'İcazə yoxdur',
-        'İşçini yalnız Admin yarada bilər.',
-      );
+      showToast({
+        title: 'İcazə yoxdur',
+        message:
+          'İşçini yalnız Admin yarada bilər.',
+        variant: 'error',
+      });
 
       return;
     }
@@ -240,27 +248,25 @@ export default function CreateUserScreen() {
         },
       );
 
-      Alert.alert(
-        'İşçi yaradıldı',
-        `${createdUser.fullName} sistemə uğurla əlavə edildi.`,
-        [
-          {
-            text: 'Oldu',
-            onPress: () => {
-              router.replace(
-                '/users' as Href,
-              );
-            },
-          },
-        ],
+      showToast({
+        title: 'İşçi yaradıldı',
+        message:
+          `${createdUser.fullName} sistemə uğurla əlavə edildi.`,
+        variant: 'success',
+      });
+
+      router.replace(
+        '/users' as Href,
       );
     } catch (error) {
-      Alert.alert(
-        'İşçi yaradılmadı',
-        error instanceof Error
-          ? error.message
-          : 'Gözlənilməz xəta baş verdi.',
-      );
+      showToast({
+        title: 'İşçi yaradılmadı',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Gözlənilməz xəta baş verdi.',
+        variant: 'error',
+      });
     } finally {
       setIsSubmitting(false);
     }

@@ -12,6 +12,9 @@ import {
   useAuth,
 } from '../auth/auth-context';
 import {
+  AppToastProvider,
+} from '../components/app-toast';
+import {
   colors,
   fontSize,
   radius,
@@ -22,7 +25,9 @@ function SessionLoadingScreen() {
   return (
     <View style={styles.loadingContainer}>
       <View style={styles.logo}>
-        <Text style={styles.logoText}>RC</Text>
+        <Text style={styles.logoText}>
+          RC
+        </Text>
       </View>
 
       <Text style={styles.appName}>
@@ -77,8 +82,10 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="dark" />
-      <RootNavigator />
+      <AppToastProvider>
+        <StatusBar style="dark" />
+        <RootNavigator />
+      </AppToastProvider>
     </AuthProvider>
   );
 }

@@ -3,6 +3,7 @@ export enum UserRole {
   WarehouseWorker = 2,
   Driver = 3,
   Admin = 4,
+  Ram = 5,
 }
 
 export interface LoginRequest {

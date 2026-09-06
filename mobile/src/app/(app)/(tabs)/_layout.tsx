@@ -1,26 +1,46 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
+import { useAuth } from '../../../auth/auth-context';
+import { UserRole } from '../../../auth/auth-types';
 import { colors } from '../../../theme';
 
+const legacyModulesEnabled = false;
+
 export default function MainTabsLayout() {
+  const { session } = useAuth();
+
+  const role = session?.role;
+  const isAdmin = role === UserRole.Admin;
+
+  const canUseAccounts =
+    role === UserRole.Admin ||
+    role === UserRole.Manager ||
+    role === UserRole.Ram ||
+    role === UserRole.Driver;
+
+  const opensAccountsFirst =
+    role === UserRole.Ram ||
+    role === UserRole.Driver;
+
   return (
     <Tabs
+      initialRouteName={
+        opensAccountsFirst
+          ? 'accounts'
+          : 'returns'
+      }
       backBehavior="history"
       screenOptions={{
         headerShown: false,
-
         tabBarActiveTintColor:
           colors.primary,
-
         tabBarInactiveTintColor:
           colors.textLight,
-
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
         },
-
         tabBarStyle: {
           height: 68,
           paddingTop: 7,
@@ -29,61 +49,63 @@ export default function MainTabsLayout() {
           borderTopColor: colors.border,
           backgroundColor: colors.surface,
         },
-
         tabBarHideOnKeyboard: true,
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Ana səhifə',
+      <Tabs.Protected guard={isAdmin}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'İdarəetmə',
+            tabBarIcon: ({
+              color,
+              size,
+              focused,
+            }) => (
+              <Ionicons
+                name={
+                  focused
+                    ? 'shield-checkmark'
+                    : 'shield-checkmark-outline'
+                }
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+      </Tabs.Protected>
 
-          tabBarIcon: ({
-            color,
-            size,
-            focused,
-          }) => (
-            <Ionicons
-              name={
-                focused
-                  ? 'home'
-                  : 'home-outline'
-              }
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="orders"
-        options={{
-          title: 'Qaimələr',
-
-          tabBarIcon: ({
-            color,
-            size,
-            focused,
-          }) => (
-            <Ionicons
-              name={
-                focused
-                  ? 'receipt'
-                  : 'receipt-outline'
-              }
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
+      <Tabs.Protected
+        guard={legacyModulesEnabled}
+      >
+        <Tabs.Screen
+          name="orders"
+          options={{
+            title: 'Qaimələr',
+            tabBarIcon: ({
+              color,
+              size,
+              focused,
+            }) => (
+              <Ionicons
+                name={
+                  focused
+                    ? 'receipt'
+                    : 'receipt-outline'
+                }
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+      </Tabs.Protected>
 
       <Tabs.Screen
         name="returns"
         options={{
           title: 'Vazvrad',
-
           tabBarIcon: ({
             color,
             size,
@@ -102,11 +124,34 @@ export default function MainTabsLayout() {
         }}
       />
 
+      <Tabs.Protected guard={canUseAccounts}>
+        <Tabs.Screen
+          name="accounts"
+          options={{
+            title: 'Açot',
+            tabBarIcon: ({
+              color,
+              size,
+              focused,
+            }) => (
+              <Ionicons
+                name={
+                  focused
+                    ? 'wallet'
+                    : 'wallet-outline'
+                }
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+      </Tabs.Protected>
+
       <Tabs.Screen
         name="search"
         options={{
           title: 'Axtarış',
-
           tabBarIcon: ({
             color,
             size,
@@ -129,7 +174,6 @@ export default function MainTabsLayout() {
         name="profile"
         options={{
           title: 'Hesab',
-
           tabBarIcon: ({
             color,
             size,
