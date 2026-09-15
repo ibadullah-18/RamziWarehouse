@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { AuthSession } from './auth-types';
 
 const AUTH_SESSION_KEY =
-  'ram_collection_auth_session_v1';
+  'grandwall_auth_session_v1';
 
 const secureStoreOptions: SecureStore.SecureStoreOptions =
   {
@@ -81,6 +81,7 @@ export const clearAuthSession =
       AUTH_SESSION_KEY,
       secureStoreOptions,
     );
+
   };
 type SecureStoreOptions =
   Parameters<

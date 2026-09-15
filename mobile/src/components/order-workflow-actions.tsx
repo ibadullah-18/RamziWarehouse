@@ -109,7 +109,7 @@ export function OrderWorkflowActions({
     if (!permission.granted) {
       Alert.alert(
         'Kamera icazəsi lazımdır',
-        'Sübut şəklini çəkmək üçün Ram Collection tətbiqinə kamera icazəsi verin.',
+        'Sübut şəklini çəkmək üçün GrandWall tətbiqinə kamera icazəsi verin.',
       );
 
       return;

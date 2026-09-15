@@ -1,16 +1,19 @@
 {
   "expo": {
-    "name": "Ram Collection",
-    "slug": "ram-collection",
+    "name": "GrandWall",
+    "slug": "grandwall-warehouse",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "ramcollection",
+    "orientation": "default",
+    "icon": "./assets/images/grandwall-icon.png",
+    "scheme": "grandwall",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#F6F2EC",
+    "primaryColor": "#8A632B",
     "ios": {
-      "icon": "./assets/expo.icon",
-      "supportsTablet": false,
-      "bundleIdentifier": "az.ramcollection.warehouse",
+      "icon": "./assets/images/grandwall-icon.png",
+      "supportsTablet": true,
+      "bundleIdentifier": "az.grandwall.warehouse",
+      "buildNumber": "1",
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
           "whatsapp"
@@ -18,34 +21,35 @@
       }
     },
     "android": {
-      "package": "az.ramcollection.warehouse",
+      "package": "az.grandwall.warehouse",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#F4F6FA",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#B1A18B",
+        "foregroundImage": "./assets/images/grandwall-adaptive-foreground.png",
+        "backgroundImage": "./assets/images/grandwall-adaptive-background.png",
+        "monochromeImage": "./assets/images/grandwall-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/grandwall-favicon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Ram Collection sifarişin sübut şəklini çəkmək üçün kameradan istifadə edir.",
+          "cameraPermission": "GrandWall sifarişin sübut şəklini çəkmək üçün kameradan istifadə edir.",
           "microphonePermission": false
         }
       ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F4F6FA",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#F6F2EC",
+          "image": "./assets/images/grandwall-wordmark.png",
+          "imageWidth": 280
         }
       ],
       [

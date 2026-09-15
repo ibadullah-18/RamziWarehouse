@@ -26,7 +26,7 @@ import {
 
 function getInitials(fullName?: string) {
   if (!fullName) {
-    return 'RC';
+    return 'GW';
   }
 
   return fullName
@@ -49,7 +49,7 @@ export default function AdminManagementScreen() {
       >
         <View style={styles.headerText}>
           <Text style={styles.brand}>
-            RAM COLLECTION
+            GRANDWALL
           </Text>
 
           <Text

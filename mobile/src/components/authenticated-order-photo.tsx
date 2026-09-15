@@ -130,7 +130,7 @@ export function AuthenticatedOrderPhoto({
 
         const localFile = new File(
           Paths.cache,
-          `ramzi-${currentPhotoType}` +
+          `grandwall-${currentPhotoType}` +
             `-${currentPhotoId}.${extension}`,
         );
 

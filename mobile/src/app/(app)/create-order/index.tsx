@@ -741,7 +741,7 @@ export default function CreateOrderScreen() {
 
           <View style={styles.headerText}>
             <Text style={styles.headerCaption}>
-              RAM COLLECTION
+              GRANDWALL
             </Text>
 
             <Text style={styles.headerTitle}>

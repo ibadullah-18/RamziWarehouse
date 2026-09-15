@@ -98,7 +98,7 @@ export function createReceiptMessage(
   return [
     `Salam, ${receipt.customerName}.`,
     '',
-    `Ram Collection qaiməsi №${receipt.orderNumber}`,
+    `GrandWall qaiməsi №${receipt.orderNumber}`,
     `Tarix: ${formatDate(receipt.orderDateUtc)}`,
     `Anbar: ${receipt.warehouseName}`,
     `Ümumi məhsul sayı: ${receipt.totalQuantity} ədəd`,
@@ -308,7 +308,7 @@ export function createOrderReceiptHtml(
       <body>
         <main class="receipt">
           <div class="brand">
-            RAM COLLECTION
+            GRANDWALL
           </div>
 
           <div class="subtitle">
@@ -441,7 +441,7 @@ export function createOrderReceiptHtml(
           </div>
 
           <div class="footer">
-            Ram Collection<br />
+            GrandWall<br />
             Qaimə yaradıldı:
             ${formatDateTime(receipt.generatedAtUtc)}
           </div>

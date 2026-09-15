@@ -275,7 +275,7 @@ export default function AttendanceScreen() {
 
           <View style={styles.headerText}>
             <Text style={styles.pageEyebrow}>
-              RAM COLLECTION
+              GRANDWALL
             </Text>
 
             <Text style={styles.pageTitle}>

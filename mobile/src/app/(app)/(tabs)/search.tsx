@@ -640,7 +640,7 @@ export default function SearchScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerCaption}>
-            RAM COLLECTION
+            GRANDWALL
           </Text>
 
           <Text style={styles.headerTitle}>

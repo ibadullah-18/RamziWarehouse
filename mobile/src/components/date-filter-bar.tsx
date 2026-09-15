@@ -1,4 +1,6 @@
-import DateTimePicker from '@expo/ui/community/datetime-picker';
+import {
+  DateTimePicker,
+} from '@expo/ui/community/datetime-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {

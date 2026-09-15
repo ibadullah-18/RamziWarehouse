@@ -23,11 +23,6 @@ import Share, {
     type ShareSingleOptions,
 } from 'react-native-share';
 
-type WhatsAppShareOptions =
-  ShareSingleOptions & {
-    whatsAppNumber: string;
-  };
-
 import {
     getOrderReceipt,
 } from '../../../api/order-receipt-api';
@@ -46,6 +41,11 @@ import {
     radius,
     spacing,
 } from '../../../theme';
+
+type WhatsAppShareOptions =
+  ShareSingleOptions & {
+    whatsAppNumber: string;
+  };
 
 function parseUtcDate(
   value: string,
@@ -354,7 +354,7 @@ await Share.shareSingle(
       >
         <View style={styles.receiptPaper}>
           <Text style={styles.brand}>
-            RAM COLLECTION
+            GRANDWALL
           </Text>
 
           <Text style={styles.receiptTitle}>
@@ -500,7 +500,7 @@ await Share.shareSingle(
           />
 
           <Text style={styles.footer}>
-            Ram Collection
+            GrandWall
           </Text>
         </View>
       </ScrollView>

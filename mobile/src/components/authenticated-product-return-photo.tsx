@@ -103,7 +103,7 @@ export function AuthenticatedProductReturnPhoto({
 
         const localFile = new File(
           Paths.cache,
-          `ramzi-return-${photoId}.${extension}`,
+          `grandwall-return-${photoId}.${extension}`,
         );
 
         if (localFile.exists) {

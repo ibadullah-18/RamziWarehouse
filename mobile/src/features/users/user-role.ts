@@ -32,8 +32,8 @@ export const userRoleOptions: readonly UserRoleOption[] = [
       'Müştəridən alınan ödənişi açot sisteminə qeyd edir.',
   },
   {
-    value: UserRole.Ram,
-    label: 'RAM',
+    value: UserRole.Accountant,
+    label: 'Açot operatoru',
     description:
       'Müştərinin ilk və gündəlik borcunu açot sisteminə yazır.',
   },

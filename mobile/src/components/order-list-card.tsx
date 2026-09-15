@@ -1,21 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-    StyleSheet,
-    Text,
-    View,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 import {
-    getOrderStatusInfo,
+  getOrderStatusInfo,
 } from '../features/orders/order-status';
 import {
-    OrderListItem,
+  OrderListItem,
 } from '../features/orders/order-types';
 import {
-    colors,
-    fontSize,
-    radius,
-    spacing,
+  colors,
+  fontSize,
+  radius,
+  spacing,
 } from '../theme';
 
 interface OrderListCardProps {

@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '../api/auth-api';
 import { useAuth } from '../auth/auth-context';
+import { BrandLogo } from '../components/brand-logo';
 import {
   cardShadow,
   colors,
@@ -124,15 +125,7 @@ export default function LoginScreen() {
                 .springify()}
               style={styles.brandSection}
             >
-              <View style={styles.logo}>
-                <Text style={styles.logoText}>
-                  RC
-                </Text>
-              </View>
-
-              <Text style={styles.appName}>
-                Ram Collection
-              </Text>
+              <BrandLogo width={286} />
 
               <Text style={styles.appDescription}>
                 Anbar idarəetmə sistemi
@@ -354,7 +347,7 @@ export default function LoginScreen() {
           </View>
 
           <Text style={styles.footer}>
-            Ram Collection • Daxili anbar sistemi
+            GrandWall • Daxili anbar sistemi
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -390,34 +383,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxxl,
   },
 
-  logo: {
-    width: 72,
-    height: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-    backgroundColor: colors.primary,
-    marginBottom: spacing.lg,
-  },
-
-  logoText: {
-    color: colors.white,
-    fontSize: 27,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-
-  appName: {
-    color: colors.text,
-    fontSize: fontSize.title,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-
   appDescription: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
 
   loginCard: {

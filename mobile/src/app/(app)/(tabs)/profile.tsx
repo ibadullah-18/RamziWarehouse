@@ -17,29 +17,14 @@ import {
   CustomersButton,
 } from '../../../components/customers-button';
 import {
+  getUserRoleLabel,
+} from '../../../features/users/user-role';
+import {
   colors,
   fontSize,
   radius,
   spacing,
 } from '../../../theme';
-
-const getRoleName = (
-  role: number,
-): string => {
-  switch (role) {
-    case 1:
-      return 'Menecer';
-
-    case 2:
-      return 'Anbar işçisi';
-
-    case 3:
-      return 'Sürücü';
-
-    default:
-      return 'İstifadəçi';
-  }
-};
 
 const getInitials = (
   fullName: string,
@@ -89,7 +74,7 @@ export default function ProfileScreen() {
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
               {getInitials(
-                session?.fullName ?? 'RC',
+                session?.fullName ?? 'GW',
               )}
             </Text>
           </View>
@@ -100,9 +85,11 @@ export default function ProfileScreen() {
 
           <View style={styles.roleBadge}>
             <Text style={styles.roleText}>
-              {getRoleName(
-                session?.role ?? 0,
-              )}
+              {session
+                ? getUserRoleLabel(
+                    session.role,
+                  )
+                : 'İstifadəçi'}
             </Text>
           </View>
         </View>

@@ -1,18 +1,18 @@
 export const colors = {
-  primary: '#244A86',
-  primaryDark: '#17325E',
-  primarySoft: '#EAF0FA',
+  primary: '#8A632B',
+  primaryDark: '#29251F',
+  primarySoft: '#F2E8D9',
 
-  background: '#F4F6FA',
+  background: '#F6F2EC',
   surface: '#FFFFFF',
-  surfaceSecondary: '#F9FAFC',
+  surfaceSecondary: '#FBF8F3',
 
-  text: '#182230',
-  textSecondary: '#667085',
-  textLight: '#98A2B3',
+  text: '#24211D',
+  textSecondary: '#6F675E',
+  textLight: '#9B9185',
 
-  border: '#E1E6ED',
-  inputBorder: '#D7DEE8',
+  border: '#E4DDD3',
+  inputBorder: '#D8CEC1',
 
   success: '#16835D',
   successSoft: '#E8F6F0',
@@ -57,12 +57,6 @@ export const fontSize = {
 } as const;
 
 export const cardShadow = {
-  shadowColor: '#17325E',
-  shadowOffset: {
-    width: 0,
-    height: 8,
-  },
-  shadowOpacity: 0.08,
-  shadowRadius: 18,
-  elevation: 4,
+  boxShadow:
+    '0 8px 18px rgba(41, 37, 31, 0.08)',
 } as const;

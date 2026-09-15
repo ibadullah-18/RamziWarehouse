@@ -3,7 +3,6 @@ import { StatusBar } from 'expo-status-bar';
 import {
   ActivityIndicator,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 
@@ -14,25 +13,16 @@ import {
 import {
   AppToastProvider,
 } from '../components/app-toast';
+import { BrandLogo } from '../components/brand-logo';
 import {
   colors,
-  fontSize,
-  radius,
   spacing,
 } from '../theme';
 
 function SessionLoadingScreen() {
   return (
     <View style={styles.loadingContainer}>
-      <View style={styles.logo}>
-        <Text style={styles.logoText}>
-          RC
-        </Text>
-      </View>
-
-      <Text style={styles.appName}>
-        Ram Collection
-      </Text>
+      <BrandLogo width={240} />
 
       <ActivityIndicator
         size="small"
@@ -96,28 +86,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.background,
-  },
-
-  logo: {
-    width: 66,
-    height: 66,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.xl,
-    backgroundColor: colors.primary,
-  },
-
-  logoText: {
-    color: colors.white,
-    fontSize: fontSize.xl,
-    fontWeight: '800',
-  },
-
-  appName: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '700',
-    marginTop: spacing.lg,
   },
 
   indicator: {

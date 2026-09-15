@@ -308,7 +308,7 @@ export default function OrdersScreen() {
       <View style={styles.header}>
         <View style={styles.headerTextContainer}>
           <Text style={styles.brand}>
-            RAM COLLECTION
+            GRANDWALL
           </Text>
 
           <Text style={styles.title}>

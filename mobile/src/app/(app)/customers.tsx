@@ -172,7 +172,7 @@ export default function CustomersScreen() {
 
           <View style={styles.headerText}>
             <Text style={styles.eyebrow}>
-              RAM COLLECTION
+              GRANDWALL
             </Text>
             <Text style={styles.title}>Müştərilər</Text>
           </View>

@@ -647,7 +647,7 @@ export default function AccountsScreen() {
   const canAddDebt =
     role === UserRole.Admin ||
     role === UserRole.Manager ||
-    role === UserRole.Ram;
+    role === UserRole.Accountant;
   const canPay =
     role === UserRole.Admin ||
     role === UserRole.Manager ||
@@ -804,7 +804,7 @@ export default function AccountsScreen() {
       [
         {
           title: 'Bugünkü borclar',
-          subtitle: 'RAM tərəfindən bu gün yazılanlar',
+          subtitle: 'Açot operatoru tərəfindən bu gün yazılanlar',
           data: accounts.filter(
             (account) => account.todayDebt > 0,
           ),
@@ -1121,7 +1121,7 @@ export default function AccountsScreen() {
         <View style={styles.pageHeader}>
           <View>
             <Text style={styles.brand}>
-              RAM COLLECTION
+              GRANDWALL
             </Text>
             <Text style={styles.pageTitle}>
               Müştəri açotları

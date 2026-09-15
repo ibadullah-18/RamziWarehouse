@@ -16,11 +16,11 @@ export default function MainTabsLayout() {
   const canUseAccounts =
     role === UserRole.Admin ||
     role === UserRole.Manager ||
-    role === UserRole.Ram ||
+    role === UserRole.Accountant ||
     role === UserRole.Driver;
 
   const opensAccountsFirst =
-    role === UserRole.Ram ||
+    role === UserRole.Accountant ||
     role === UserRole.Driver;
 
   return (
