@@ -3,17 +3,17 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
 WORKDIR /src
 
-COPY ["src/RamziWarehouse.Domain/RamziWarehouse.Domain.csproj", "src/RamziWarehouse.Domain/"]
-COPY ["src/RamziWarehouse.Application/RamziWarehouse.Application.csproj", "src/RamziWarehouse.Application/"]
-COPY ["src/RamziWarehouse.Infrastructure/RamziWarehouse.Infrastructure.csproj", "src/RamziWarehouse.Infrastructure/"]
-COPY ["src/RamziWarehouse.Api/RamziWarehouse.Api.csproj", "src/RamziWarehouse.Api/"]
+COPY ["src/GrandWall.Domain/GrandWall.Domain.csproj", "src/GrandWall.Domain/"]
+COPY ["src/GrandWall.Application/GrandWall.Application.csproj", "src/GrandWall.Application/"]
+COPY ["src/GrandWall.Infrastructure/GrandWall.Infrastructure.csproj", "src/GrandWall.Infrastructure/"]
+COPY ["src/GrandWall.Api/GrandWall.Api.csproj", "src/GrandWall.Api/"]
 
-RUN dotnet restore "src/RamziWarehouse.Api/RamziWarehouse.Api.csproj"
+RUN dotnet restore "src/GrandWall.Api/GrandWall.Api.csproj"
 
 FROM restore AS publish
 COPY . .
 
-RUN dotnet publish "src/RamziWarehouse.Api/RamziWarehouse.Api.csproj" \
+RUN dotnet publish "src/GrandWall.Api/GrandWall.Api.csproj" \
     --configuration Release \
     --output /app/publish \
     --no-restore \
@@ -35,4 +35,4 @@ COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .
 
 USER $APP_UID
 
-ENTRYPOINT ["dotnet", "RamziWarehouse.Api.dll"]
+ENTRYPOINT ["dotnet", "GrandWall.Api.dll"]

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GrandWall.Api/GrandWall.Api.csproj" />
+    <Project Path="src/GrandWall.Application/GrandWall.Application.csproj" />
+    <Project Path="src/GrandWall.Domain/GrandWall.Domain.csproj" />
+    <Project Path="src/GrandWall.Infrastructure/GrandWall.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GrandWall.Api.IntegrationTests/GrandWall.Api.IntegrationTests.csproj" />
+    <Project Path="tests/GrandWall.Domain.UnitTests/GrandWall.Domain.UnitTests.csproj" />
+  </Folder>
+</Solution>

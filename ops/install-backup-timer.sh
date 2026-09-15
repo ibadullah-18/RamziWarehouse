@@ -18,8 +18,8 @@ BACKUP_SCRIPT="${PROJECT_ROOT}/ops/backup-database.sh"
 COMPOSE_FILE="${PROJECT_ROOT}/docker-compose.production.yml"
 ENV_FILE="${PROJECT_ROOT}/.env.production"
 
-SERVICE_NAME="ramziwarehouse-backup.service"
-TIMER_NAME="ramziwarehouse-backup.timer"
+SERVICE_NAME="grandwall-backup.service"
+TIMER_NAME="grandwall-backup.timer"
 
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}"
 TIMER_FILE="/etc/systemd/system/${TIMER_NAME}"
@@ -64,7 +64,7 @@ fi
 
 cat > "${SERVICE_FILE}" <<SERVICE
 [Unit]
-Description=RamziWarehouse SQL Server daily backup
+Description=GrandWall SQL Server daily backup
 Requires=docker.service
 After=docker.service network-online.target
 ConditionPathExists=${ENV_FILE}
@@ -86,7 +86,7 @@ SERVICE
 
 cat > "${TIMER_FILE}" <<TIMER
 [Unit]
-Description=Run RamziWarehouse backup every night
+Description=Run GrandWall backup every night
 
 [Timer]
 OnCalendar=*-*-* 02:30:00 Asia/Baku

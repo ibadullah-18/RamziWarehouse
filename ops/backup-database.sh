@@ -11,7 +11,7 @@ COMPOSE_FILE="${PROJECT_ROOT}/docker-compose.production.yml"
 ENV_FILE="${PROJECT_ROOT}/.env.production"
 BACKUP_DIRECTORY="${PROJECT_ROOT}/backups"
 
-DATABASE_NAME="RamziWarehouse"
+DATABASE_NAME="GrandWall"
 SQL_SERVICE_NAME="sqlserver"
 RETENTION_DAYS="${1:-14}"
 
@@ -93,7 +93,7 @@ echo "Database: ${DATABASE_NAME}"
 
 "${COMPOSE_COMMAND[@]}" exec \
     --no-TTY \
-    --env "RAMZI_BACKUP_PATH=${CONTAINER_BACKUP_PATH}" \
+    --env "GRANDWALL_BACKUP_PATH=${CONTAINER_BACKUP_PATH}" \
     "${SQL_SERVICE_NAME}" \
     bash -lc '
         set -Eeuo pipefail
@@ -109,12 +109,12 @@ echo "Database: ${DATABASE_NAME}"
             exit 1
         fi
 
-        mkdir -p "$(dirname "${RAMZI_BACKUP_PATH}")"
+        mkdir -p "$(dirname "${GRANDWALL_BACKUP_PATH}")"
 
         SQL_QUERY="$(
             cat <<SQL
-BACKUP DATABASE [RamziWarehouse]
-TO DISK = N'${RAMZI_BACKUP_PATH}'
+BACKUP DATABASE [GrandWall]
+TO DISK = N'${GRANDWALL_BACKUP_PATH}'
 WITH
     COPY_ONLY,
     INIT,
@@ -122,7 +122,7 @@ WITH
     STATS = 10;
 
 RESTORE VERIFYONLY
-FROM DISK = N'${RAMZI_BACKUP_PATH}'
+FROM DISK = N'${GRANDWALL_BACKUP_PATH}'
 WITH CHECKSUM;
 SQL
         )"

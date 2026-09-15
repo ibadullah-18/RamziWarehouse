@@ -11,7 +11,7 @@ COMPOSE_FILE="${PROJECT_ROOT}/docker-compose.production.yml"
 ENV_FILE="${PROJECT_ROOT}/.env.production"
 BACKUP_DIRECTORY="${PROJECT_ROOT}/backups"
 
-DATABASE_NAME="RamziWarehouse"
+DATABASE_NAME="GrandWall"
 SQL_SERVICE_NAME="sqlserver"
 API_SERVICE_NAME="api"
 
@@ -125,7 +125,7 @@ run_sql_query() {
     local sql_query="$1"
 
     docker exec \
-        --env "RAMZI_SQL_QUERY=${sql_query}" \
+        --env "GRANDWALL_SQL_QUERY=${sql_query}" \
         "${SQL_CONTAINER_ID}" \
         bash -lc '
             set -Eeuo pipefail
@@ -147,7 +147,7 @@ run_sql_query() {
                 -P "${MSSQL_SA_PASSWORD}" \
                 -C \
                 -b \
-                -Q "${RAMZI_SQL_QUERY}"
+                -Q "${GRANDWALL_SQL_QUERY}"
         '
 }
 
@@ -245,10 +245,10 @@ echo "əlavə təhlükəsizlik backup-u yaradılacaq."
 echo
 
 read -r -p \
-    "Davam etmək üçün RESTORE RamziWarehouse yazın: " \
+    "Davam etmək üçün RESTORE GrandWall yazın: " \
     CONFIRMATION
 
-if [[ "${CONFIRMATION}" != "RESTORE RamziWarehouse" ]]; then
+if [[ "${CONFIRMATION}" != "RESTORE GrandWall" ]]; then
     echo "Restore ləğv edildi."
     exit 0
 fi
