@@ -1,4 +1,4 @@
-name: GrandWall CI
+name: GrandWall CI/CD
 
 on:
   push:
@@ -112,3 +112,101 @@ jobs:
           --file backend/Dockerfile
           --tag grandwall-api:ci
           backend
+
+  deploy:
+    name: Deploy GrandWall to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    needs:
+      - docker
+
+    # Pull request zamanı serverə deploy ETMƏ.
+    # Yalnız main branch-ə real push zamanı deploy et.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -e
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/grandwall_deploy_key
+          chmod 600 ~/.ssh/grandwall_deploy_key
+
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Update and deploy production server
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -e
+
+          ssh \
+            -i ~/.ssh/grandwall_deploy_key \
+            "$VPS_USER@$VPS_HOST" \
+            'bash -se' <<'REMOTE'
+          set -Eeuo pipefail
+
+          cd /home/administrator/RamziWarehouse
+
+          echo "=== GrandWall deployment started ==="
+
+          echo "Current commit:"
+          git log -1 --oneline
+
+          # Serverdə yalnız ops fayllarında lokal dəyişiklik varsa
+          # onları müvəqqəti saxla.
+          if ! git diff --quiet -- \
+            ops/backup-database.sh \
+            ops/deploy-production.sh; then
+
+            echo "Server-local ops changes detected. Stashing..."
+
+            git stash push \
+              -m "github-actions-auto-stash" \
+              -- \
+              ops/backup-database.sh \
+              ops/deploy-production.sh
+          fi
+
+          echo "Fetching origin/main..."
+          git fetch origin main
+
+          echo "Updating server repository..."
+          git checkout main
+          git merge --ff-only origin/main
+
+          echo "New commit:"
+          git log -1 --oneline
+
+          echo "Starting production deployment..."
+          bash ops/deploy-production.sh
+
+          echo "=== GrandWall deployment completed ==="
+          REMOTE
+
+      - name: Verify production API
+        run: |
+          set -e
+
+          echo "Checking GrandWall API..."
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-delay 3 \
+            https://api.grandwall.az/api/app-version/android
+
+          echo
+          echo "GrandWall production API is reachable."
