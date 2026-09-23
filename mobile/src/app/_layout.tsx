@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+﻿import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   ActivityIndicator,
@@ -14,6 +14,7 @@ import {
   AppToastProvider,
 } from '../components/app-toast';
 import { BrandLogo } from '../components/brand-logo';
+import { AppUpdateGate } from '../components/app-update-gate';
 import {
   colors,
   spacing,
@@ -75,6 +76,7 @@ export default function RootLayout() {
       <AppToastProvider>
         <StatusBar style="dark" />
         <RootNavigator />
+        <AppUpdateGate />
       </AppToastProvider>
     </AuthProvider>
   );
@@ -92,3 +94,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
 });
+
