@@ -1,4 +1,4 @@
-name: GrandWall CI/CD
+﻿name: GrandWall CI/CD
 
 on:
   push:
@@ -19,10 +19,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Detect changed areas
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'ops/**'
+              - 'docker-compose.production.yml'
+            mobile:
+              - 'mobile/**'
+
   backend:
     name: Backend build and tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    needs:
+      - changes
+
+    if: >
+      needs.changes.outputs.backend == 'true' ||
+      github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout repository
@@ -66,6 +97,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    needs:
+      - changes
+
+    if: >
+      needs.changes.outputs.mobile == 'true' ||
+      github.event_name == 'workflow_dispatch'
+
     defaults:
       run:
         working-directory: mobile
@@ -99,8 +137,16 @@ jobs:
     timeout-minutes: 20
 
     needs:
+      - changes
       - backend
-      - mobile
+
+    if: >
+      always() &&
+      (
+        needs.changes.outputs.backend == 'true' ||
+        github.event_name == 'workflow_dispatch'
+      ) &&
+      needs.backend.result == 'success'
 
     steps:
       - name: Checkout repository
@@ -119,11 +165,18 @@ jobs:
     timeout-minutes: 30
 
     needs:
+      - changes
       - docker
 
-    # Pull request zamanı serverə deploy ETMƏ.
-    # Yalnız main branch-ə real push zamanı deploy et.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >
+      always() &&
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main' &&
+      (
+        needs.changes.outputs.backend == 'true' ||
+        github.event_name == 'workflow_dispatch'
+      ) &&
+      needs.docker.result == 'success'
 
     steps:
       - name: Configure SSH
@@ -132,7 +185,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
-          set -e
+          set -Eeuo pipefail
 
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -148,7 +201,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          set -e
+          set -Eeuo pipefail
 
           ssh \
             -i ~/.ssh/grandwall_deploy_key \
@@ -163,8 +216,6 @@ jobs:
           echo "Current commit:"
           git log -1 --oneline
 
-          # Serverdə yalnız ops fayllarında lokal dəyişiklik varsa
-          # onları müvəqqəti saxla.
           if ! git diff --quiet -- \
             ops/backup-database.sh \
             ops/deploy-production.sh; then
@@ -196,9 +247,7 @@ jobs:
 
       - name: Verify production API
         run: |
-          set -e
-
-          echo "Checking GrandWall API..."
+          set -Eeuo pipefail
 
           curl \
             --fail \
@@ -209,4 +258,276 @@ jobs:
             https://api.grandwall.az/api/app-version/android
 
           echo
-          echo "GrandWall production API is reachable."
+
+  mobile-release:
+    name: Build and publish Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    needs:
+      - changes
+      - mobile
+      - deploy
+
+    if: >
+      always() &&
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main' &&
+      (
+        needs.changes.outputs.mobile == 'true' ||
+        github.event_name == 'workflow_dispatch'
+      ) &&
+      needs.mobile.result == 'success' &&
+      (
+        needs.deploy.result == 'success' ||
+        needs.deploy.result == 'skipped'
+      )
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile packages
+        run: npm ci
+
+      - name: Build Android APK with EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+
+          npx eas-cli@latest build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --wait \
+            --json > eas-build.json
+
+          test -s eas-build.json
+
+      - name: Read EAS build information
+        id: eas
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+
+          const raw = JSON.parse(
+            fs.readFileSync("eas-build.json", "utf8")
+          );
+
+          const build = Array.isArray(raw) ? raw[0] : raw;
+
+          const url =
+            build.artifacts?.buildUrl ??
+            build.artifacts?.applicationArchiveUrl;
+
+          const version =
+            build.appVersion ??
+            build.version ??
+            "1.0.0";
+
+          const versionCode =
+            build.appBuildVersion ??
+            build.versionCode;
+
+          if (!url) {
+            throw new Error("APK URL tapılmadı.");
+          }
+
+          if (!versionCode) {
+            throw new Error("Android versionCode tapılmadı.");
+          }
+
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `url=${url}\n`
+          );
+
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `version=${version}\n`
+          );
+
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `version_code=${versionCode}\n`
+          );
+
+          console.log(`Version: ${version}`);
+          console.log(`VersionCode: ${versionCode}`);
+          NODE
+
+      - name: Download APK
+        env:
+          APK_URL: ${{ steps.eas.outputs.url }}
+        run: |
+          set -Eeuo pipefail
+
+          curl \
+            --fail \
+            --location \
+            --retry 5 \
+            --retry-delay 3 \
+            --output grandwall.apk \
+            "$APK_URL"
+
+          test -s grandwall.apk
+
+          echo "Downloaded APK:"
+          ls -lh grandwall.apk
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -Eeuo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$VPS_SSH_KEY" \
+            > ~/.ssh/grandwall_release_key
+
+          chmod 600 ~/.ssh/grandwall_release_key
+
+          ssh-keyscan -H "$VPS_HOST" \
+            >> ~/.ssh/known_hosts
+
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Upload APK to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -Eeuo pipefail
+
+          scp \
+            -i ~/.ssh/grandwall_release_key \
+            grandwall.apk \
+            "$VPS_USER@$VPS_HOST:/tmp/grandwall-new.apk"
+
+      - name: Publish Android release
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VERSION: ${{ steps.eas.outputs.version }}
+          VERSION_CODE: ${{ steps.eas.outputs.version_code }}
+        run: |
+          set -Eeuo pipefail
+
+          ssh \
+            -i ~/.ssh/grandwall_release_key \
+            "$VPS_USER@$VPS_HOST" \
+            "VERSION='$VERSION' VERSION_CODE='$VERSION_CODE' bash -se" <<'REMOTE'
+          set -Eeuo pipefail
+
+          APK_DIRECTORY="/var/www/grandwall-downloads"
+          RELEASE_DIRECTORY="/home/administrator/RamziWarehouse/releases"
+
+          echo "=== Publishing GrandWall Android ==="
+          echo "Version: ${VERSION}"
+          echo "VersionCode: ${VERSION_CODE}"
+
+          test -s /tmp/grandwall-new.apk
+
+          sudo mkdir -p "$APK_DIRECTORY"
+          mkdir -p "$RELEASE_DIRECTORY"
+
+          sudo cp \
+            /tmp/grandwall-new.apk \
+            "$APK_DIRECTORY/grandwall.apk.new"
+
+          sudo chmod 644 \
+            "$APK_DIRECTORY/grandwall.apk.new"
+
+          if [[ -f "$APK_DIRECTORY/grandwall.apk" ]]; then
+            sudo cp \
+              "$APK_DIRECTORY/grandwall.apk" \
+              "$APK_DIRECTORY/grandwall-old.apk"
+          fi
+
+          sudo mv \
+            "$APK_DIRECTORY/grandwall.apk.new" \
+            "$APK_DIRECTORY/grandwall.apk"
+
+          rm -f /tmp/grandwall-new.apk
+
+          cat > "$RELEASE_DIRECTORY/android.json.tmp" <<JSON
+          {
+            "latestVersion": "${VERSION}",
+            "latestVersionCode": ${VERSION_CODE},
+            "minimumVersionCode": 2,
+            "forceUpdate": false,
+            "downloadUrl": "https://grandwall.az/?mode=update",
+            "releaseNotes": [
+              "GrandWall tətbiqinin yeni versiyası mövcuddur."
+            ]
+          }
+          JSON
+
+          mv \
+            "$RELEASE_DIRECTORY/android.json.tmp" \
+            "$RELEASE_DIRECTORY/android.json"
+
+          chmod 644 \
+            "$RELEASE_DIRECTORY/android.json"
+
+          echo
+          echo "APK:"
+          ls -lh "$APK_DIRECTORY/grandwall.apk"
+
+          echo
+          echo "Release metadata:"
+          cat "$RELEASE_DIRECTORY/android.json"
+
+          echo
+          echo "=== Android release published ==="
+          REMOTE
+
+      - name: Verify published release
+        env:
+          VERSION_CODE: ${{ steps.eas.outputs.version_code }}
+        run: |
+          set -Eeuo pipefail
+
+          sleep 5
+
+          RESPONSE="$(
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              --retry 5 \
+              --retry-delay 3 \
+              https://api.grandwall.az/api/app-version/android
+          )"
+
+          echo "$RESPONSE"
+
+          echo "$RESPONSE" |
+            jq -e \
+              --argjson code "$VERSION_CODE" \
+              '.latestVersionCode == $code'
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --head \
+            https://grandwall.az/download/grandwall.apk
+
+          echo
+          echo "GrandWall Android release verified."
