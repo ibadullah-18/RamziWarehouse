@@ -90,29 +90,36 @@ trap cleanup_container_backup EXIT
 
 echo "Database backup başlanır..."
 echo "Database: ${DATABASE_NAME}"
+echo "Container backup yolu: ${CONTAINER_BACKUP_PATH}"
 
 "${COMPOSE_COMMAND[@]}" exec \
     --no-TTY \
-    --env "GRANDWALL_BACKUP_PATH=${CONTAINER_BACKUP_PATH}" \
     "${SQL_SERVICE_NAME}" \
-    bash -lc '
-        set -Eeuo pipefail
+    bash -s -- "${CONTAINER_BACKUP_PATH}" <<'CONTAINER_SCRIPT'
+set -Eeuo pipefail
 
-        SQLCMD="/opt/mssql-tools18/bin/sqlcmd"
+GRANDWALL_BACKUP_PATH="${1:?Backup yolu ötürülməyib.}"
 
-        if [[ ! -x "${SQLCMD}" ]]; then
-            SQLCMD="/opt/mssql-tools/bin/sqlcmd"
-        fi
+SQLCMD="/opt/mssql-tools18/bin/sqlcmd"
 
-        if [[ ! -x "${SQLCMD}" ]]; then
-            echo "Xəta: sqlcmd tapılmadı."
-            exit 1
-        fi
+if [[ ! -x "${SQLCMD}" ]]; then
+    SQLCMD="/opt/mssql-tools/bin/sqlcmd"
+fi
 
-        mkdir -p "$(dirname "${GRANDWALL_BACKUP_PATH}")"
+if [[ ! -x "${SQLCMD}" ]]; then
+    echo "Xəta: sqlcmd tapılmadı."
+    exit 1
+fi
 
-        SQL_QUERY="$(
-            cat <<SQL
+if [[ -z "${MSSQL_SA_PASSWORD:-}" ]]; then
+    echo "Xəta: MSSQL_SA_PASSWORD konteynerdə təyin edilməyib."
+    exit 1
+fi
+
+mkdir -p "$(dirname "${GRANDWALL_BACKUP_PATH}")"
+
+SQL_QUERY="$(
+    cat <<SQL
 BACKUP DATABASE [GrandWall]
 TO DISK = N'${GRANDWALL_BACKUP_PATH}'
 WITH
@@ -125,16 +132,16 @@ RESTORE VERIFYONLY
 FROM DISK = N'${GRANDWALL_BACKUP_PATH}'
 WITH CHECKSUM;
 SQL
-        )"
+)"
 
-        "${SQLCMD}" \
-            -S localhost \
-            -U sa \
-            -P "${MSSQL_SA_PASSWORD}" \
-            -C \
-            -b \
-            -Q "${SQL_QUERY}"
-    '
+"${SQLCMD}" \
+    -S localhost \
+    -U sa \
+    -P "${MSSQL_SA_PASSWORD}" \
+    -C \
+    -b \
+    -Q "${SQL_QUERY}"
+CONTAINER_SCRIPT
 
 echo "Backup konteynerdən çıxarılır..."
 
