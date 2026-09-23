@@ -80,6 +80,9 @@ services:
       "Logging__LogLevel__Microsoft.AspNetCore": "Warning"
       "Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command": "Warning"
 
+    volumes:
+      - ./releases:/app/data/releases:ro
+
     ports:
       - "127.0.0.1:8080:8080"
     networks:

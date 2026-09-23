@@ -494,3 +494,8 @@ $RECYCLE.BIN/
 .env.production
 /backups/*
 !/backups/.gitkeep
+
+# GrandWall Android release metadata directory
+![Rr]eleases/
+[Rr]eleases/*
+![Rr]eleases/.gitkeep
