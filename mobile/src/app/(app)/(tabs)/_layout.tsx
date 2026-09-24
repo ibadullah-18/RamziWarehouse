@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../../auth/auth-context';
 import { UserRole } from '../../../auth/auth-types';
@@ -194,3 +195,4 @@ export default function MainTabsLayout() {
     </Tabs>
   );
 }
+
