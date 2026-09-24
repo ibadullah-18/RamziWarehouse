@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ const legacyModulesEnabled = false;
 
 export default function MainTabsLayout() {
   const { session } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const role = session?.role;
   const isAdmin = role === UserRole.Admin;
@@ -43,9 +44,9 @@ export default function MainTabsLayout() {
           fontWeight: '600',
         },
         tabBarStyle: {
-          height: 68,
+          height: 64 + Math.max(insets.bottom, 10),
           paddingTop: 7,
-          paddingBottom: 7,
+          paddingBottom: Math.max(insets.bottom, 10),
           borderTopWidth: 1,
           borderTopColor: colors.border,
           backgroundColor: colors.surface,
@@ -195,4 +196,5 @@ export default function MainTabsLayout() {
     </Tabs>
   );
 }
+
 

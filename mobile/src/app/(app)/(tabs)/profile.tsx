@@ -1,13 +1,18 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { useAuth } from '../../../auth/auth-context';
 import {
@@ -40,11 +45,30 @@ const getInitials = (
     .join('');
 };
 
+function getAppVersion(): string {
+  const version =
+    Constants.nativeAppVersion ??
+    Constants.expoConfig?.version ??
+    '—';
+
+  const build =
+    Constants.nativeBuildVersion ??
+    Constants.expoConfig?.android?.versionCode;
+
+  if (!build) {
+    return version;
+  }
+
+  return `${version} (${build})`;
+}
+
 export default function ProfileScreen() {
   const {
     session,
     signOut,
   } = useAuth();
+
+  const insets = useSafeAreaInsets();
 
   const [isSigningOut, setIsSigningOut] =
     useState(false);
@@ -64,8 +88,22 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top', 'left', 'right']}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.container,
+          {
+            paddingBottom:
+              Math.max(insets.bottom, 12) +
+              spacing.xxl,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.pageTitle}>
           Hesab
         </Text>
@@ -136,11 +174,34 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.detailRow}>
+            <View style={styles.detailIcon}>
+              <Ionicons
+                name="phone-portrait-outline"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+
+            <View style={styles.detailContent}>
+              <Text style={styles.detailLabel}>
+                Tətbiq versiyası
+              </Text>
+
+              <Text style={styles.detailValue}>
+                {getAppVersion()}
+              </Text>
+            </View>
+          </View>
         </View>
 
         <AdminUsersButton />
-        
+
         <CustomersButton />
+
         <Pressable
           disabled={isSigningOut}
           onPress={() => {
@@ -171,7 +232,7 @@ export default function ProfileScreen() {
               : 'Hesabdan çıx'}
           </Text>
         </Pressable>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -182,9 +243,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  container: {
+  scrollView: {
     flex: 1,
-    padding: spacing.xl,
+  },
+
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
   },
 
   pageTitle: {
@@ -230,8 +296,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.round,
-    backgroundColor:
-      colors.primarySoft,
+    backgroundColor: colors.primarySoft,
     marginTop: spacing.md,
   },
 
@@ -262,8 +327,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
-    backgroundColor:
-      colors.primarySoft,
+    backgroundColor: colors.primarySoft,
   },
 
   detailContent: {
@@ -297,7 +361,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.danger,
     borderRadius: radius.md,
-    marginTop: 'auto',
+    marginTop: spacing.xl,
   },
 
   logoutButtonPressed: {
