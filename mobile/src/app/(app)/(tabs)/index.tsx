@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import {
   router,
   type Href,
@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useAuth } from '../../../auth/auth-context';
+import { AppUpdateBanner } from '../../../components/app-update-banner';
 import { QuickActionCard } from '../../../components/quick-action-card';
 import { ScreenContainer } from '../../../components/screen-container';
 import { SectionHeader } from '../../../components/section-header';
@@ -70,6 +71,8 @@ export default function AdminManagementScreen() {
           </Text>
         </View>
       </Animated.View>
+
+      <AppUpdateBanner />
 
       <Animated.View
         entering={FadeInDown

@@ -26,9 +26,12 @@ export function getInstalledVersionCode(): number {
     return 0;
   }
 
+  // Native build nömrəsi həmişə birinci götürülür.
+  // EAS autoIncrement istifadə etdiyinə görə app.json-dakı
+  // versionCode quraşdırılmış APK/AAB ilə eyni olmaya bilər.
   const value =
-    Constants.expoConfig?.android?.versionCode ??
-    Constants.nativeBuildVersion;
+    Constants.nativeBuildVersion ??
+    Constants.expoConfig?.android?.versionCode;
 
   const parsed = Number(value);
 
@@ -66,3 +69,4 @@ export async function openAppUpdate(
 
   await Linking.openURL(downloadUrl);
 }
+

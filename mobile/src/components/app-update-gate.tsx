@@ -81,13 +81,10 @@ export function AppUpdateGate() {
     return null;
   }
 
-  const installedVersionCode =
-    getInstalledVersionCode();
-
-  const isForced =
-    versionInfo.forceUpdate ||
-    installedVersionCode <
-      versionInfo.minimumVersionCode;
+  // GrandWall yeniləmələri istifadəçini bloklamır.
+  // Yeni versiya barədə məlumat verilir,
+  // amma tətbiqdən istifadə etməyə davam etmək mümkündür.
+  const isForced = false;
 
   return (
     <Modal
@@ -285,3 +282,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+
