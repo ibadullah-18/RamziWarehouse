@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import {
   useCallback,
   useEffect,
@@ -37,6 +37,7 @@ import {
   CustomerAccountDetails,
   CustomerAccountEntryType,
   CustomerAccountSummary,
+  CustomerDeferredDebt,
 } from '../../../features/customer-accounts/customer-account-types';
 import { useResponsiveLayout } from '../../../hooks/use-responsive-layout';
 import {
@@ -249,6 +250,70 @@ function CustomerCard({
   );
 }
 
+
+type DeferredDebtCardProps = {
+  debt: CustomerDeferredDebt;
+};
+
+function DeferredDebtCard({
+  debt,
+}: DeferredDebtCardProps) {
+  return (
+    <View style={styles.deferredDebtCard}>
+      <View style={styles.deferredDebtHeader}>
+        <View>
+          <Text style={styles.deferredDebtDate}>
+            {debt.isOpeningBalance
+              ? 'Köhnə borc'
+              : formatDate(debt.businessDate)}
+          </Text>
+
+          <Text style={styles.deferredDebtCaption}>
+            {debt.isOpeningBalance
+              ? 'İlkin açot qalığı'
+              : 'Günlük borcdan qalan'}
+          </Text>
+        </View>
+
+        <Text style={styles.deferredDebtRemaining}>
+          {formatMoney(debt.remainingAmount)}
+        </Text>
+      </View>
+
+      <View style={styles.deferredDebtStats}>
+        <View style={styles.deferredDebtStat}>
+          <Text style={styles.deferredDebtStatLabel}>
+            Yaradılıb
+          </Text>
+
+          <Text style={styles.deferredDebtStatValue}>
+            {formatMoney(debt.originalAmount)}
+          </Text>
+        </View>
+
+        <View style={styles.deferredDebtStat}>
+          <Text style={styles.deferredDebtStatLabel}>
+            Ödənilib
+          </Text>
+
+          <Text style={styles.deferredDebtPaid}>
+            {formatMoney(debt.paidAmount)}
+          </Text>
+        </View>
+
+        <View style={styles.deferredDebtStat}>
+          <Text style={styles.deferredDebtStatLabel}>
+            Qalıb
+          </Text>
+
+          <Text style={styles.deferredDebtDanger}>
+            {formatMoney(debt.remainingAmount)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
 function HistoryDay({
   day,
 }: {
@@ -581,6 +646,50 @@ function AccountDetailsContent({
         </View>
       )}
 
+      {details.deferredDebts.length > 0 ? (
+        <>
+          <View style={styles.historyTitleRow}>
+            <View>
+              <Text style={styles.historyTitle}>
+                Açot təxir
+              </Text>
+
+              <Text style={styles.deferredSectionSubtitle}>
+                Tam bağlanmamış günlük və köhnə borclar
+              </Text>
+            </View>
+
+            <Text style={styles.historyCount}>
+              {details.deferredDebts.length} borc
+            </Text>
+          </View>
+
+          {details.deferredDebts.map((debt) => (
+            <DeferredDebtCard
+              key={`${debt.businessDate}-${debt.isOpeningBalance}`}
+              debt={debt}
+            />
+          ))}
+        </>
+      ) : (
+        <View style={styles.deferredEmptyCard}>
+          <Ionicons
+            name="checkmark-circle-outline"
+            size={22}
+            color={colors.success}
+          />
+
+          <View style={styles.deferredEmptyContent}>
+            <Text style={styles.deferredEmptyTitle}>
+              Açot təxir yoxdur
+            </Text>
+
+            <Text style={styles.deferredEmptyText}>
+              Bu müştərinin əvvəlki günlərdən qalan borcu yoxdur.
+            </Text>
+          </View>
+        </View>
+      )}
       <View style={styles.historyTitleRow}>
         <Text style={styles.historyTitle}>
           Əməliyyat tarixçəsi
@@ -1494,6 +1603,111 @@ export default function AccountsScreen() {
 }
 
 const styles = StyleSheet.create({
+  deferredSectionSubtitle: {
+    marginTop: 4,
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+  },
+
+  deferredEmptyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+  },
+
+  deferredEmptyContent: {
+    flex: 1,
+  },
+
+  deferredEmptyTitle: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+
+  deferredEmptyText: {
+    marginTop: 3,
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    lineHeight: 17,
+  },
+  deferredDebtCard: {
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+  },
+
+  deferredDebtHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+
+  deferredDebtDate: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+
+  deferredDebtCaption: {
+    marginTop: 4,
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+  },
+
+  deferredDebtRemaining: {
+    color: colors.danger,
+    fontSize: fontSize.lg,
+    fontWeight: '800',
+  },
+
+  deferredDebtStats: {
+    flexDirection: 'row',
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+
+  deferredDebtStat: {
+    flex: 1,
+  },
+
+  deferredDebtStatLabel: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    marginBottom: 4,
+  },
+
+  deferredDebtStatValue: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+
+  deferredDebtPaid: {
+    color: colors.success,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+
+  deferredDebtDanger: {
+    color: colors.danger,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -2254,3 +2468,6 @@ const styles = StyleSheet.create({
     opacity: 0.68,
   },
 });
+
+
+

@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using Microsoft.EntityFrameworkCore;
 using GrandWall.Application.Abstractions.CustomerAccounts;
 using GrandWall.Application.Abstractions.Identity;
@@ -142,26 +142,26 @@ public sealed class CustomerAccountService : ICustomerAccountService
                     entry.EntryType == CustomerAccountEntryType.Payment &&
                     entry.BusinessDate == businessDate)
                 .Sum(entry => entry.Amount);
-
-            // Payments are allocated to the oldest debt first.
-            var paidFromPreviousDebt = Math.Min(
-                todayPayment,
-                Math.Max(previousDebt, 0));
-
-            var previousDebtRemaining = Math.Max(
-                previousDebt - paidFromPreviousDebt,
-                0);
-
-            var paymentAfterPreviousDebt = Math.Max(
-                todayPayment - paidFromPreviousDebt,
-                0);
-
+            // Ödəniş əvvəlcə bugünkü borcu bağlayır.
+            // Artıq qalan məbləğ köhnə borca yönəldilir.
             var paidFromTodayDebt = Math.Min(
-                paymentAfterPreviousDebt,
+                todayPayment,
                 Math.Max(todayDebt, 0));
 
             var todayDebtRemaining = Math.Max(
                 todayDebt - paidFromTodayDebt,
+                0);
+
+            var paymentAfterTodayDebt = Math.Max(
+                todayPayment - paidFromTodayDebt,
+                0);
+
+            var paidFromPreviousDebt = Math.Min(
+                paymentAfterTodayDebt,
+                Math.Max(previousDebt, 0));
+
+            var previousDebtRemaining = Math.Max(
+                previousDebt - paidFromPreviousDebt,
                 0);
 
             summaries.Add(new CustomerAccountSummaryDto
@@ -303,6 +303,7 @@ public sealed class CustomerAccountService : ICustomerAccountService
             TotalDebt = totalDebt,
             TotalPaid = totalPaid,
             RemainingDebt = totalDebt - totalPaid,
+            DeferredDebts = BuildDeferredDebts(entryDtos),
             Days = days.OrderByDescending(day => day.BusinessDate).ToList()
         };
     }
@@ -589,6 +590,151 @@ public sealed class CustomerAccountService : ICustomerAccountService
         return await GetByCustomerIdAsync(request.CustomerId, cancellationToken);
     }
 
+    private static IReadOnlyList<CustomerDeferredDebtDto> BuildDeferredDebts(
+        IReadOnlyList<CustomerAccountEntryDto> entries)
+    {
+        var debtBuckets = new List<DeferredDebtBucket>();
+
+        foreach (var entry in entries
+            .OrderBy(entry => entry.BusinessDate)
+            .ThenBy(entry => entry.CreatedAtUtc))
+        {
+            switch (entry.EntryType)
+            {
+                case CustomerAccountEntryType.OpeningBalance:
+                    if (entry.Amount > 0)
+                    {
+                        debtBuckets.Add(new DeferredDebtBucket
+                        {
+                            BusinessDate = entry.BusinessDate,
+                            OriginalAmount = entry.Amount,
+                            RemainingAmount = entry.Amount,
+                            IsOpeningBalance = true
+                        });
+                    }
+
+                    break;
+
+                case CustomerAccountEntryType.Debt:
+                case CustomerAccountEntryType.AdjustmentIncrease:
+                    if (entry.Amount > 0)
+                    {
+                        debtBuckets.Add(new DeferredDebtBucket
+                        {
+                            BusinessDate = entry.BusinessDate,
+                            OriginalAmount = entry.Amount,
+                            RemainingAmount = entry.Amount,
+                            IsOpeningBalance = false
+                        });
+                    }
+
+                    break;
+
+                case CustomerAccountEntryType.Payment:
+                    ApplyPaymentToDebt(
+                        debtBuckets,
+                        entry.Amount,
+                        entry.BusinessDate);
+                    break;
+
+                case CustomerAccountEntryType.AdjustmentDecrease:
+                    ApplyAmountToOldestDebt(
+                        debtBuckets,
+                        entry.Amount);
+                    break;
+            }
+        }
+
+        return debtBuckets
+            .Where(bucket => bucket.RemainingAmount > 0)
+            .OrderBy(bucket => bucket.BusinessDate)
+            .Select(bucket => new CustomerDeferredDebtDto
+            {
+                BusinessDate = bucket.BusinessDate,
+                OriginalAmount = bucket.OriginalAmount,
+                PaidAmount =
+                    bucket.OriginalAmount -
+                    bucket.RemainingAmount,
+                RemainingAmount = bucket.RemainingAmount,
+                IsOpeningBalance = bucket.IsOpeningBalance
+            })
+            .ToList();
+    }
+
+    private static void ApplyPaymentToDebt(
+        List<DeferredDebtBucket> debtBuckets,
+        decimal amount,
+        DateOnly paymentDate)
+    {
+        var remainingAmount = amount;
+
+        // 1. Ödəniş əvvəlcə həmin gün yaranmış
+        // günlük borca tətbiq olunur.
+        foreach (var bucket in debtBuckets
+            .Where(bucket =>
+                !bucket.IsOpeningBalance &&
+                bucket.BusinessDate == paymentDate &&
+                bucket.RemainingAmount > 0))
+        {
+            if (remainingAmount <= 0)
+            {
+                break;
+            }
+
+            var appliedAmount = Math.Min(
+                bucket.RemainingAmount,
+                remainingAmount);
+
+            bucket.RemainingAmount -= appliedAmount;
+            remainingAmount -= appliedAmount;
+        }
+
+        // 2. Günlük borcdan artıq qalan ödəniş
+        // əvvəlki borclara tətbiq olunur.
+        if (remainingAmount > 0)
+        {
+            ApplyAmountToOldestDebt(
+                debtBuckets,
+                remainingAmount);
+        }
+    }
+    private static void ApplyAmountToOldestDebt(
+        List<DeferredDebtBucket> debtBuckets,
+        decimal amount)
+    {
+        var remainingAmount = amount;
+
+        foreach (var bucket in debtBuckets)
+        {
+            if (remainingAmount <= 0)
+            {
+                break;
+            }
+
+            if (bucket.RemainingAmount <= 0)
+            {
+                continue;
+            }
+
+            var appliedAmount = Math.Min(
+                bucket.RemainingAmount,
+                remainingAmount);
+
+            bucket.RemainingAmount -= appliedAmount;
+            remainingAmount -= appliedAmount;
+        }
+    }
+
+    private sealed class DeferredDebtBucket
+    {
+        public DateOnly BusinessDate { get; init; }
+
+        public decimal OriginalAmount { get; init; }
+
+        public decimal RemainingAmount { get; set; }
+
+        public bool IsOpeningBalance { get; init; }
+    }
     private async Task<decimal> GetRemainingDebtAsync(
         Guid customerId,
         CancellationToken cancellationToken)
@@ -695,3 +841,9 @@ public sealed class CustomerAccountService : ICustomerAccountService
         };
     }
 }
+
+
+
+
+
+

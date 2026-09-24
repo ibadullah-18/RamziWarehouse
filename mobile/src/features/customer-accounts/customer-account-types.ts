@@ -1,4 +1,4 @@
-import { UserRole } from '../../auth/auth-types';
+﻿import { UserRole } from '../../auth/auth-types';
 
 export enum CustomerAccountEntryType {
   OpeningBalance = 1,
@@ -81,6 +81,13 @@ export type CustomerAccountDay = {
   entries: CustomerAccountEntry[];
 };
 
+export type CustomerDeferredDebt = {
+  businessDate: string;
+  originalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  isOpeningBalance: boolean;
+};
 export type CustomerAccountDetails = {
   customerId: string;
   customerName: string;
@@ -91,5 +98,6 @@ export type CustomerAccountDetails = {
   totalDebt: number;
   totalPaid: number;
   remainingDebt: number;
+  deferredDebts: CustomerDeferredDebt[];
   days: CustomerAccountDay[];
 };

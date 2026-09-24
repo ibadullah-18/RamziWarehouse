@@ -1,4 +1,4 @@
-using GrandWall.Domain.Enums;
+﻿using GrandWall.Domain.Enums;
 
 namespace GrandWall.Application.Features.CustomerAccounts.Dtos;
 
@@ -126,6 +126,18 @@ public sealed class CustomerAccountDayDto
         { get; init; } = [];
 }
 
+public sealed class CustomerDeferredDebtDto
+{
+    public DateOnly BusinessDate { get; init; }
+
+    public decimal OriginalAmount { get; init; }
+
+    public decimal PaidAmount { get; init; }
+
+    public decimal RemainingAmount { get; init; }
+
+    public bool IsOpeningBalance { get; init; }
+}
 public sealed class CustomerAccountDetailsDto
 {
     public Guid CustomerId { get; init; }
@@ -145,7 +157,14 @@ public sealed class CustomerAccountDetailsDto
     public decimal TotalPaid { get; init; }
 
     public decimal RemainingDebt { get; init; }
+    public IReadOnlyList<CustomerDeferredDebtDto> DeferredDebts
+        { get; init; } = [];
 
     public IReadOnlyList<CustomerAccountDayDto> Days
         { get; init; } = [];
 }
+
+
+
+
+
