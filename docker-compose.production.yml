@@ -49,7 +49,7 @@ services:
       Jwt__Audience: "${JWT_AUDIENCE}"
       Jwt__Key: "${JWT_KEY}"
       Jwt__AccessTokenMinutes: "15"
-      Jwt__RefreshTokenDays: "30"
+      Jwt__RefreshTokenDays: "3650"
 
       Cors__AllowedOrigins__0: "${WEB_ALLOWED_ORIGIN}"
 

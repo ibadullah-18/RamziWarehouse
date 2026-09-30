@@ -1,5 +1,5 @@
+import { authenticatedFetch } from './authenticated-fetch';
 import { File } from 'expo-file-system';
-import { fetch } from 'expo/fetch';
 
 import {
     OrderDetail,
@@ -78,7 +78,7 @@ async function sendJsonRequest<T>(
   }, 20000);
 
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}${path}`,
       {
         method,
@@ -184,7 +184,7 @@ export async function uploadPreparationPhoto(
   }, 60000);
 
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}` +
         `/api/orders/${orderId}/preparation/photos`,
       {
@@ -233,7 +233,7 @@ export async function downloadPreparationPhoto(
   }, 60000);
 
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}` +
         `/api/orders/${orderId}` +
         `/preparation/photos/${photoId}/file`,

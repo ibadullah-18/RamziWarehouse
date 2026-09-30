@@ -1,4 +1,4 @@
-import { fetch } from 'expo/fetch';
+import { authenticatedFetch } from './authenticated-fetch';
 
 import type {
     OrderReceipt,
@@ -68,7 +68,7 @@ export async function getOrderReceipt(
   }, 30000);
 
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}` +
         `/api/orders/${orderId}/receipt-data`,
       {

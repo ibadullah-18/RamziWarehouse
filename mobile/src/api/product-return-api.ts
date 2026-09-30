@@ -1,5 +1,5 @@
+import { authenticatedFetch } from './authenticated-fetch';
 import { File } from 'expo-file-system';
-import { fetch } from 'expo/fetch';
 
 import {
   CreateProductReturnRequest,
@@ -86,7 +86,7 @@ async function authorizedRequest<T>(
   }, options.timeoutMilliseconds ?? 20000);
 
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}${path}`,
       {
         method: options.method ?? 'GET',
@@ -263,7 +263,7 @@ export async function uploadProductReturnPhoto(
   }, 60000);
 
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}` +
         `/api/product-returns/${productReturnId}/photos`,
       {
@@ -316,7 +316,7 @@ export async function downloadProductReturnPhoto(
   }, 60000);
 
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}` +
         `/api/product-returns/${productReturnId}` +
         `/photos/${photoId}/file`,

@@ -1,4 +1,4 @@
-import { fetch } from 'expo/fetch';
+import { authenticatedFetch } from './authenticated-fetch';
 
 import {
   CreateOrderRequest,
@@ -85,7 +85,7 @@ async function authorizedRequest<T>(
   }, options.timeoutMilliseconds ?? 20000);
 
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}${path}`,
       {
         method: options.method ?? 'GET',

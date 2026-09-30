@@ -1,3 +1,4 @@
+import { authenticatedFetch } from './authenticated-fetch';
 import type {
   ApiProblemDetails,
 } from '../auth/auth-types';
@@ -63,7 +64,7 @@ async function sendRequest<T>(
   }, timeoutMilliseconds);
 
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}${path}`,
       {
         method,

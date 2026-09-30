@@ -1,3 +1,4 @@
+import { authenticatedFetch } from './authenticated-fetch';
 export interface DashboardSummary {
   todayOrdersCount: number;
   waitingPreparationCount: number;
@@ -69,7 +70,7 @@ export async function getDashboardSummary(
   }, 20000);
 
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}/api/dashboard/summary`,
       {
         method: 'GET',

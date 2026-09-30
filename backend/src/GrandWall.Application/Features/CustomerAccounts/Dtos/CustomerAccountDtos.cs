@@ -1,4 +1,4 @@
-﻿using GrandWall.Domain.Enums;
+using GrandWall.Domain.Enums;
 
 namespace GrandWall.Application.Features.CustomerAccounts.Dtos;
 
@@ -26,6 +26,7 @@ public sealed class CreateCustomerAccountRequestDto
 
 public sealed class RecordCustomerPaymentRequestDto
 {
+    public string PaymentMethod { get; init; } = "cash";
     public Guid CustomerId { get; init; }
 
     public decimal Amount { get; init; }
@@ -44,6 +45,7 @@ public sealed class CorrectPreviousDebtRequestDto
 
 public sealed class CustomerAccountEntryDto
 {
+    public string? PaymentMethod { get; init; }
     public Guid Id { get; init; }
 
     public Guid CustomerId { get; init; }
@@ -67,6 +69,8 @@ public sealed class CustomerAccountEntryDto
 
 public sealed class CustomerAccountSummaryDto
 {
+    public decimal CarriedDailyDebt { get; init; }
+    public bool HasUnpaidDailyDebt { get; init; }
     public Guid CustomerId { get; init; }
 
     public string CustomerName { get; init; } = string.Empty;
@@ -110,6 +114,9 @@ public sealed class CustomerAccountListDto
 
 public sealed class CustomerAccountDayDto
 {
+    public decimal OldDebtRemaining { get; init; }
+    public decimal CarriedDailyDebt { get; init; }
+    public decimal TodayDebtRemaining { get; init; }
     public DateOnly BusinessDate { get; init; }
 
     public decimal OpeningDebt { get; init; }
@@ -140,6 +147,9 @@ public sealed class CustomerDeferredDebtDto
 }
 public sealed class CustomerAccountDetailsDto
 {
+    public decimal OldDebtRemaining { get; init; }
+    public decimal CarriedDailyDebt { get; init; }
+    public decimal TodayDebtRemaining { get; init; }
     public Guid CustomerId { get; init; }
 
     public string CustomerName { get; init; } = string.Empty;
@@ -168,3 +178,23 @@ public sealed class CustomerAccountDetailsDto
 
 
 
+
+public sealed class CorrectDailyDebtRequestDto
+{
+    public Guid CustomerId { get; init; }
+    public decimal Amount { get; init; }
+    public string Reason { get; init; } = string.Empty;
+}
+public sealed class AccountDayReportDto
+{
+    public DateOnly BusinessDate { get; init; }
+    public decimal Cash { get; init; }
+    public decimal Card { get; init; }
+    public decimal Unspecified { get; init; }
+    public decimal Total => Cash + Card + Unspecified;
+    public AccountDayClosureDto? Closure { get; init; }
+    public IReadOnlyList<CustomerAccountSummaryDto> Customers { get; init; } = [];
+}
+public sealed record AccountDayClosureDto(string RecordedByFullName, DateTime ClosedAtUtc);
+
+public sealed record AccountReportHistoryDto(DateOnly BusinessDate, decimal PaidAmount, bool Closed);

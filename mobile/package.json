@@ -50,7 +50,8 @@
     "check": "tsc --noEmit && expo lint",
     "build:android:preview": "npx eas-cli@latest build --platform android --profile preview",
     "build:android:production": "npx eas-cli@latest build --platform android --profile production",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:auth": "node --test tests/session-manager.test.cjs"
   },
   "private": true
 }

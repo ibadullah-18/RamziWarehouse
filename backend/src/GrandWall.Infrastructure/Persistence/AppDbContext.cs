@@ -12,6 +12,8 @@ public sealed class AppDbContext : DbContext
     {
     }
         
+    public DbSet<AccountDayClosure> AccountDayClosures => Set<AccountDayClosure>();
+
     public DbSet<User> Users => Set<User>();
 
     public DbSet<AttendanceRecord> AttendanceRecords =>
@@ -60,6 +62,8 @@ public sealed class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<AccountDayClosure>().HasKey(x => x.BusinessDate);
+        modelBuilder.Entity<AccountDayClosure>().Property(x => x.RecordedByFullName).HasMaxLength(150);
 
         modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(AppDbContext).Assembly);

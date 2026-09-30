@@ -20,10 +20,11 @@ public sealed class CustomerAccountEntryConfiguration
 
                 table.HasCheckConstraint(
                     "CK_CustomerAccountEntries_EntryType_Valid",
-                    "[EntryType] IN (1, 2, 3, 4, 5)");
+                    "[EntryType] IN (1, 2, 3, 4, 5, 6, 7)");
             });
 
         builder.HasKey(entry => entry.Id);
+        builder.Property(entry => entry.PaymentMethod).HasMaxLength(10);
 
         builder.Property(entry => entry.EntryType)
             .HasConversion<int>()

@@ -1,4 +1,4 @@
-﻿import { UserRole } from '../../auth/auth-types';
+import { UserRole } from '../../auth/auth-types';
 
 export enum CustomerAccountEntryType {
   OpeningBalance = 1,
@@ -6,6 +6,8 @@ export enum CustomerAccountEntryType {
   Payment = 3,
   AdjustmentIncrease = 4,
   AdjustmentDecrease = 5,
+  DailyIncrease = 6,
+  DailyDecrease = 7,
 }
 
 export type CustomerAccountQuery = {
@@ -23,6 +25,7 @@ export type CreateCustomerAccountRequest = {
 };
 
 export type RecordCustomerPaymentRequest = {
+  paymentMethod: 'cash' | 'card';
   customerId: string;
   amount: number;
   note: string | null;
@@ -35,6 +38,7 @@ export type CorrectPreviousDebtRequest = {
 };
 
 export type CustomerAccountEntry = {
+  paymentMethod: 'cash' | 'card' | null;
   id: string;
   customerId: string;
   entryType: CustomerAccountEntryType;
@@ -48,6 +52,8 @@ export type CustomerAccountEntry = {
 };
 
 export type CustomerAccountSummary = {
+  carriedDailyDebt: number;
+  hasUnpaidDailyDebt: boolean;
   customerId: string;
   customerName: string;
   phoneNumber: string | null;
@@ -72,6 +78,9 @@ export type CustomerAccountList = {
 };
 
 export type CustomerAccountDay = {
+  oldDebtRemaining: number;
+  carriedDailyDebt: number;
+  todayDebtRemaining: number;
   businessDate: string;
   openingDebt: number;
   adjustmentAmount: number;
@@ -89,6 +98,9 @@ export type CustomerDeferredDebt = {
   isOpeningBalance: boolean;
 };
 export type CustomerAccountDetails = {
+  oldDebtRemaining: number;
+  carriedDailyDebt: number;
+  todayDebtRemaining: number;
   customerId: string;
   customerName: string;
   phoneNumber: string | null;
@@ -101,3 +113,7 @@ export type CustomerAccountDetails = {
   deferredDebts: CustomerDeferredDebt[];
   days: CustomerAccountDay[];
 };
+
+export type AccountDayReport = { businessDate: string; cash: number; card: number; unspecified: number; total: number; closure: { recordedByFullName: string; closedAtUtc: string } | null; customers: CustomerAccountSummary[] };
+
+export type AccountReportHistory = {businessDate: string; paidAmount: number; closed: boolean};

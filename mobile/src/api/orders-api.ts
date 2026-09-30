@@ -1,3 +1,4 @@
+import { authenticatedFetch } from './authenticated-fetch';
 import {
   OrderListItem,
   OrderQuery,
@@ -125,7 +126,7 @@ export async function getOrders(
     const queryString =
       createQueryString(query);
 
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}/api/Orders?${queryString}`,
       {
         method: 'GET',

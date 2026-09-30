@@ -17,6 +17,24 @@ public sealed class CustomerAccountsController : ControllerBase
         _service = service;
     }
 
+    [HttpGet("report-history")]
+    public async Task<IActionResult> ReportHistory(CancellationToken cancellationToken)
+        => Ok(await _service.GetReportHistoryAsync(cancellationToken));
+
+    [HttpGet("report")]
+    public async Task<IActionResult> Report([FromQuery] DateOnly date, CancellationToken cancellationToken)
+        => Ok(await _service.GetReportAsync(date, cancellationToken));
+
+    [HttpPost("close-day")]
+    [Authorize(Roles = "Manager,Admin,Driver")]
+    public async Task<IActionResult> CloseDay(CancellationToken cancellationToken)
+        => Ok(await _service.CloseDayAsync(cancellationToken));
+
+    [HttpPut("daily-debt")]
+    [Authorize(Roles = "Manager,Admin,Accountant")]
+    public async Task<IActionResult> CorrectDaily(CorrectDailyDebtRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _service.CorrectDailyAsync(request, cancellationToken));
+
     [HttpGet]
     public async Task<ActionResult<CustomerAccountListDto>> GetAll(
         [FromQuery] CustomerAccountListQueryDto query,

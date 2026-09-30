@@ -1,4 +1,4 @@
-import { fetch } from 'expo/fetch';
+import { authenticatedFetch } from './authenticated-fetch';
 import { Platform } from 'react-native';
 
 import { ApiProblemDetails } from '../auth/auth-types';
@@ -115,7 +115,7 @@ async function sendAccountRequest<T>(
         'application/json';
     }
 
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}${path}`,
       {
         method: options.method ?? 'GET',
@@ -241,3 +241,8 @@ export async function correctPreviousDebt(
     },
   );
 }
+export function correctDailyDebt(token: string, body: {customerId: string; amount: number; reason: string}) { return sendAccountRequest<CustomerAccountDetails>('/api/customer-accounts/daily-debt', token, {method: 'PUT', body}); }
+export function getAccountReport(token: string, date: string) { return sendAccountRequest<import('../features/customer-accounts/customer-account-types').AccountDayReport>('/api/customer-accounts/report?date='+encodeURIComponent(date), token); }
+export function closeAccountDay(token: string) { return sendAccountRequest<import('../features/customer-accounts/customer-account-types').AccountDayReport>('/api/customer-accounts/close-day', token, {method:'POST'}); }
+
+export function getAccountReportHistory(token: string) { return sendAccountRequest<import('../features/customer-accounts/customer-account-types').AccountReportHistory[]>('/api/customer-accounts/report-history', token); }

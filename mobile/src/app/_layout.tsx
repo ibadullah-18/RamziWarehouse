@@ -73,7 +73,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <AppToastProvider>
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
         <RootNavigator />
       </AppToastProvider>
     </AuthProvider>

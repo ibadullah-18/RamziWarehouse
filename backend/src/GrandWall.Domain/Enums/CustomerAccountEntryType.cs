@@ -6,5 +6,5 @@ public enum CustomerAccountEntryType
     Debt = 2,
     Payment = 3,
     AdjustmentIncrease = 4,
-    AdjustmentDecrease = 5
+    AdjustmentDecrease = 5, DailyIncrease = 6, DailyDecrease = 7
 }

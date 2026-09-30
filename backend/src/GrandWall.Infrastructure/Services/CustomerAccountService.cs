@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using GrandWall.Application.Abstractions.CustomerAccounts;
 using GrandWall.Application.Abstractions.Identity;
@@ -10,840 +10,169 @@ using GrandWall.Infrastructure.Persistence;
 
 namespace GrandWall.Infrastructure.Services;
 
-public sealed class CustomerAccountService : ICustomerAccountService
+public sealed class CustomerAccountService(AppDbContext db, ICurrentUserService user, TimeProvider clock) : ICustomerAccountService
 {
-    private static readonly TimeSpan BakuUtcOffset =
-        TimeSpan.FromHours(4);
-
-    private readonly AppDbContext _dbContext;
-    private readonly ICurrentUserService _currentUserService;
-    private readonly TimeProvider _timeProvider;
-
-    public CustomerAccountService(
-        AppDbContext dbContext,
-        ICurrentUserService currentUserService,
-        TimeProvider timeProvider)
+    private DateOnly Today => DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromHours(4)).DateTime);
+    private void Allow(params string[] roles)
     {
-        _dbContext = dbContext;
-        _currentUserService = currentUserService;
-        _timeProvider = timeProvider;
+        if (!roles.Contains(user.Role.ToString())) throw new ForbiddenException("Bu əməliyyat üçün icazəniz yoxdur.");
     }
-
-    public async Task<CustomerAccountListDto> GetAllAsync(
-        CustomerAccountListQueryDto query,
-        CancellationToken cancellationToken = default)
+    private static LedgerBalance Balance(IEnumerable<CustomerAccountEntry> entries, DateOnly date)
+        => AccountLedger.Calculate(entries.Select(e => new LedgerItem(e.EntryType, e.Amount, e.BusinessDate)), date);
+    private static CustomerAccountEntryDto Map(CustomerAccountEntry e) => new()
     {
-        EnsureRole("Manager", "Admin", "Accountant", "Driver");
-        var businessDate = query.Date ?? GetCurrentBusinessDate();
-        var customersQuery = _dbContext.Customers
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(query.Search))
-        {
-            var search = query.Search.Trim();
-            customersQuery = customersQuery.Where(customer =>
-                customer.Name.Contains(search) ||
-                (customer.PhoneNumber != null &&
-                 customer.PhoneNumber.Contains(search)));
-        }
-
-        var totalCount = await customersQuery.CountAsync(cancellationToken);
-        var customers = await customersQuery
-            .OrderBy(customer => customer.Name)
-            .Skip((query.PageNumber - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .Select(customer => new
-            {
-                customer.Id,
-                customer.Name,
-                customer.PhoneNumber,
-                customer.IsActive
-            })
-            .ToListAsync(cancellationToken);
-
-        if (customers.Count == 0)
-        {
-            return new CustomerAccountListDto
-            {
-                Items = [],
-                BusinessDate = businessDate,
-                PageNumber = query.PageNumber,
-                PageSize = query.PageSize,
-                TotalCount = totalCount
-            };
-        }
-
-        var customerIds = customers.Select(customer => customer.Id).ToList();
-        var entries = await _dbContext.CustomerAccountEntries
-            .AsNoTracking()
-            .Where(entry =>
-                customerIds.Contains(entry.CustomerId) &&
-                entry.BusinessDate <= businessDate)
-            .Select(entry => new
-            {
-                entry.CustomerId,
-                entry.EntryType,
-                entry.Amount,
-                entry.BusinessDate
-            })
-            .ToListAsync(cancellationToken);
-
-        var summaries = new List<CustomerAccountSummaryDto>(customers.Count);
-
-        foreach (var customer in customers)
-        {
-            var customerEntries = entries
-                .Where(entry => entry.CustomerId == customer.Id)
-                .ToList();
-
-            var openingBalance = customerEntries
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.OpeningBalance)
-                .Sum(entry => entry.Amount);
-
-            var adjustmentIncrease = customerEntries
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.AdjustmentIncrease)
-                .Sum(entry => entry.Amount);
-
-            var adjustmentDecrease = customerEntries
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.AdjustmentDecrease)
-                .Sum(entry => entry.Amount);
-
-            var previousDailyDebt = customerEntries
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.Debt &&
-                    entry.BusinessDate < businessDate)
-                .Sum(entry => entry.Amount);
-
-            var previousPayments = customerEntries
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.Payment &&
-                    entry.BusinessDate < businessDate)
-                .Sum(entry => entry.Amount);
-
-            var previousDebt =
-                openingBalance +
-                adjustmentIncrease -
-                adjustmentDecrease +
-                previousDailyDebt -
-                previousPayments;
-
-            var todayDebt = customerEntries
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.Debt &&
-                    entry.BusinessDate == businessDate)
-                .Sum(entry => entry.Amount);
-
-            var todayPayment = customerEntries
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.Payment &&
-                    entry.BusinessDate == businessDate)
-                .Sum(entry => entry.Amount);
-            // Ödəniş əvvəlcə bugünkü borcu bağlayır.
-            // Artıq qalan məbləğ köhnə borca yönəldilir.
-            var paidFromTodayDebt = Math.Min(
-                todayPayment,
-                Math.Max(todayDebt, 0));
-
-            var todayDebtRemaining = Math.Max(
-                todayDebt - paidFromTodayDebt,
-                0);
-
-            var paymentAfterTodayDebt = Math.Max(
-                todayPayment - paidFromTodayDebt,
-                0);
-
-            var paidFromPreviousDebt = Math.Min(
-                paymentAfterTodayDebt,
-                Math.Max(previousDebt, 0));
-
-            var previousDebtRemaining = Math.Max(
-                previousDebt - paidFromPreviousDebt,
-                0);
-
-            summaries.Add(new CustomerAccountSummaryDto
-            {
-                CustomerId = customer.Id,
-                CustomerName = customer.Name,
-                PhoneNumber = customer.PhoneNumber,
-                IsActive = customer.IsActive,
-                BusinessDate = businessDate,
-                PreviousDebt = previousDebt,
-                TodayDebt = todayDebt,
-                TodayPayment = todayPayment,
-                PaidFromPreviousDebt = paidFromPreviousDebt,
-                PaidFromTodayDebt = paidFromTodayDebt,
-                PreviousDebtRemaining = previousDebtRemaining,
-                TodayDebtRemaining = todayDebtRemaining,
-                RemainingDebt =
-                    previousDebtRemaining + todayDebtRemaining
-            });
-        }
-
-        return new CustomerAccountListDto
-        {
-            Items = summaries,
-            BusinessDate = businessDate,
-            PageNumber = query.PageNumber,
-            PageSize = query.PageSize,
-            TotalCount = totalCount
-        };
+        Id=e.Id, CustomerId=e.CustomerId, EntryType=e.EntryType, Amount=e.Amount, BusinessDate=e.BusinessDate,
+        Note=e.Note, PaymentMethod=e.PaymentMethod, RecordedByUserId=e.RecordedByUserId,
+        RecordedByFullName=e.RecordedByFullName, RecordedByRole=e.RecordedByRole, CreatedAtUtc=e.CreatedAtUtc
+    };
+    private static CustomerAccountSummaryDto Summary(Customer c, List<CustomerAccountEntry> entries, DateOnly date)
+    {
+        var b = Balance(entries, date);
+        var before = Balance(entries, date.AddDays(-1));
+        var debt = entries.Where(e => e.BusinessDate == date && e.EntryType is CustomerAccountEntryType.Debt or CustomerAccountEntryType.DailyIncrease).Sum(e => e.Amount)
+            - entries.Where(e => e.BusinessDate == date && e.EntryType == CustomerAccountEntryType.DailyDecrease).Sum(e => e.Amount);
+        var paid = entries.Where(e => e.BusinessDate == date && e.EntryType == CustomerAccountEntryType.Payment).Sum(e => e.Amount);
+        return new() { CustomerId=c.Id, CustomerName=c.Name, PhoneNumber=c.PhoneNumber, IsActive=c.IsActive,
+            BusinessDate=date, PreviousDebt=before.Total, TodayDebt=debt, TodayPayment=paid,
+            PaidFromTodayDebt=Math.Min(paid, debt), PaidFromPreviousDebt=Math.Max(0,paid-debt),
+            PreviousDebtRemaining=b.Old, TodayDebtRemaining=b.Today, CarriedDailyDebt=b.Carried,
+            HasUnpaidDailyDebt=b.Carried>0, RemainingDebt=b.Total };
     }
-
-    public async Task<CustomerAccountDetailsDto> GetByCustomerIdAsync(
-        Guid customerId,
-        CancellationToken cancellationToken = default)
+    public async Task<CustomerAccountListDto> GetAllAsync(CustomerAccountListQueryDto query, CancellationToken cancellationToken=default)
     {
-        EnsureRole("Manager", "Admin", "Accountant", "Driver");
-
-        var customer = await _dbContext.Customers
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                currentCustomer => currentCustomer.Id == customerId,
-                cancellationToken);
-
-        if (customer is null)
-        {
-            throw new NotFoundException("Müştəri tapılmadı.");
-        }
-
-        var entries = await _dbContext.CustomerAccountEntries
-            .AsNoTracking()
-            .Where(entry => entry.CustomerId == customerId)
-            .OrderBy(entry => entry.BusinessDate)
-            .ThenBy(entry => entry.CreatedAtUtc)
-            .ToListAsync(cancellationToken);
-
-        var entryDtos = entries.Select(MapEntry).ToList();
-        var days = new List<CustomerAccountDayDto>();
-        decimal runningDebt = 0;
-
-        foreach (var dayGroup in entryDtos
-            .GroupBy(entry => entry.BusinessDate)
-            .OrderBy(group => group.Key))
-        {
-            var importedPreviousDebt = dayGroup
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.OpeningBalance)
-                .Sum(entry => entry.Amount);
-
-            var adjustmentIncrease = dayGroup
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.AdjustmentIncrease)
-                .Sum(entry => entry.Amount);
-
-            var adjustmentDecrease = dayGroup
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.AdjustmentDecrease)
-                .Sum(entry => entry.Amount);
-
-            var adjustmentAmount = adjustmentIncrease - adjustmentDecrease;
-            var openingDebt = runningDebt + importedPreviousDebt;
-
-            var addedDebt = dayGroup
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.Debt)
-                .Sum(entry => entry.Amount);
-
-            var paidAmount = dayGroup
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.Payment)
-                .Sum(entry => entry.Amount);
-
-            var closingDebt =
-                openingDebt + adjustmentAmount + addedDebt - paidAmount;
-
-            days.Add(new CustomerAccountDayDto
-            {
-                BusinessDate = dayGroup.Key,
-                OpeningDebt = openingDebt,
-                AdjustmentAmount = adjustmentAmount,
-                AddedDebt = addedDebt,
-                PaidAmount = paidAmount,
-                ClosingDebt = closingDebt,
-                Entries = dayGroup
-                    .OrderByDescending(entry => entry.CreatedAtUtc)
-                    .ToList()
-            });
-
-            runningDebt = closingDebt;
-        }
-
-        var previousDebt = entryDtos
-            .Where(entry =>
-                entry.EntryType == CustomerAccountEntryType.OpeningBalance ||
-                entry.EntryType == CustomerAccountEntryType.AdjustmentIncrease)
-            .Sum(entry => entry.Amount) -
-            entryDtos
-                .Where(entry =>
-                    entry.EntryType == CustomerAccountEntryType.AdjustmentDecrease)
-                .Sum(entry => entry.Amount);
-
-        var totalNewDebt = entryDtos
-            .Where(entry => entry.EntryType == CustomerAccountEntryType.Debt)
-            .Sum(entry => entry.Amount);
-
-        var totalPaid = entryDtos
-            .Where(entry => entry.EntryType == CustomerAccountEntryType.Payment)
-            .Sum(entry => entry.Amount);
-
-        var totalDebt = previousDebt + totalNewDebt;
-
-        return new CustomerAccountDetailsDto
-        {
-            CustomerId = customer.Id,
-            CustomerName = customer.Name,
-            PhoneNumber = customer.PhoneNumber,
-            IsActive = customer.IsActive,
-            PreviousDebt = previousDebt,
-            TotalNewDebt = totalNewDebt,
-            TotalDebt = totalDebt,
-            TotalPaid = totalPaid,
-            RemainingDebt = totalDebt - totalPaid,
-            DeferredDebts = BuildDeferredDebts(entryDtos),
-            Days = days.OrderByDescending(day => day.BusinessDate).ToList()
-        };
+        Allow("Manager","Admin","Accountant","Driver");
+        var date=query.Date ?? Today;
+        var customers=await db.Customers.AsNoTracking().Where(c => query.Search == null || c.Name.Contains(query.Search)).ToListAsync(cancellationToken);
+        var ids=customers.Select(c=>c.Id).ToList();
+        var entries=await db.CustomerAccountEntries.AsNoTracking().Where(e=>ids.Contains(e.CustomerId) && e.BusinessDate<=date).ToListAsync(cancellationToken);
+        var summaries=customers.Select(c=>Summary(c,entries.Where(e=>e.CustomerId==c.Id).ToList(),date))
+            .OrderByDescending(c=>c.HasUnpaidDailyDebt).ThenBy(c=>c.CustomerName).ToList();
+        return new() { Items=summaries.Skip((query.PageNumber-1)*query.PageSize).Take(query.PageSize).ToList(),
+            BusinessDate=date, TotalCount=summaries.Count, PageNumber=query.PageNumber, PageSize=query.PageSize };
     }
-
-    public async Task<CustomerAccountDetailsDto> CreateTodayAsync(
-        CreateCustomerAccountRequestDto request,
-        CancellationToken cancellationToken = default)
+    public async Task<CustomerAccountDetailsDto> GetByCustomerIdAsync(Guid customerId,CancellationToken cancellationToken=default)
     {
-        EnsureRole("Manager", "Admin", "Accountant");
-
-        if (request.TodayDebt <= 0 &&
-            request.InitialPreviousDebt.GetValueOrDefault() <= 0)
-        {
-            throw new ConflictException(
-                "Bugünkü və ya əvvəlki borcdan ən az biri sıfırdan böyük olmalıdır.");
-        }
-
-        var businessDate = GetCurrentBusinessDate();
-        var note = NormalizeOptional(request.Note);
-        var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
-
-        await executionStrategy.ExecuteAsync(async () =>
-        {
-            _dbContext.ChangeTracker.Clear();
-
-            await using var transaction =
-                await _dbContext.Database.BeginTransactionAsync(
-                    IsolationLevel.Serializable,
-                    cancellationToken);
-
-            var customer = await _dbContext.Customers.FirstOrDefaultAsync(
-                currentCustomer => currentCustomer.Id == request.CustomerId,
-                cancellationToken);
-
-            if (customer is null)
-            {
-                throw new NotFoundException("Müştəri tapılmadı.");
-            }
-
-            if (!customer.IsActive)
-            {
-                throw new ConflictException(
-                    "Deaktiv müştəri üçün yeni borc yaradıla bilməz.");
-            }
-
-            var hasHistory = await _dbContext.CustomerAccountEntries.AnyAsync(
-                entry => entry.CustomerId == request.CustomerId,
-                cancellationToken);
-
-            var initialDebt = request.InitialPreviousDebt.GetValueOrDefault();
-
-            if (initialDebt > 0 && hasHistory)
-            {
-                throw new ConflictException(
-                    "Əvvəlki borc yalnız ilk hesab yaradılarkən yazıla bilər.");
-            }
-
-            if (request.TodayDebt > 0)
-            {
-                var todayDebtExists =
-                    await _dbContext.CustomerAccountEntries.AnyAsync(
-                        entry =>
-                            entry.CustomerId == request.CustomerId &&
-                            entry.BusinessDate == businessDate &&
-                            entry.EntryType == CustomerAccountEntryType.Debt,
-                        cancellationToken);
-
-                if (todayDebtExists)
-                {
-                    throw new ConflictException(
-                        "Bu müştəri üçün bugünkü borc artıq yaradılıb.");
-                }
-            }
-
-            if (initialDebt > 0)
-            {
-                _dbContext.CustomerAccountEntries.Add(CreateEntry(
-                    request.CustomerId,
-                    CustomerAccountEntryType.OpeningBalance,
-                    initialDebt,
-                    businessDate,
-                    note));
-            }
-
-            if (request.TodayDebt > 0)
-            {
-                _dbContext.CustomerAccountEntries.Add(CreateEntry(
-                    request.CustomerId,
-                    CustomerAccountEntryType.Debt,
-                    request.TodayDebt,
-                    businessDate,
-                    note));
-            }
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            return true;
+        Allow("Manager","Admin","Accountant","Driver");
+        var c=await db.Customers.AsNoTracking().FirstOrDefaultAsync(c=>c.Id==customerId,cancellationToken)
+            ?? throw new NotFoundException("Müştəri tapılmadı.");
+        var entries=await db.CustomerAccountEntries.AsNoTracking().Where(e=>e.CustomerId==customerId).OrderBy(e=>e.BusinessDate).ThenBy(e=>e.CreatedAtUtc).ToListAsync(cancellationToken);
+        var b=Balance(entries,Today);
+        var days=entries.GroupBy(e=>e.BusinessDate).OrderByDescending(g=>g.Key).Select(g=>new CustomerAccountDayDto {
+            OldDebtRemaining=Balance(entries,g.Key).Old, CarriedDailyDebt=Balance(entries,g.Key).Carried, TodayDebtRemaining=Balance(entries,g.Key).Today,
+            BusinessDate=g.Key, OpeningDebt=Balance(entries,g.Key.AddDays(-1)).Total + g.Where(e=>e.EntryType==CustomerAccountEntryType.OpeningBalance).Sum(e=>e.Amount),
+            AddedDebt=g.Where(e=>e.EntryType is CustomerAccountEntryType.Debt or CustomerAccountEntryType.DailyIncrease).Sum(e=>e.Amount)-g.Where(e=>e.EntryType==CustomerAccountEntryType.DailyDecrease).Sum(e=>e.Amount),
+            AdjustmentAmount=g.Where(e=>e.EntryType==CustomerAccountEntryType.AdjustmentIncrease).Sum(e=>e.Amount)-g.Where(e=>e.EntryType==CustomerAccountEntryType.AdjustmentDecrease).Sum(e=>e.Amount),
+            PaidAmount=g.Where(e=>e.EntryType==CustomerAccountEntryType.Payment).Sum(e=>e.Amount), ClosingDebt=Balance(entries,g.Key).Total,
+            Entries=g.OrderByDescending(e=>e.CreatedAtUtc).Select(Map).ToList()
+        }).ToList();
+        var paid=entries.Where(e=>e.EntryType==CustomerAccountEntryType.Payment).Sum(e=>e.Amount);
+        return new() { CustomerId=c.Id, CustomerName=c.Name, PhoneNumber=c.PhoneNumber, IsActive=c.IsActive,
+            PreviousDebt=b.Old, OldDebtRemaining=b.Old, CarriedDailyDebt=b.Carried, TodayDebtRemaining=b.Today,
+            RemainingDebt=b.Total, TotalPaid=paid, TotalDebt=b.Total+paid, TotalNewDebt=days.Sum(d=>d.AddedDebt), Days=days };
+    }
+    private CustomerAccountEntry Entry(Guid id,CustomerAccountEntryType type,decimal amount,string? note,string? method=null) => new() {
+        CustomerId=id,EntryType=type,Amount=amount,BusinessDate=Today,Note=note,PaymentMethod=method,
+        RecordedByUserId=user.UserId,RecordedByFullName=user.FullName,RecordedByRole=user.Role };
+    private static void Money(decimal amount)
+    {
+        if(amount<0 || amount>9999999999999999.99m || decimal.Round(amount,2)!=amount)
+            throw new ConflictException("Məbləğ mənfi ola bilməz və ən çox iki qəpik rəqəmi olmalıdır.");
+    }
+    private async Task Mutate(Guid id,Func<List<CustomerAccountEntry>,Task> action,CancellationToken ct)
+    {
+        await db.Database.CreateExecutionStrategy().ExecuteAsync(async()=> {
+            db.ChangeTracker.Clear();
+            await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);
+            if(await db.AccountDayClosures.AnyAsync(x=>x.BusinessDate==Today,ct)) throw new ConflictException("Bu günün açotu bitirilib. Yeni əməliyyat sabah mümkündür.");
+            var customer=await db.Customers.FirstOrDefaultAsync(c=>c.Id==id,ct) ?? throw new NotFoundException("Müştəri tapılmadı.");
+            var entries=await db.CustomerAccountEntries.Where(e=>e.CustomerId==id).ToListAsync(ct);
+            await action(entries);
+            await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
         });
-
-        return await GetByCustomerIdAsync(request.CustomerId, cancellationToken);
     }
-
-    public async Task<CustomerAccountDetailsDto> RecordPaymentAsync(
-        RecordCustomerPaymentRequestDto request,
-        CancellationToken cancellationToken = default)
+    public async Task<CustomerAccountDetailsDto> CreateTodayAsync(CreateCustomerAccountRequestDto r,CancellationToken cancellationToken=default)
     {
-        EnsureRole("Manager", "Admin", "Driver");
-
-        if (request.Amount <= 0)
-        {
-            throw new ConflictException("Ödəniş sıfırdan böyük olmalıdır.");
-        }
-
-        var businessDate = GetCurrentBusinessDate();
-        var note = NormalizeOptional(request.Note);
-        var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
-
-        await executionStrategy.ExecuteAsync(async () =>
-        {
-            _dbContext.ChangeTracker.Clear();
-
-            await using var transaction =
-                await _dbContext.Database.BeginTransactionAsync(
-                    IsolationLevel.Serializable,
-                    cancellationToken);
-
-            var customerExists = await _dbContext.Customers.AnyAsync(
-                customer => customer.Id == request.CustomerId,
-                cancellationToken);
-
-            if (!customerExists)
-            {
-                throw new NotFoundException("Müştəri tapılmadı.");
+        Allow("Manager","Admin","Accountant"); Money(r.TodayDebt); Money(r.InitialPreviousDebt??0);
+        if(r.TodayDebt<=0 && r.InitialPreviousDebt.GetValueOrDefault()<=0) throw new ConflictException("Borc məbləğini yazın.");
+        await Mutate(r.CustomerId,async entries=> {
+            if(!await db.Customers.AnyAsync(c=>c.Id==r.CustomerId && c.IsActive,cancellationToken)) throw new ConflictException("Müştəri deaktivdir.");
+            if(r.InitialPreviousDebt>0 && entries.Count>0) throw new ConflictException("İlkin borc artıq yaradılıb. Düzəliş düyməsindən istifadə edin.");
+            if(r.TodayDebt>0 && entries.Any(e=>e.BusinessDate==Today && e.EntryType==CustomerAccountEntryType.Debt)) throw new ConflictException("Bugünkü borc artıq yaradılıb. Düzəliş edin.");
+            if(r.InitialPreviousDebt>0) db.Add(Entry(r.CustomerId,CustomerAccountEntryType.OpeningBalance,r.InitialPreviousDebt.Value,r.Note));
+            if(r.TodayDebt>0) db.Add(Entry(r.CustomerId,CustomerAccountEntryType.Debt,r.TodayDebt,r.Note));
+        },cancellationToken);
+        return await GetByCustomerIdAsync(r.CustomerId,cancellationToken);
+    }
+    public async Task<CustomerAccountDetailsDto> RecordPaymentAsync(RecordCustomerPaymentRequestDto r,CancellationToken cancellationToken=default)
+    {
+        Allow("Manager","Admin","Driver"); Money(r.Amount);
+        if(r.Amount<=0 || r.PaymentMethod is not ("cash" or "card")) throw new ConflictException("Məbləği və nağd/kart seçimini yoxlayın.");
+        await Mutate(r.CustomerId,entries=> {
+            if(r.Amount>Balance(entries,Today).Total) throw new ConflictException("Ödəniş qalıq borcdan çox ola bilməz.");
+            db.Add(Entry(r.CustomerId,CustomerAccountEntryType.Payment,r.Amount,r.Note,r.PaymentMethod)); return Task.CompletedTask;
+        },cancellationToken);
+        return await GetByCustomerIdAsync(r.CustomerId,cancellationToken);
+    }
+    public async Task<CustomerAccountDetailsDto> CorrectPreviousDebtAsync(CorrectPreviousDebtRequestDto r,CancellationToken cancellationToken=default)
+    {
+        Allow("Manager","Admin","Accountant"); Money(r.CorrectedPreviousDebt);
+        await Correct(r.CustomerId,r.CorrectedPreviousDebt,r.Reason,false,cancellationToken);
+        return await GetByCustomerIdAsync(r.CustomerId,cancellationToken);
+    }
+    public async Task<CustomerAccountDetailsDto> CorrectDailyAsync(CorrectDailyDebtRequestDto r,CancellationToken cancellationToken=default)
+    {
+        Allow("Manager","Admin","Accountant"); Money(r.Amount);
+        await Correct(r.CustomerId,r.Amount,r.Reason,true,cancellationToken);
+        return await GetByCustomerIdAsync(r.CustomerId,cancellationToken);
+    }
+    private async Task Correct(Guid id,decimal amount,string reason,bool daily,CancellationToken ct)
+    {
+        if(string.IsNullOrWhiteSpace(reason)||reason.Trim().Length<3||reason.Length>400) throw new ConflictException("Düzəliş səbəbi 3–400 simvol olmalıdır.");
+        await Mutate(id,entries=> {
+            var b=Balance(entries,Today);
+            var current=daily ? entries.Where(e=>e.BusinessDate==Today && e.EntryType is CustomerAccountEntryType.Debt or CustomerAccountEntryType.DailyIncrease).Sum(e=>e.Amount)
+                -entries.Where(e=>e.BusinessDate==Today && e.EntryType==CustomerAccountEntryType.DailyDecrease).Sum(e=>e.Amount) : b.Old;
+            if(daily && !entries.Any(e=>e.BusinessDate==Today && e.EntryType==CustomerAccountEntryType.Debt)) throw new ConflictException("Əvvəlcə bugünkü borcu yaradın.");
+            var delta=amount-current;
+            if(delta==0) throw new ConflictException("Məbləğ dəyişməyib.");
+            // Already allocated payments cannot be silently moved by a correction.
+            if(daily && delta<0 && -delta>b.Today) throw new ConflictException("Yeni günlük məbləğ artıq ödənilmiş məbləğdən az ola bilməz.");
+            var type=daily ? (delta>0?CustomerAccountEntryType.DailyIncrease:CustomerAccountEntryType.DailyDecrease)
+                : (delta>0?CustomerAccountEntryType.AdjustmentIncrease:CustomerAccountEntryType.AdjustmentDecrease);
+            db.Add(Entry(id,type,Math.Abs(delta),$"{(daily?"Günlük":"Köhnə")} borc: {current:0.00} → {amount:0.00} AZN. Səbəb: {reason.Trim()}"));
+            return Task.CompletedTask;
+        },ct);
+    }
+    public async Task<IReadOnlyList<AccountReportHistoryDto>> GetReportHistoryAsync(CancellationToken cancellationToken=default)
+    {
+        Allow("Manager","Admin","Accountant","Driver");
+        var entries=await db.CustomerAccountEntries.AsNoTracking().Select(e=>new {e.BusinessDate,e.EntryType,e.Amount}).ToListAsync(cancellationToken);
+        var closed=await db.AccountDayClosures.AsNoTracking().Select(c=>c.BusinessDate).ToListAsync(cancellationToken);
+        return entries.Select(e=>e.BusinessDate).Concat(closed).Distinct().OrderByDescending(d=>d).Select(d=>new AccountReportHistoryDto(d,entries.Where(e=>e.BusinessDate==d && e.EntryType==CustomerAccountEntryType.Payment).Sum(e=>e.Amount),closed.Contains(d))).ToList();
+    }
+    public async Task<AccountDayReportDto> GetReportAsync(DateOnly date,CancellationToken cancellationToken=default)
+    {
+        Allow("Manager","Admin","Accountant","Driver");
+        var customers=await db.Customers.AsNoTracking().ToListAsync(cancellationToken);
+        var entries=await db.CustomerAccountEntries.AsNoTracking().Where(e=>e.BusinessDate<=date).ToListAsync(cancellationToken);
+        var payments=entries.Where(e=>e.BusinessDate==date && e.EntryType==CustomerAccountEntryType.Payment).ToList();
+        var closure=await db.AccountDayClosures.AsNoTracking().FirstOrDefaultAsync(x=>x.BusinessDate==date,cancellationToken);
+        return new() { BusinessDate=date, Cash=payments.Where(e=>e.PaymentMethod=="cash").Sum(e=>e.Amount), Card=payments.Where(e=>e.PaymentMethod=="card").Sum(e=>e.Amount),
+            Unspecified=payments.Where(e=>e.PaymentMethod==null).Sum(e=>e.Amount), Closure=closure==null?null:new(closure.RecordedByFullName,closure.ClosedAtUtc),
+            Customers=customers.Select(c=>Summary(c,entries.Where(e=>e.CustomerId==c.Id).ToList(),date)).Where(c=>c.TodayDebt>0||c.TodayPayment>0||c.CarriedDailyDebt>0).OrderBy(c=>c.CustomerName).ToList() };
+    }
+    public async Task<AccountDayReportDto> CloseDayAsync(CancellationToken cancellationToken=default)
+    {
+        Allow("Manager","Admin","Driver");
+        await db.Database.CreateExecutionStrategy().ExecuteAsync(async()=> {
+            db.ChangeTracker.Clear();
+            await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,cancellationToken);
+            if(!await db.AccountDayClosures.AnyAsync(x=>x.BusinessDate==Today,cancellationToken)) {
+                db.Add(new AccountDayClosure { BusinessDate=Today,RecordedByUserId=user.UserId,RecordedByFullName=user.FullName,ClosedAtUtc=clock.GetUtcNow().UtcDateTime });
+                await db.SaveChangesAsync(cancellationToken);
             }
-
-            var remainingDebt = await GetRemainingDebtAsync(
-                request.CustomerId,
-                cancellationToken);
-
-            if (remainingDebt <= 0)
-            {
-                throw new ConflictException(
-                    "Bu müştərinin ödənilməmiş borcu yoxdur.");
-            }
-
-            if (request.Amount > remainingDebt)
-            {
-                throw new ConflictException(
-                    $"Ödəniş qalıq borcdan çox ola bilməz. Qalıq: {remainingDebt:0.00} AZN.");
-            }
-
-            _dbContext.CustomerAccountEntries.Add(CreateEntry(
-                request.CustomerId,
-                CustomerAccountEntryType.Payment,
-                request.Amount,
-                businessDate,
-                note));
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            return true;
+            await tx.CommitAsync(cancellationToken);
         });
-
-        return await GetByCustomerIdAsync(request.CustomerId, cancellationToken);
-    }
-
-    public async Task<CustomerAccountDetailsDto> CorrectPreviousDebtAsync(
-        CorrectPreviousDebtRequestDto request,
-        CancellationToken cancellationToken = default)
-    {
-        EnsureRole("Manager", "Admin", "Accountant");
-
-        if (request.CorrectedPreviousDebt < 0)
-        {
-            throw new ConflictException(
-                "Düzəldilmiş köhnə borc mənfi ola bilməz.");
-        }
-
-        var reason = NormalizeOptional(request.Reason);
-
-        if (reason is null)
-        {
-            throw new ConflictException("Düzəliş səbəbi yazılmalıdır.");
-        }
-
-        var businessDate = GetCurrentBusinessDate();
-        var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
-
-        await executionStrategy.ExecuteAsync(async () =>
-        {
-            _dbContext.ChangeTracker.Clear();
-
-            await using var transaction =
-                await _dbContext.Database.BeginTransactionAsync(
-                    IsolationLevel.Serializable,
-                    cancellationToken);
-
-            var customerExists = await _dbContext.Customers.AnyAsync(
-                customer => customer.Id == request.CustomerId,
-                cancellationToken);
-
-            if (!customerExists)
-            {
-                throw new NotFoundException("Müştəri tapılmadı.");
-            }
-
-            var hasHistory = await _dbContext.CustomerAccountEntries.AnyAsync(
-                entry => entry.CustomerId == request.CustomerId,
-                cancellationToken);
-
-            if (!hasHistory)
-            {
-                throw new ConflictException(
-                    "Əvvəlcə müştərinin ilk hesabı yaradılmalıdır.");
-            }
-
-            var openingBalance = await SumEntryTypeAsync(
-                request.CustomerId,
-                CustomerAccountEntryType.OpeningBalance,
-                cancellationToken);
-
-            var increase = await SumEntryTypeAsync(
-                request.CustomerId,
-                CustomerAccountEntryType.AdjustmentIncrease,
-                cancellationToken);
-
-            var decrease = await SumEntryTypeAsync(
-                request.CustomerId,
-                CustomerAccountEntryType.AdjustmentDecrease,
-                cancellationToken);
-
-            var currentPreviousDebt = openingBalance + increase - decrease;
-            var difference = request.CorrectedPreviousDebt - currentPreviousDebt;
-
-            if (difference == 0)
-            {
-                throw new ConflictException(
-                    "Yeni köhnə borc mövcud məbləğlə eynidir.");
-            }
-
-            var totalNewDebt = await SumEntryTypeAsync(
-                request.CustomerId,
-                CustomerAccountEntryType.Debt,
-                cancellationToken);
-
-            var totalPaid = await SumEntryTypeAsync(
-                request.CustomerId,
-                CustomerAccountEntryType.Payment,
-                cancellationToken);
-
-            if (request.CorrectedPreviousDebt + totalNewDebt - totalPaid < 0)
-            {
-                throw new ConflictException(
-                    "Bu düzəliş ümumi qalıq borcu mənfi edir.");
-            }
-
-            var entryType = difference > 0
-                ? CustomerAccountEntryType.AdjustmentIncrease
-                : CustomerAccountEntryType.AdjustmentDecrease;
-
-            var correctionNote =
-                "Köhnə borc düzəlişi. " +
-                $"Əvvəl: {currentPreviousDebt:0.00} AZN. " +
-                $"Yeni: {request.CorrectedPreviousDebt:0.00} AZN. " +
-                $"Səbəb: {reason}";
-
-            if (correctionNote.Length > 500)
-            {
-                correctionNote = correctionNote.Substring(0, 500);
-            }
-
-            _dbContext.CustomerAccountEntries.Add(CreateEntry(
-                request.CustomerId,
-                entryType,
-                Math.Abs(difference),
-                businessDate,
-                correctionNote));
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            return true;
-        });
-
-        return await GetByCustomerIdAsync(request.CustomerId, cancellationToken);
-    }
-
-    private static IReadOnlyList<CustomerDeferredDebtDto> BuildDeferredDebts(
-        IReadOnlyList<CustomerAccountEntryDto> entries)
-    {
-        var debtBuckets = new List<DeferredDebtBucket>();
-
-        foreach (var entry in entries
-            .OrderBy(entry => entry.BusinessDate)
-            .ThenBy(entry => entry.CreatedAtUtc))
-        {
-            switch (entry.EntryType)
-            {
-                case CustomerAccountEntryType.OpeningBalance:
-                    if (entry.Amount > 0)
-                    {
-                        debtBuckets.Add(new DeferredDebtBucket
-                        {
-                            BusinessDate = entry.BusinessDate,
-                            OriginalAmount = entry.Amount,
-                            RemainingAmount = entry.Amount,
-                            IsOpeningBalance = true
-                        });
-                    }
-
-                    break;
-
-                case CustomerAccountEntryType.Debt:
-                case CustomerAccountEntryType.AdjustmentIncrease:
-                    if (entry.Amount > 0)
-                    {
-                        debtBuckets.Add(new DeferredDebtBucket
-                        {
-                            BusinessDate = entry.BusinessDate,
-                            OriginalAmount = entry.Amount,
-                            RemainingAmount = entry.Amount,
-                            IsOpeningBalance = false
-                        });
-                    }
-
-                    break;
-
-                case CustomerAccountEntryType.Payment:
-                    ApplyPaymentToDebt(
-                        debtBuckets,
-                        entry.Amount,
-                        entry.BusinessDate);
-                    break;
-
-                case CustomerAccountEntryType.AdjustmentDecrease:
-                    ApplyAmountToOldestDebt(
-                        debtBuckets,
-                        entry.Amount);
-                    break;
-            }
-        }
-
-        return debtBuckets
-            .Where(bucket => bucket.RemainingAmount > 0)
-            .OrderBy(bucket => bucket.BusinessDate)
-            .Select(bucket => new CustomerDeferredDebtDto
-            {
-                BusinessDate = bucket.BusinessDate,
-                OriginalAmount = bucket.OriginalAmount,
-                PaidAmount =
-                    bucket.OriginalAmount -
-                    bucket.RemainingAmount,
-                RemainingAmount = bucket.RemainingAmount,
-                IsOpeningBalance = bucket.IsOpeningBalance
-            })
-            .ToList();
-    }
-
-    private static void ApplyPaymentToDebt(
-        List<DeferredDebtBucket> debtBuckets,
-        decimal amount,
-        DateOnly paymentDate)
-    {
-        var remainingAmount = amount;
-
-        // 1. Ödəniş əvvəlcə həmin gün yaranmış
-        // günlük borca tətbiq olunur.
-        foreach (var bucket in debtBuckets
-            .Where(bucket =>
-                !bucket.IsOpeningBalance &&
-                bucket.BusinessDate == paymentDate &&
-                bucket.RemainingAmount > 0))
-        {
-            if (remainingAmount <= 0)
-            {
-                break;
-            }
-
-            var appliedAmount = Math.Min(
-                bucket.RemainingAmount,
-                remainingAmount);
-
-            bucket.RemainingAmount -= appliedAmount;
-            remainingAmount -= appliedAmount;
-        }
-
-        // 2. Günlük borcdan artıq qalan ödəniş
-        // əvvəlki borclara tətbiq olunur.
-        if (remainingAmount > 0)
-        {
-            ApplyAmountToOldestDebt(
-                debtBuckets,
-                remainingAmount);
-        }
-    }
-    private static void ApplyAmountToOldestDebt(
-        List<DeferredDebtBucket> debtBuckets,
-        decimal amount)
-    {
-        var remainingAmount = amount;
-
-        foreach (var bucket in debtBuckets)
-        {
-            if (remainingAmount <= 0)
-            {
-                break;
-            }
-
-            if (bucket.RemainingAmount <= 0)
-            {
-                continue;
-            }
-
-            var appliedAmount = Math.Min(
-                bucket.RemainingAmount,
-                remainingAmount);
-
-            bucket.RemainingAmount -= appliedAmount;
-            remainingAmount -= appliedAmount;
-        }
-    }
-
-    private sealed class DeferredDebtBucket
-    {
-        public DateOnly BusinessDate { get; init; }
-
-        public decimal OriginalAmount { get; init; }
-
-        public decimal RemainingAmount { get; set; }
-
-        public bool IsOpeningBalance { get; init; }
-    }
-    private async Task<decimal> GetRemainingDebtAsync(
-        Guid customerId,
-        CancellationToken cancellationToken)
-    {
-        var openingBalance = await SumEntryTypeAsync(
-            customerId,
-            CustomerAccountEntryType.OpeningBalance,
-            cancellationToken);
-
-        var dailyDebt = await SumEntryTypeAsync(
-            customerId,
-            CustomerAccountEntryType.Debt,
-            cancellationToken);
-
-        var payment = await SumEntryTypeAsync(
-            customerId,
-            CustomerAccountEntryType.Payment,
-            cancellationToken);
-
-        var increase = await SumEntryTypeAsync(
-            customerId,
-            CustomerAccountEntryType.AdjustmentIncrease,
-            cancellationToken);
-
-        var decrease = await SumEntryTypeAsync(
-            customerId,
-            CustomerAccountEntryType.AdjustmentDecrease,
-            cancellationToken);
-
-        return openingBalance + dailyDebt + increase - decrease - payment;
-    }
-
-    private async Task<decimal> SumEntryTypeAsync(
-        Guid customerId,
-        CustomerAccountEntryType entryType,
-        CancellationToken cancellationToken)
-    {
-        return await _dbContext.CustomerAccountEntries
-            .Where(entry =>
-                entry.CustomerId == customerId &&
-                entry.EntryType == entryType)
-            .SumAsync(
-                entry => (decimal?)entry.Amount,
-                cancellationToken) ?? 0;
-    }
-
-    private CustomerAccountEntry CreateEntry(
-        Guid customerId,
-        CustomerAccountEntryType entryType,
-        decimal amount,
-        DateOnly businessDate,
-        string? note)
-    {
-        return new CustomerAccountEntry
-        {
-            CustomerId = customerId,
-            EntryType = entryType,
-            Amount = amount,
-            BusinessDate = businessDate,
-            Note = note,
-            RecordedByUserId = _currentUserService.UserId,
-            RecordedByFullName = _currentUserService.FullName,
-            RecordedByRole = _currentUserService.Role
-        };
-    }
-
-    private DateOnly GetCurrentBusinessDate()
-    {
-        var bakuNow = _timeProvider.GetUtcNow().ToOffset(BakuUtcOffset);
-        return DateOnly.FromDateTime(bakuNow.DateTime);
-    }
-
-    private void EnsureRole(params string[] allowedRoles)
-    {
-        var currentRole = _currentUserService.Role.ToString();
-
-        if (!allowedRoles.Contains(currentRole, StringComparer.Ordinal))
-        {
-            throw new ForbiddenException(
-                "Bu əməliyyat üçün icazəniz yoxdur.");
-        }
-    }
-
-    private static string? NormalizeOptional(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
-
-    private static CustomerAccountEntryDto MapEntry(
-        CustomerAccountEntry entry)
-    {
-        return new CustomerAccountEntryDto
-        {
-            Id = entry.Id,
-            CustomerId = entry.CustomerId,
-            EntryType = entry.EntryType,
-            Amount = entry.Amount,
-            BusinessDate = entry.BusinessDate,
-            Note = entry.Note,
-            RecordedByUserId = entry.RecordedByUserId,
-            RecordedByFullName = entry.RecordedByFullName,
-            RecordedByRole = entry.RecordedByRole,
-            CreatedAtUtc = entry.CreatedAtUtc
-        };
+        return await GetReportAsync(Today,cancellationToken);
     }
 }
-
-
-
-
-
-

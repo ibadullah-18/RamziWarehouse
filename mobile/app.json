@@ -2,18 +2,18 @@
     "expo":  {
                  "name":  "GrandWall",
                  "slug":  "grandwall",
-                 "version":  "1.0.3",
-                 "orientation":  "default",
+                 "version":  "1.0.4",
+                 "orientation":  "portrait",
                  "icon":  "./assets/images/grandwall-icon.png",
                  "scheme":  "grandwall",
-                 "userInterfaceStyle":  "light",
-                 "backgroundColor":  "#F6F2EC",
+                 "userInterfaceStyle":  "dark",
+                 "backgroundColor":  "#080A0D",
                  "primaryColor":  "#8A632B",
                  "ios":  {
                              "icon":  "./assets/images/grandwall-icon.png",
                              "supportsTablet":  true,
                              "bundleIdentifier":  "az.grandwall.app",
-                             "buildNumber":  "4",
+                             "buildNumber":  "5",
                              "infoPlist":  {
                                                "LSApplicationQueriesSchemes":  [
                                                                                    "whatsapp"
@@ -22,7 +22,7 @@
                          },
                  "android":  {
                                  "package":  "az.grandwall.app",
-                                 "versionCode":  8,
+                                 "versionCode":  9,
                                  "adaptiveIcon":  {
                                                       "backgroundColor":  "#B1A18B",
                                                       "foregroundImage":  "./assets/images/grandwall-adaptive-foreground.png",
@@ -47,7 +47,7 @@
                                  [
                                      "expo-splash-screen",
                                      {
-                                         "backgroundColor":  "#F6F2EC",
+                                         "backgroundColor":  "#080A0D",
                                          "image":  "./assets/images/grandwall-wordmark.png",
                                          "imageWidth":  280
                                      }

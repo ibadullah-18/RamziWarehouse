@@ -11,6 +11,8 @@ public sealed class CustomerAccountEntry : BaseEntity
 
     public CustomerAccountEntryType EntryType { get; set; }
 
+    public string? PaymentMethod { get; set; }
+
     public decimal Amount { get; set; }
 
     public DateOnly BusinessDate { get; set; }

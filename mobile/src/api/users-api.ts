@@ -1,3 +1,4 @@
+import { authenticatedFetch } from './authenticated-fetch';
 import { ApiProblemDetails } from '../auth/auth-types';
 import {
     ChangeUserPasswordRequest,
@@ -79,7 +80,7 @@ async function sendRequest<T>(
       headers['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${getApiBaseUrl()}${path}`,
       {
         method,
