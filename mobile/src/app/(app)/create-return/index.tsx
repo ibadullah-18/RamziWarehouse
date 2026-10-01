@@ -22,7 +22,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   getActiveWarehouses,
-  getProductSuggestions,
 } from '../../../api/create-order-api';
 import {
   createProductReturn,
@@ -33,7 +32,6 @@ import {
 } from '../../../components/customer-picker-modal';
 import type {
   Customer,
-  ProductSuggestion,
   Warehouse,
 } from '../../../features/orders/create-order-types';
 import {
@@ -150,23 +148,15 @@ export default function CreateReturnScreen() {
     ProductType.Product,
   );
 
-  const [quantity, setQuantity] =
-    useState(1);
+  const [quantityText, setQuantityText] = useState('1');
+  const quantity = Number(quantityText);
+  const setQuantity = (value: number) => setQuantityText(String(value));
 
-  const [
-    suggestions,
-    setSuggestions,
-  ] = useState<ProductSuggestion[]>([]);
 
-  const [
-    suggestionsVisible,
-    setSuggestionsVisible,
-  ] = useState(false);
 
-  const [
-    suggestionsLoading,
-    setSuggestionsLoading,
-  ] = useState(false);
+
+
+
 
   const [
     additionalNote,
@@ -183,6 +173,7 @@ export default function CreateReturnScreen() {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
+        timeZone: 'Asia/Baku',
       },
     );
 
@@ -255,101 +246,19 @@ export default function CreateReturnScreen() {
     warehouseReloadNumber,
   ]);
 
-  useEffect(() => {
-    if (
-      !accessToken ||
-      !suggestionsVisible
-    ) {
-      return;
-    }
 
-    let isActive = true;
 
-    const currentAccessToken =
-      accessToken;
 
-    const currentSearch =
-      productCode.trim() ||
-      batchNumber.trim();
-
-    const timeoutId = setTimeout(() => {
-      async function loadSuggestions() {
-        try {
-          const result =
-            await getProductSuggestions(
-              currentAccessToken,
-              currentSearch,
-              8,
-            );
-
-          if (isActive) {
-            setSuggestions(result);
-          }
-        } catch {
-          if (isActive) {
-            setSuggestions([]);
-          }
-        } finally {
-          if (isActive) {
-            setSuggestionsLoading(false);
-          }
-        }
-      }
-
-      void loadSuggestions();
-    }, 180);
-
-    return () => {
-      isActive = false;
-      clearTimeout(timeoutId);
-    };
-  }, [
-    accessToken,
-    batchNumber,
-    productCode,
-    suggestionsVisible,
-  ]);
-
-  function openSuggestions() {
-    setSuggestionsVisible(true);
-    setSuggestionsLoading(true);
-  }
 
   function changeProductCode(value: string) {
-    setProductCode(value);
-    setSuggestionsVisible(true);
-    setSuggestionsLoading(true);
+    setProductCode(value.replace(/\D/g, ''));
   }
 
   function changeBatchNumber(value: string) {
-    setBatchNumber(value);
-    setSuggestionsVisible(true);
-    setSuggestionsLoading(true);
+    setBatchNumber(value.replace(/\D/g, ''));
   }
 
-  function selectSuggestion(
-    suggestion: ProductSuggestion,
-  ) {
-    setProductCode(
-      suggestion.productCode,
-    );
 
-    setBatchNumber(
-      suggestion.partyNumber,
-    );
-
-    setProductType(
-      suggestion.productType === 2
-        ? ProductType.Showcase
-        : ProductType.Product,
-    );
-
-    setSuggestionsVisible(false);
-
-    setTimeout(() => {
-      batchNumberInputRef.current?.focus();
-    }, 50);
-  }
 
   function changeQuantity(
     nextQuantity: number,
@@ -387,7 +296,7 @@ export default function CreateReturnScreen() {
 
     if (
       !Number.isInteger(quantity) ||
-      quantity <= 0
+      quantity <= 0 || quantity > 100000
     ) {
       return {
         item: null,
@@ -454,8 +363,6 @@ export default function CreateReturnScreen() {
     );
 
     setQuantity(1);
-    setSuggestions([]);
-    setSuggestionsVisible(false);
 
     setTimeout(() => {
       productCodeInputRef.current?.focus();
@@ -509,7 +416,6 @@ export default function CreateReturnScreen() {
     setBatchNumber(item.batchNumber);
     setProductType(item.productType);
     setQuantity(item.quantity);
-    setSuggestionsVisible(false);
 
     setTimeout(() => {
       productCodeInputRef.current?.focus();
@@ -529,10 +435,11 @@ export default function CreateReturnScreen() {
     }
   }
 
+  const saveLock = useRef(false);
   async function submitReturn() {
     if (
       !accessToken ||
-      isSaving
+      isSaving || saveLock.current
     ) {
       return;
     }
@@ -609,6 +516,7 @@ export default function CreateReturnScreen() {
     }
 
     try {
+      saveLock.current = true;
       setIsSaving(true);
 
       const createdReturn =
@@ -651,6 +559,7 @@ export default function CreateReturnScreen() {
         getErrorMessage(error),
       );
     } finally {
+      saveLock.current = false;
       setIsSaving(false);
     }
   }
@@ -662,14 +571,14 @@ export default function CreateReturnScreen() {
         behavior={
           Platform.OS === 'ios'
             ? 'padding'
-            : undefined
+            : 'height'
         }
       >
         <View style={styles.header}>
           <Pressable
             disabled={isSaving}
             onPress={() => {
-              router.back();
+              if(router.canGoBack()) router.back(); else router.replace('/(app)/(tabs)/returns');
             }}
             style={({ pressed }) => [
               styles.backButton,
@@ -707,25 +616,7 @@ export default function CreateReturnScreen() {
             styles.scrollContent
           }
         >
-          <View style={styles.dateCard}>
-            <View style={styles.dateIcon}>
-              <Ionicons
-                name="calendar-outline"
-                size={21}
-                color={colors.primary}
-              />
-            </View>
-
-            <View>
-              <Text style={styles.dateLabel}>
-                Geri qaytarma tarixi
-              </Text>
-
-              <Text style={styles.dateValue}>
-                {todayLabel}
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.dateLabel}>{todayLabel}</Text>
 
           <Text style={styles.sectionCaption}>
             1. MÜŞTƏRİ VƏ ANBAR
@@ -848,16 +739,7 @@ export default function CreateReturnScreen() {
               />
             </Pressable>
           ) : (
-            <ScrollView
-              horizontal
-              nestedScrollEnabled
-              showsHorizontalScrollIndicator={
-                false
-              }
-              contentContainerStyle={
-                styles.warehouseList
-              }
-            >
+            <View style={styles.warehouseList}>
               {warehouses.map(warehouse => {
                 const isSelected =
                   selectedWarehouseId ===
@@ -905,7 +787,7 @@ export default function CreateReturnScreen() {
                   </Pressable>
                 );
               })}
-            </ScrollView>
+            </View>
           )}
 
           <Text style={styles.sectionCaption}>
@@ -1002,14 +884,14 @@ export default function CreateReturnScreen() {
                 color={colors.textLight}
               />
 
-              <TextInput keyboardType="default" inputMode="text"
+              <TextInput keyboardType="number-pad" inputMode="numeric"
                 ref={productCodeInputRef}
                 value={productCode}
                 onChangeText={
                   changeProductCode
                 }
-                onFocus={openSuggestions}
-                placeholder="Məsələn, 1017"
+
+                placeholder="Rəqəmləri yazın"
                 placeholderTextColor={
                   colors.textLight
                 }
@@ -1034,14 +916,14 @@ export default function CreateReturnScreen() {
                 color={colors.textLight}
               />
 
-              <TextInput keyboardType="default" inputMode="text"
+              <TextInput keyboardType="number-pad" inputMode="numeric"
                 ref={batchNumberInputRef}
                 value={batchNumber}
                 onChangeText={
                   changeBatchNumber
                 }
-                onFocus={openSuggestions}
-                placeholder="Məsələn, 130"
+
+                placeholder="Rəqəmləri yazın"
                 placeholderTextColor={
                   colors.textLight
                 }
@@ -1051,120 +933,7 @@ export default function CreateReturnScreen() {
               />
             </View>
 
-            {suggestionsVisible ? (
-              <View
-                style={styles.suggestionsCard}
-              >
-                <View
-                  style={
-                    styles.suggestionHeader
-                  }
-                >
-                  <Text
-                    style={
-                      styles.suggestionTitle
-                    }
-                  >
-                    Əvvəlki məhsullar
-                  </Text>
 
-                  <Pressable
-                    hitSlop={10}
-                    onPress={() => {
-                      setSuggestionsVisible(
-                        false,
-                      );
-                    }}
-                  >
-                    <Ionicons
-                      name="close"
-                      size={19}
-                      color={colors.textLight}
-                    />
-                  </Pressable>
-                </View>
-
-                {suggestionsLoading ? (
-                  <View
-                    style={
-                      styles.suggestionLoading
-                    }
-                  >
-                    <ActivityIndicator
-                      size="small"
-                      color={colors.primary}
-                    />
-                  </View>
-                ) : suggestions.length > 0 ? (
-                  suggestions.map(
-                    suggestion => (
-                      <Pressable
-                        key={
-                          `${suggestion.productCode}-` +
-                          `${suggestion.partyNumber}-` +
-                          `${suggestion.productType}`
-                        }
-                        onPress={() => {
-                          selectSuggestion(
-                            suggestion,
-                          );
-                        }}
-                        style={({
-                          pressed,
-                        }) => [
-                          styles.suggestionItem,
-
-                          pressed &&
-                            styles.pressed,
-                        ]}
-                      >
-                        <View>
-                          <Text
-                            style={
-                              styles.suggestionCode
-                            }
-                          >
-                            {
-                              suggestion.productCode
-                            }
-                          </Text>
-
-                          <Text
-                            style={
-                              styles.suggestionMeta
-                            }
-                          >
-                            Partiya{' '}
-                            {
-                              suggestion.partyNumber
-                            }
-                          </Text>
-                        </View>
-
-                        <Text
-                          style={
-                            styles.suggestionType
-                          }
-                        >
-                          {suggestion.productType ===
-                          2
-                            ? 'Vitrin'
-                            : 'Aboy'}
-                        </Text>
-                      </Pressable>
-                    ),
-                  )
-                ) : (
-                  <Text
-                    style={
-                      styles.noSuggestionText
-                    }
-                  >
-                    Uyğun məhsul tapılmadı.
-                  </Text>
-                )}
-              </View>
-            ) : null}
 
             <Text style={styles.fieldLabel}>
               Ədəd
@@ -1194,22 +963,8 @@ export default function CreateReturnScreen() {
               </Pressable>
 
               <TextInput inputMode="numeric"
-                value={String(quantity)}
-                onChangeText={value => {
-                  const parsedValue =
-                    Number.parseInt(
-                      value,
-                      10,
-                    );
-
-                  changeQuantity(
-                    Number.isNaN(
-                      parsedValue,
-                    )
-                      ? 1
-                      : parsedValue,
-                  );
-                }}
+                value={quantityText}
+                onChangeText={value => setQuantityText(value.replace(/\D/g, '').slice(0, 6))}
                 keyboardType="number-pad"
                 selectTextOnFocus
                 style={styles.quantityInput}
@@ -1517,6 +1272,9 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
     padding: spacing.lg,
     paddingBottom: 40,
   },
@@ -1641,6 +1399,8 @@ const styles = StyleSheet.create({
   },
 
   warehouseList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     paddingBottom: spacing.xl,
   },
@@ -1761,62 +1521,21 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
 
-  suggestionsCard: {
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    marginBottom: spacing.md,
-  },
 
-  suggestionHeader: {
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    backgroundColor:
-      colors.surfaceSecondary,
-  },
 
-  suggestionTitle: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-  },
 
-  suggestionLoading: {
-    padding: spacing.md,
-  },
 
-  suggestionItem: {
-    minHeight: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
 
-  suggestionCode: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '800',
-  },
 
-  suggestionMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    marginTop: 2,
-  },
 
-  suggestionType: {
-    color: colors.primary,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-  },
+
+
+
+
+
+
+
+
 
   noSuggestionText: {
     color: colors.textSecondary,

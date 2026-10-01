@@ -25,6 +25,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+    deleteCustomer,
     getCustomerById,
     updateCustomer,
 } from '../../../api/customers-api';
@@ -401,6 +402,7 @@ export default function EditCustomerScreen() {
               {isSubmitting ? 'Yadda saxlanılır...' : 'Dəyişiklikləri saxla'}
             </Text>
           </Pressable>
+          <Pressable accessibilityRole="button" disabled={isSubmitting} onPress={() => Alert.alert('Müştərini sil', 'Siyahıdan silinəcək. Əvvəlki əməliyyatlar tarixçədə saxlanacaq.', [{text:'Geri',style:'cancel'},{text:'Sil',style:'destructive',onPress: async()=>{ if(!accessToken || !customerId) return; setIsSubmitting(true); try { await deleteCustomer(accessToken, customerId); if(router.canGoBack()) router.back(); else router.replace('/customers'); } catch(e) { Alert.alert('Silinmədi', e instanceof Error ? e.message : 'Yenidən yoxlayın.'); } finally {setIsSubmitting(false);} }}])} style={{padding:18,alignItems:'center',borderWidth:1,borderColor:colors.danger,borderRadius:12,marginTop:20}}><Text style={{color:colors.danger,fontSize:17,fontWeight:'600'}}> Müştərini sil </Text></Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

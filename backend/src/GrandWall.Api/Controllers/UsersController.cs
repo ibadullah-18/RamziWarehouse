@@ -133,4 +133,11 @@ public sealed class UsersController : ControllerBase
 
         return NoContent();
     }
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        await _userService.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
 }

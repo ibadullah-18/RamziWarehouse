@@ -40,7 +40,7 @@ public sealed class AuthService : IAuthService
                     currentUser.Username == username,
                 cancellationToken);
 
-        if (user is null || !user.IsActive)
+        if (user is null || !user.IsActive || user.IsDeleted)
         {
             throw new UnauthorizedException(
                 "İstifadəçi adı və ya şifrə yanlışdır.");
@@ -135,7 +135,7 @@ public sealed class AuthService : IAuthService
                 if (storedToken is null ||
                     storedToken.RevokedAtUtc.HasValue ||
                     storedToken.ExpiresAtUtc <= utcNow ||
-                    !storedToken.User.IsActive)
+                    (!storedToken.User.IsActive || storedToken.User.IsDeleted))
                 {
                     throw new UnauthorizedException(
                         "Refresh token etibarsızdır və ya vaxtı bitib.");

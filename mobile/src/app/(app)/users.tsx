@@ -1,10 +1,11 @@
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
     type Href,
     router,
 } from 'expo-router';
 import {
-    useEffect,
+    useCallback,
     useState,
 } from 'react';
 import {
@@ -195,7 +196,7 @@ export default function UsersScreen() {
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!accessToken || !hasPermission) {
       return;
     }
@@ -232,7 +233,7 @@ export default function UsersScreen() {
     return () => {
       isActive = false;
     };
-  }, [accessToken, hasPermission]);
+  }, [accessToken, hasPermission]));
 
   async function loadUsers(
     searchValue: string,

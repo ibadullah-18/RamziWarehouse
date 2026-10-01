@@ -13,6 +13,8 @@ public sealed class User : BaseEntity
 
     public UserRole Role { get; set; }
 
+    public bool IsDeleted { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTime? LastLoginAtUtc { get; set; }

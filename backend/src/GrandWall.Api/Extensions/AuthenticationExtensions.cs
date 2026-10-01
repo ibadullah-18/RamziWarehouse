@@ -1,5 +1,7 @@
 ﻿using System.Security.Claims;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
+using GrandWall.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using GrandWall.Api.Authorization;
@@ -40,6 +42,13 @@ public static class AuthenticationExtensions
                 JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
+                options.Events = new JwtBearerEvents { OnTokenValidated = async context => {
+                    var idClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                    if(!Guid.TryParse(idClaim,out var id)) { context.Fail("Invalid user."); return; }
+                    var db=context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                    var user=await db.Users.AsNoTracking().FirstOrDefaultAsync(u=>u.Id==id,context.HttpContext.RequestAborted);
+                    if(user==null || !user.IsActive || user.IsDeleted || context.Principal?.FindFirstValue(ClaimTypes.Role)!=user.Role.ToString()) context.Fail("User account is unavailable.");
+                }};
                 options.TokenValidationParameters =
                     new TokenValidationParameters
                     {

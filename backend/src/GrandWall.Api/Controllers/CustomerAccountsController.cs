@@ -6,7 +6,7 @@ using GrandWall.Application.Features.CustomerAccounts.Dtos;
 namespace GrandWall.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Manager,Admin,Accountant,Driver")]
+[Authorize(Roles = "Admin,Accountant,Driver")]
 [Route("api/customer-accounts")]
 public sealed class CustomerAccountsController : ControllerBase
 {
@@ -26,12 +26,12 @@ public sealed class CustomerAccountsController : ControllerBase
         => Ok(await _service.GetReportAsync(date, cancellationToken));
 
     [HttpPost("close-day")]
-    [Authorize(Roles = "Manager,Admin,Driver")]
+    [Authorize(Roles = "Admin,Driver")]
     public async Task<IActionResult> CloseDay(CancellationToken cancellationToken)
         => Ok(await _service.CloseDayAsync(cancellationToken));
 
     [HttpPut("daily-debt")]
-    [Authorize(Roles = "Manager,Admin,Accountant")]
+    [Authorize(Roles = "Admin,Accountant")]
     public async Task<IActionResult> CorrectDaily(CorrectDailyDebtRequestDto request, CancellationToken cancellationToken)
         => Ok(await _service.CorrectDailyAsync(request, cancellationToken));
 
@@ -54,7 +54,7 @@ public sealed class CustomerAccountsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Manager,Admin,Accountant")]
+    [Authorize(Roles = "Admin,Accountant,Driver")]
     public async Task<ActionResult<CustomerAccountDetailsDto>> CreateToday(
         [FromBody] CreateCustomerAccountRequestDto request,
         CancellationToken cancellationToken)
@@ -70,7 +70,7 @@ public sealed class CustomerAccountsController : ControllerBase
     }
 
     [HttpPost("payments")]
-    [Authorize(Roles = "Manager,Admin,Driver")]
+    [Authorize(Roles = "Admin,Driver")]
     public async Task<ActionResult<CustomerAccountDetailsDto>> RecordPayment(
         [FromBody] RecordCustomerPaymentRequestDto request,
         CancellationToken cancellationToken)
@@ -81,7 +81,7 @@ public sealed class CustomerAccountsController : ControllerBase
     }
 
     [HttpPut("previous-debt")]
-    [Authorize(Roles = "Manager,Admin,Accountant")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<CustomerAccountDetailsDto>>
         CorrectPreviousDebt(
             [FromBody] CorrectPreviousDebtRequestDto request,

@@ -62,7 +62,7 @@ async function createApiError(
 async function sendRequest<T>(
   path: string,
   accessToken: string,
-  method: 'GET' | 'POST' | 'PUT',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   body?: unknown,
 ): Promise<T> {
   const controller = new AbortController();
@@ -99,6 +99,7 @@ async function sendRequest<T>(
       throw await createApiError(response);
     }
 
+    if(response.status === 204) return undefined as T;
     return (await response.json()) as T;
   } catch (error) {
     if (
@@ -191,4 +192,7 @@ export async function updateCustomer(
     'PUT',
     request,
   );
+}
+export async function deleteCustomer(accessToken: string, id: string): Promise<void> {
+  await sendRequest<void>('/api/customers/'+encodeURIComponent(id), accessToken, 'DELETE');
 }

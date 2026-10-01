@@ -25,6 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
     changeUserPassword,
+    deleteUser,
     getUserById,
     updateUser,
 } from '../../../api/users-api';
@@ -809,6 +810,7 @@ export default function EditUserScreen() {
               </Text>
             </Pressable>
           </View>
+          <Pressable accessibilityRole="button" disabled={isSaving || isChangingPassword || isCurrentAccount} onPress={() => Alert.alert('İşçini sil', 'Siyahıdan silinəcək. Əvvəlki əməliyyatlar tarixçədə saxlanacaq.', [{text:'Geri',style:'cancel'},{text:'Sil',style:'destructive',onPress: async()=>{ if(!accessToken || !user?.id) return; setIsSaving(true); try { await deleteUser(accessToken, user.id); if(router.canGoBack()) router.back(); else router.replace('/users'); } catch(e) { Alert.alert('Silinmədi', e instanceof Error ? e.message : 'Yenidən yoxlayın.'); } finally {setIsSaving(false);} }}])} style={{padding:18,alignItems:'center',borderWidth:1,borderColor:colors.danger,borderRadius:12,marginTop:20}}><Text style={{color:colors.danger,fontSize:17,fontWeight:'600'}}> İşçini sil </Text></Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

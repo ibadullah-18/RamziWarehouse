@@ -1,10 +1,11 @@
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
     router,
     type Href,
 } from 'expo-router';
 import {
-    useEffect,
+    useCallback,
     useState,
 } from 'react';
 import {
@@ -61,7 +62,7 @@ export default function CustomersScreen() {
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!accessToken) {
       return;
     }
@@ -102,7 +103,7 @@ export default function CustomersScreen() {
       isActive = false;
       clearTimeout(timeoutId);
     };
-  }, [accessToken, filter, search]);
+  }, [accessToken, filter, search]));
 
   async function refreshCustomers() {
     if (!accessToken || isRefreshing) {
@@ -182,6 +183,7 @@ export default function CustomersScreen() {
               onPress={() => {
                 router.push('/create-customer' as Href);
               }}
+              accessibilityLabel="Yeni müştəri yarat"
               style={({ pressed }) => [
                 styles.addButton,
                 pressed && styles.pressed,
@@ -192,25 +194,7 @@ export default function CustomersScreen() {
           ) : null}
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.duration(330).delay(50)}
-          style={styles.heroCard}
-        >
-          <View style={styles.heroIcon}>
-            <Ionicons
-              name="storefront-outline"
-              size={25}
-              color={colors.white}
-            />
-          </View>
-          <View style={styles.heroText}>
-            <Text style={styles.heroLabel}>Ümumi müştəri</Text>
-            <Text style={styles.heroNumber}>{customers.length}</Text>
-          </View>
-          <Text style={styles.heroDescription}>
-            Qaimə və vazvradların aid olduğu mağazalar
-          </Text>
-        </Animated.View>
+        <Text style={styles.count}>{customers.length} müştəri · Dəyişmək üçün adına toxunun</Text>
 
         <View style={styles.searchBox}>
           <Ionicons
@@ -419,7 +403,7 @@ export default function CustomersScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   scrollView: { flex: 1 },
-  content: { padding: spacing.xl, paddingBottom: 120 },
+  content: { padding: spacing.lg, paddingBottom: 40, width: '100%', maxWidth: 720, alignSelf: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
   headerText: { flex: 1 },
@@ -427,6 +411,7 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: fontSize.xl, fontWeight: '800', marginTop: 2 },
   addButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.primary },
   pressed: { opacity: 0.72 },
+  count: {color: colors.textSecondary, fontSize: 15, marginTop: 18, lineHeight: 22},
   heroCard: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.xl, backgroundColor: colors.primaryDark, padding: spacing.xl, marginTop: spacing.xl },
   heroIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: '#244C73' },
   heroText: { marginLeft: spacing.md },

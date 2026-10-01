@@ -10,5 +10,7 @@ public sealed class Customer : BaseEntity
 
     public string? Note { get; set; }
 
+    public bool IsDeleted { get; set; }
+
     public bool IsActive { get; set; } = true;
 }

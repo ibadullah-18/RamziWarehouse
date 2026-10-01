@@ -42,7 +42,7 @@ public sealed class UserService : IUserService
     {
         var query = _dbContext.Users
             .AsNoTracking()
-            .AsQueryable();
+            .Where(user => !user.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -80,7 +80,7 @@ public sealed class UserService : IUserService
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 currentUser =>
-                    currentUser.Id == id,
+                    currentUser.Id == id && !currentUser.IsDeleted,
                 cancellationToken);
 
         if (user is null)
@@ -149,7 +149,7 @@ public sealed class UserService : IUserService
         var user = await _dbContext.Users
             .SingleOrDefaultAsync(
                 currentUser =>
-                    currentUser.Id == id,
+                    currentUser.Id == id && !currentUser.IsDeleted,
                 cancellationToken);
 
         if (user is null)
@@ -244,7 +244,7 @@ public sealed class UserService : IUserService
         var user = await _dbContext.Users
             .SingleOrDefaultAsync(
                 currentUser =>
-                    currentUser.Id == id,
+                    currentUser.Id == id && !currentUser.IsDeleted,
                 cancellationToken);
 
         if (user is null)
@@ -264,6 +264,17 @@ public sealed class UserService : IUserService
 
         await _dbContext.SaveChangesAsync(
             cancellationToken);
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        EnsureAdmin();
+        if(id == _currentUserService.UserId) throw new ConflictException("Daxil olduğunuz hesabı silə bilməzsiniz.");
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u=>u.Id==id && !u.IsDeleted,cancellationToken) ?? throw new NotFoundException("İstifadəçi tapılmadı.");
+        if(user.Role==UserRole.Admin && user.IsActive && !await _dbContext.Users.AnyAsync(u=>u.Id!=id && u.Role==UserRole.Admin && u.IsActive && !u.IsDeleted,cancellationToken)) throw new ConflictException("Ən azı bir aktiv admin qalmalıdır.");
+        user.IsDeleted=true; user.IsActive=false;
+        await RevokeActiveTokensAsync(id,cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private void EnsureAdmin()

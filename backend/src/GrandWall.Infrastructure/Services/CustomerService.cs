@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using GrandWall.Application.Abstractions.Identity;
+using GrandWall.Domain.Enums;
 using GrandWall.Application.Abstractions.Customers;
 using GrandWall.Application.Common.Exceptions;
 using GrandWall.Application.Features.Customers.Dtos;
@@ -11,9 +13,12 @@ public sealed class CustomerService : ICustomerService
 {
     private readonly AppDbContext _dbContext;
 
-    public CustomerService(AppDbContext dbContext)
+    private readonly ICurrentUserService _user;
+
+    public CustomerService(AppDbContext dbContext, ICurrentUserService user)
     {
         _dbContext = dbContext;
+        _user = user;
     }
 
     public async Task<IReadOnlyList<CustomerDto>> GetAllAsync(
@@ -23,7 +28,7 @@ public sealed class CustomerService : ICustomerService
     {
         var query = _dbContext.Customers
             .AsNoTracking()
-            .AsQueryable();
+            .Where(customer => !customer.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -54,7 +59,7 @@ public sealed class CustomerService : ICustomerService
         var customer = await _dbContext.Customers
             .AsNoTracking()
             .FirstOrDefaultAsync(
-                customer => customer.Id == id,
+                customer => customer.Id == id && !customer.IsDeleted,
                 cancellationToken);
 
         if (customer is null)
@@ -90,7 +95,7 @@ public sealed class CustomerService : ICustomerService
     {
         var customer = await _dbContext.Customers
             .FirstOrDefaultAsync(
-                customer => customer.Id == id,
+                customer => customer.Id == id && !customer.IsDeleted,
                 cancellationToken);
 
         if (customer is null)
@@ -106,6 +111,14 @@ public sealed class CustomerService : ICustomerService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return MapToDto(customer);
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (_user.Role != UserRole.Admin) throw new ForbiddenException("Müştərini yalnız admin silə bilər.");
+        var customer = await _dbContext.Customers.FirstOrDefaultAsync(c=>c.Id==id && !c.IsDeleted,cancellationToken) ?? throw new NotFoundException("Müştəri tapılmadı.");
+        customer.IsDeleted=true; customer.IsActive=false;
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static CustomerDto MapToDto(Customer customer)

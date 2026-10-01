@@ -79,4 +79,11 @@ public sealed class CustomersController : ControllerBase
 
         return Ok(customer);
     }
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        await _customerService.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
 }
