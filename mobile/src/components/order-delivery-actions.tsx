@@ -673,7 +673,7 @@ export function OrderDeliveryActions({
           Əlavə qeyd
         </Text>
 
-        <TextInput
+        <TextInput keyboardType="default" inputMode="text"
           value={note}
           onChangeText={setNote}
           editable={workingAction === null}

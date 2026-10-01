@@ -2,7 +2,7 @@
     "expo":  {
                  "name":  "GrandWall",
                  "slug":  "grandwall",
-                 "version":  "1.0.5",
+                 "version":  "1.0.6",
                  "orientation":  "portrait",
                  "icon":  "./assets/images/grandwall-icon.png",
                  "scheme":  "grandwall",
@@ -13,7 +13,7 @@
                              "icon":  "./assets/images/grandwall-icon.png",
                              "supportsTablet":  true,
                              "bundleIdentifier":  "az.grandwall.app",
-                             "buildNumber":  "6",
+                             "buildNumber":  "7",
                              "infoPlist":  {
                                                "LSApplicationQueriesSchemes":  [
                                                                                    "whatsapp"
@@ -22,7 +22,7 @@
                          },
                  "android":  {
                                  "package":  "az.grandwall.app",
-                                 "versionCode":  10,
+                                 "versionCode":  11,
                                  "adaptiveIcon":  {
                                                       "backgroundColor":  "#B1A18B",
                                                       "foregroundImage":  "./assets/images/grandwall-adaptive-foreground.png",

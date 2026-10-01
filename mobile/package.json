@@ -51,7 +51,8 @@
     "build:android:preview": "npx eas-cli@latest build --platform android --profile preview",
     "build:android:production": "npx eas-cli@latest build --platform android --profile production",
     "lint": "expo lint",
-    "test:auth": "node --test tests/session-manager.test.cjs"
+    "test:auth": "node --test tests/session-manager.test.cjs",
+    "test:accounts": "node --test tests/account-navigation.test.cjs"
   },
   "private": true
 }

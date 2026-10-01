@@ -440,7 +440,7 @@ export default function AttendanceScreen() {
               color={colors.textSecondary}
             />
 
-            <TextInput
+            <TextInput keyboardType="default" inputMode="text"
               value={search}
               onChangeText={value => {
                 setIsLoading(true);

@@ -218,7 +218,7 @@ export default function CustomersScreen() {
             size={20}
             color={colors.textSecondary}
           />
-          <TextInput
+          <TextInput keyboardType="default" inputMode="text"
             value={search}
             onChangeText={value => {
               setIsLoading(true);

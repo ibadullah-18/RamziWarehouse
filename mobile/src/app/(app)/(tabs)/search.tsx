@@ -675,7 +675,7 @@ export default function SearchScreen() {
             }
           />
 
-          <TextInput
+          <TextInput keyboardType="default" inputMode="text"
             value={searchText}
             onChangeText={changeSearchText}
             onSubmitEditing={Keyboard.dismiss}

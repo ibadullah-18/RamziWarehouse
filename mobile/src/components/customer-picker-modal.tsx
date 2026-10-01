@@ -460,7 +460,7 @@ export function CustomerPickerModal({
                   color={colors.textLight}
                 />
 
-                <TextInput
+                <TextInput keyboardType="default" inputMode="text"
                   ref={nameInputRef}
                   value={customerName}
                   onChangeText={value => {
@@ -493,7 +493,7 @@ export function CustomerPickerModal({
                   color={colors.textLight}
                 />
 
-                <TextInput
+                <TextInput inputMode="tel"
                   ref={phoneInputRef}
                   value={customerPhoneNumber}
                   onChangeText={value => {
@@ -537,7 +537,7 @@ export function CustomerPickerModal({
                   style={styles.noteIcon}
                 />
 
-                <TextInput
+                <TextInput keyboardType="default" inputMode="text"
                   value={customerNote}
                   onChangeText={value => {
                     setCustomerNote(value);
@@ -614,7 +614,7 @@ export function CustomerPickerModal({
                   color={colors.textLight}
                 />
 
-                <TextInput
+                <TextInput keyboardType="default" inputMode="text"
                   value={searchText}
                   onChangeText={changeSearchText}
                   placeholder="Müştərinin adını yaz..."

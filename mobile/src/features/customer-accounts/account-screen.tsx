@@ -7,10 +7,12 @@ import { useAuth } from '../../auth/auth-context';
 import { UserRole } from '../../auth/auth-types';
 import { AccountDayReport, AccountReportHistory, CustomerAccountDetails, CustomerAccountSummary } from './customer-account-types';
 import { colors } from '../../theme';
+import AccountDateInput from './account-date-input';
+import { AccountMode, AccountPage, accountDestination, customerAccountPages, isBusinessDate, singleAccountParam } from './account-navigation';
 export const todayKey = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);
 const money = (n: number) => `${n.toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₼`;
 const dateLabel = (s: string) => s.split('-').reverse().join('.');
-type Mode = 'home' | 'daily' | 'customers' | 'detail' | 'history' | 'reports' | 'report' | 'debt' | 'old' | 'correct' | 'payment';
+type Mode = AccountMode;
 function Button({ title, onPress, disabled = false, secondary = false }: {
     title: string;
     onPress: () => void;
@@ -22,15 +24,16 @@ function Button({ title, onPress, disabled = false, secondary = false }: {
 function Amount({ label, value }: {
     label: string;
     value: number;
-}) { return <View style={styles.amount}><Text style={styles.muted}>{label}</Text><Text style={styles.value}>{money(value)}</Text></View>; }
+}) { return <View style={styles.amount}><Text style={styles.muted}>{label}</Text><Text style={styles.value}>{money(value )}</Text></View>; }
 export default function AccountScreen({ mode }: {
     mode: Mode;
 }) {
     const router = useRouter();
-    const params = useLocalSearchParams<{
-        id?: string;
-        date?: string;
+    const rawParams = useLocalSearchParams<{
+        id?: string | string[];
+        date?: string | string[];
     }>();
+    const params = { id: singleAccountParam(rawParams.id), date: singleAccountParam(rawParams.date) };
     const { session } = useAuth();
     const token = session?.accessToken ?? '';
     const driver = session?.role === UserRole.Driver;
@@ -42,8 +45,19 @@ export default function AccountScreen({ mode }: {
     const [history, setHistory] = useState<AccountReportHistory[]>([]);
     const focused = useRef(false);
     const lock = useRef(false);
+    const navigationPending = useRef(false);
     const request = useRef(0);
-    const go = (target: Mode, id?: string, day?: string) => router.push(('/account/' + target + '?' + new URLSearchParams({ ...(id ? { id } : {}), ...(day ? { date: day } : {}) }).toString()) as Href);
+    const go = (target: AccountPage, id?: string, day?: string) => {
+        if (!focused.current || navigationPending.current) return;
+        navigationPending.current = true;
+        try { router.push(accountDestination(target, id, day) as Href); }
+        catch (e) { navigationPending.current = false; setError(e instanceof Error ? e.message : 'Səhifə açıla bilmədi.'); }
+    };
+    const back = () => {
+        if (busy) return;
+        if (router.canGoBack()) router.back();
+        else router.replace('/(app)/(tabs)/accounts');
+    };
     const load = useCallback(async () => {
         const serial = ++request.current;
         setLoading(true);
@@ -56,11 +70,14 @@ export default function AccountScreen({ mode }: {
                     const result = await getCustomerAccounts(token, { pageNumber: page++, pageSize: 100 });
                     items = items.concat(result.items);
                     total = result.totalCount;
+                    if (serial !== request.current) return;
+                    if (result.items.length === 0) break;
                 } while (items.length < total);
                 if (serial === request.current)
                     setList(items);
             }
-            else if (params.id) {
+            else if (customerAccountPages.includes(mode as AccountPage)) {
+                if (!params.id) throw new Error('Müştəri seçilməyib. Geri qayıdıb müştərini seçin.');
                 const result = await getCustomerAccountDetails(token, params.id);
                 if (serial === request.current)
                     setDetails(result);
@@ -71,7 +88,9 @@ export default function AccountScreen({ mode }: {
                     setHistory(result);
             }
             else if (mode === 'report') {
-                const result = await getAccountReport(token, params.date ?? todayKey());
+                const reportDate = params.date ?? todayKey();
+                if (!isBusinessDate(reportDate)) throw new Error('Düzgün tarix seçin.');
+                const result = await getAccountReport(token, reportDate);
                 if (serial === request.current)
                     setReport(result);
             }
@@ -85,7 +104,7 @@ export default function AccountScreen({ mode }: {
                 setLoading(false);
         }
     }, [mode, params.id, params.date, token]);
-    useFocusEffect(useCallback(() => { focused.current = true; void load(); return () => { focused.current = false; request.current++; }; }, [load]));
+    useFocusEffect(useCallback(() => { focused.current = true; navigationPending.current = false; void load(); return () => { focused.current = false; request.current++; }; }, [load]));
     const submit = async () => {
         if (lock.current || !params.id)
             return;
@@ -115,8 +134,10 @@ export default function AccountScreen({ mode }: {
                     throw new Error('İlkin borcu düzgün yazın.');
                 await createCustomerAccount(token, { customerId: params.id, todayDebt: value, initialPreviousDebt: details?.days.length ? null : Number(initialRaw || 0), note: reason.trim() || null });
             }
-            if (focused.current)
-                router.back();
+            if (focused.current) {
+                if (router.canGoBack()) router.back();
+                else router.replace(accountDestination('detail', params.id) as Href);
+            }
         }
         catch (e) {
             setError(e instanceof Error ? e.message : 'Əməliyyat alınmadı.');
@@ -133,16 +154,15 @@ export default function AccountScreen({ mode }: {
     const paidToday = Math.min(pay, details?.todayDebtRemaining ?? 0);
     const paidCarry = Math.min(Math.max(0, pay - paidToday), details?.carriedDailyDebt ?? 0);
     return <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.primary}/>}>
-    <View style={styles.header}>{mode !== 'home' && <Pressable accessibilityLabel="Geri" onPress={() => { if (!busy)
-        router.back(); }} style={styles.back}><Text style={styles.value}>‹</Text></Pressable>}<Text style={styles.title}>{titles[mode]}</Text></View>
+    <View style={styles.header}>{mode !== 'home' && <Pressable accessibilityLabel="Geri" onPress={back} style={styles.back}><Text style={styles.value}>‹</Text></Pressable>}<Text style={styles.title}>{titles[mode]}</Text></View>
     {error !== '' && <View style={styles.error}><Text style={{ color: colors.danger }}>{error}</Text><Button secondary title="Yenidən yoxla" onPress={() => void load()}/></View>}
     {loading && <ActivityIndicator color={colors.primary}/>}
     {mode === 'home' && <><Text style={styles.muted}>{dateLabel(todayKey())} · {driver ? 'Sürücü' : 'Açot operatoru'}</Text><Button title={driver ? 'Günlük açot' : 'Günlük açot yarat'} onPress={() => go('daily')}/><Button secondary title="Günün yekun açotunu gör" onPress={() => go('reports')}/>{driver && <Button secondary title="Bütün müştərilərin borcları" onPress={() => go('customers')}/>}</>}
-    {['daily', 'customers'].includes(mode) && <><TextInput placeholder="Müştərinin adını axtar" placeholderTextColor={colors.textLight} value={search} onChangeText={setSearch} style={styles.input}/>{visible.map(c => <Pressable key={c.customerId} onPress={() => go('detail', c.customerId)} style={styles.card}><View style={styles.row}><Text style={styles.name}>{c.customerName}</Text>{c.hasUnpaidDailyDebt && <Text accessibilityLabel="Ödənilməmiş günlük borc" style={styles.badge}>●</Text>}<Text style={styles.muted}>›</Text></View>{driver && <Text style={styles.muted}>Günlük: {money(c.todayDebtRemaining + c.carriedDailyDebt)}</Text>}</Pressable>)}{!loading && !visible.length && <Text style={styles.muted}>Bu siyahıda müştəri yoxdur.</Text>}</>}
+    {['daily', 'customers'].includes(mode) && <><TextInput keyboardType="default" inputMode="text" placeholder="Müştərinin adını axtar" placeholderTextColor={colors.textLight} value={search} onChangeText={setSearch} style={styles.input}/>{visible.map(c => <Pressable key={c.customerId} onPress={() => go('detail', c.customerId)} style={styles.card}><View style={styles.row}><Text style={styles.name}>{c.customerName}</Text>{c.hasUnpaidDailyDebt && <Text accessibilityLabel="Ödənilməmiş günlük borc" style={styles.badge}>●</Text>}<Text style={styles.muted}>›</Text></View>{driver && <Text style={styles.muted}>Günlük: {money(c.todayDebtRemaining + c.carriedDailyDebt)}</Text>}</Pressable>)}{!loading && !visible.length && <Text style={styles.muted}>Bu siyahıda müştəri yoxdur.</Text>}</>}
     {mode === 'detail' && details && <><View style={styles.card}><Amount label="Köhnə borc" value={details.oldDebtRemaining}/><Amount label="Əvvəlki günlərdən qalan günlük borc" value={details.carriedDailyDebt}/><Amount label="Bugünkü qalıq borc" value={details.todayDebtRemaining}/><Amount label="Bu gün yazılmış borc" value={details.days.find(d=>d.businessDate===todayKey())?.addedDebt??0}/><Amount label="Bu gün ödənilib" value={details.days.find(d=>d.businessDate===todayKey())?.paidAmount??0}/><Amount label="Ümumi qalıq" value={details.remainingDebt}/></View>{editor && <><Button title="Günlük borc yarat" onPress={() => go('debt', params.id)}/><Button secondary title="Bugünkü borcu düzəlt" onPress={() => go('correct', params.id)}/><Button secondary title="Köhnə borcu düzəlt" onPress={() => go('old', params.id)}/></>}{(driver || session?.role === UserRole.Admin || session?.role === UserRole.Manager) && <Button title="Ödəniş qeyd et" disabled={details.remainingDebt <= 0} onPress={() => go('payment', params.id)}/>}<Button secondary title="Müştərinin ödəniş tarixçəsi" onPress={() => go('history', params.id)}/></>}
-    {isForm && details && <><Text style={styles.name}>{details.customerName}</Text><View style={styles.card}><Amount label="Köhnə borc" value={details.oldDebtRemaining}/><Amount label="Əvvəlki günlük qalıq" value={details.carriedDailyDebt}/><Amount label="Bugünkü qalıq" value={details.todayDebtRemaining}/></View>{(!editor && mode !== 'payment') || (mode === 'payment' && !(driver || session?.role === UserRole.Admin || session?.role === UserRole.Manager)) ? <Text style={styles.muted}>Bu əməliyyat üçün icazəniz yoxdur.</Text> : <><Text style={styles.muted}>{mode === 'debt' ? 'Bugünkü yeni borc' : mode === 'payment' ? 'Alınan ödəniş' : 'Yeni düzgün məbləğ'} (AZN)</Text><TextInput autoFocus keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="0,00" placeholderTextColor={colors.textLight} style={styles.input} editable={!busy}/>{mode === 'debt' && !details.days.length && <><Text style={styles.muted}>İlkin köhnə borc — varsa</Text><TextInput keyboardType="decimal-pad" value={initial} onChangeText={setInitial} placeholder="0,00" placeholderTextColor={colors.textLight} style={styles.input} editable={!busy}/></>}{mode === 'payment' ? <><View style={styles.row}><View style={{ flex: 1 }}><Button secondary={method !== 'cash'} title="Nağd" onPress={() => setMethod('cash')} disabled={busy}/></View><View style={{ flex: 1 }}><Button secondary={method !== 'card'} title="Kart" onPress={() => setMethod('card')} disabled={busy}/></View></View><View style={styles.card}><Text style={styles.muted}>Ödəniş avtomatik bölünür</Text><Amount label="Bugünkü borca" value={paidToday}/><Amount label="Əvvəlki günlük borca" value={paidCarry}/><Amount label="Köhnə borca" value={Math.max(0, pay - paidToday - paidCarry)}/></View></> : <TextInput multiline value={reason} onChangeText={setReason} maxLength={400} placeholder={mode === 'debt' ? 'Qeyd (istəyə görə)' : 'Düzəliş səbəbi'} placeholderTextColor={colors.textLight} style={styles.input} editable={!busy}/>}<Button title={busy ? 'Saxlanılır…' : 'Təsdiqlə və saxla'} disabled={busy || loading || (mode === 'payment' && (pay <= 0 || pay > details.remainingDebt))} onPress={() => void submit()}/></>}</>}
+    {isForm && details && <><Text style={styles.name}>{details.customerName}</Text><View style={styles.card}><Amount label="Köhnə borc" value={details.oldDebtRemaining}/><Amount label="Əvvəlki günlük qalıq" value={details.carriedDailyDebt}/><Amount label="Bugünkü qalıq" value={details.todayDebtRemaining}/></View>{(!editor && mode !== 'payment') || (mode === 'payment' && !(driver || session?.role === UserRole.Admin || session?.role === UserRole.Manager)) ? <Text style={styles.muted}>Bu əməliyyat üçün icazəniz yoxdur.</Text> : <><Text style={styles.muted}>{mode === 'debt' ? 'Bugünkü yeni borc' : mode === 'payment' ? 'Alınan ödəniş' : 'Yeni düzgün məbləğ'} (AZN)</Text><TextInput inputMode="decimal" autoFocus keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="0,00" placeholderTextColor={colors.textLight} style={styles.input} editable={!busy}/>{mode === 'debt' && !details.days.length && <><Text style={styles.muted}>İlkin köhnə borc — varsa</Text><TextInput inputMode="decimal" keyboardType="decimal-pad" value={initial} onChangeText={setInitial} placeholder="0,00" placeholderTextColor={colors.textLight} style={styles.input} editable={!busy}/></>}{mode === 'payment' ? <><View style={styles.row}><View style={{ flex: 1 }}><Button secondary={method !== 'cash'} title="Nağd" onPress={() => setMethod('cash')} disabled={busy}/></View><View style={{ flex: 1 }}><Button secondary={method !== 'card'} title="Kart" onPress={() => setMethod('card')} disabled={busy}/></View></View><View style={styles.card}><Text style={styles.muted}>Ödəniş avtomatik bölünür</Text><Amount label="Bugünkü borca" value={paidToday}/><Amount label="Əvvəlki günlük borca" value={paidCarry}/><Amount label="Köhnə borca" value={Math.max(0, pay - paidToday - paidCarry)}/></View></> : <TextInput keyboardType="default" inputMode="text" multiline value={reason} onChangeText={setReason} maxLength={400} placeholder={mode === 'debt' ? 'Qeyd (istəyə görə)' : 'Düzəliş səbəbi'} placeholderTextColor={colors.textLight} style={styles.input} editable={!busy}/>}<Button title={busy ? 'Saxlanılır…' : 'Təsdiqlə və saxla'} disabled={busy || loading || (mode === 'payment' && (pay <= 0 || pay > details.remainingDebt))} onPress={() => void submit()}/></>}</>}
     {mode === 'history' && details && <>{details.days.map(day => <View style={styles.card} key={day.businessDate}><Text style={styles.name}>{dateLabel(day.businessDate)}</Text><Amount label="Əvvəlki ümumi borc" value={day.openingDebt}/><Amount label="Yazılmış günlük borc" value={day.addedDebt}/><Amount label="Ödənilib" value={day.paidAmount}/><Amount label="Günün sonu köhnə borc" value={day.oldDebtRemaining}/><Amount label="Əvvəlki günlük qalıq" value={day.carriedDailyDebt}/><Amount label="Həmin günün günlük qalığı" value={day.todayDebtRemaining}/><Amount label="Günün sonu ümumi qalıq" value={day.closingDebt}/>{day.entries.map(e => <View key={e.id} style={styles.entry}><Text style={styles.name}>{({ 1: 'İlkin borc', 2: 'Günlük borc', 3: 'Ödəniş', 4: 'Köhnə borc artımı', 5: 'Köhnə borc azalması', 6: 'Günlük borc artımı', 7: 'Günlük borc azalması' } as Record<number, string>)[e.entryType]} · {money(e.amount)}</Text><Text style={styles.muted}>{e.recordedByFullName} · {new Date(e.createdAtUtc).toLocaleTimeString('az-AZ', { timeZone: 'Asia/Baku', hour: '2-digit', minute: '2-digit' })}{e.entryType === 3 ? ` · ${e.paymentMethod === 'cash' ? 'Nağd' : e.paymentMethod === 'card' ? 'Kart' : 'Ödəniş üsulu qeyd edilməyib'}` : ''}</Text>{e.note && <Text style={styles.muted}>{e.note}</Text>}</View>)}</View>)}{!details.days.length && <Text style={styles.muted}>Açot tarixçəsi yoxdur.</Text>}</>}
-    {mode === 'reports' && <><Text style={styles.muted}>Tarixi seçin (İİİİ-AA-GG)</Text><TextInput value={date} onChangeText={setDate} style={styles.input} placeholderTextColor={colors.textLight} placeholder="2026-09-30"/><Button title="Seçilmiş günün yekunu" onPress={() => { if (/^\d{4}-\d{2}-\d{2}$/.test(date) && !isNaN(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date)
+    {mode === 'reports' && <><Text style={styles.muted}>Tarixi seçin</Text><AccountDateInput value={date} onChange={setDate}/><Button title="Seçilmiş günün yekunu" onPress={() => { if (isBusinessDate(date))
         go('report', undefined, date);
     else
         setError('Düzgün tarix seçin.'); }}/>{history.map(day => <Button secondary key={day.businessDate} title={`${dateLabel(day.businessDate)} · ${money(day.paidAmount)} · ${day.closed ? 'Bitirilib' : 'Açıq'}`} onPress={() => go('report', undefined, day.businessDate)}/>)}</>}

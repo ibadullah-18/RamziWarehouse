@@ -329,7 +329,7 @@ export default function ReturnsScreen() {
                 color={colors.textLight}
               />
 
-              <TextInput
+              <TextInput keyboardType="default" inputMode="text"
                 value={searchText}
                 onChangeText={value => {
                   setSearchText(value);

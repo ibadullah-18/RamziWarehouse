@@ -1002,7 +1002,7 @@ export default function CreateReturnScreen() {
                 color={colors.textLight}
               />
 
-              <TextInput
+              <TextInput keyboardType="default" inputMode="text"
                 ref={productCodeInputRef}
                 value={productCode}
                 onChangeText={
@@ -1034,7 +1034,7 @@ export default function CreateReturnScreen() {
                 color={colors.textLight}
               />
 
-              <TextInput
+              <TextInput keyboardType="default" inputMode="text"
                 ref={batchNumberInputRef}
                 value={batchNumber}
                 onChangeText={
@@ -1193,7 +1193,7 @@ export default function CreateReturnScreen() {
                 />
               </Pressable>
 
-              <TextInput
+              <TextInput inputMode="numeric"
                 value={String(quantity)}
                 onChangeText={value => {
                   const parsedValue =
@@ -1368,7 +1368,7 @@ export default function CreateReturnScreen() {
           </Text>
 
           <View style={styles.noteContainer}>
-            <TextInput
+            <TextInput keyboardType="default" inputMode="text"
               value={additionalNote}
               onChangeText={setAdditionalNote}
               placeholder="Geri qaytarma haqqında əlavə məlumat..."

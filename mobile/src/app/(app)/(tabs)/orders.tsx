@@ -365,7 +365,7 @@ export default function OrdersScreen() {
           color={colors.textLight}
         />
 
-        <TextInput
+        <TextInput keyboardType="default" inputMode="text"
           value={searchText}
           onChangeText={setSearchText}
           onSubmitEditing={applySearch}

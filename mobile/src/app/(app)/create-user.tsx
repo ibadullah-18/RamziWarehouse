@@ -383,7 +383,7 @@ export default function CreateUserScreen() {
               icon="person-outline"
               label="Ad və soyad"
             >
-              <TextInput
+              <TextInput keyboardType="default" inputMode="text"
                 value={fullName}
                 onChangeText={setFullName}
                 editable={!isSubmitting}
@@ -401,7 +401,7 @@ export default function CreateUserScreen() {
               icon="at-outline"
               label="İstifadəçi adı"
             >
-              <TextInput
+              <TextInput keyboardType="default" inputMode="text"
                 value={username}
                 onChangeText={setUsername}
                 editable={!isSubmitting}
@@ -421,7 +421,7 @@ export default function CreateUserScreen() {
               label="Şifrə"
             >
               <View style={styles.passwordContainer}>
-                <TextInput
+                <TextInput keyboardType="default" inputMode="text"
                   value={password}
                   onChangeText={setPassword}
                   editable={!isSubmitting}
@@ -462,7 +462,7 @@ export default function CreateUserScreen() {
               icon="checkmark-circle-outline"
               label="Şifrəni təkrarla"
             >
-              <TextInput
+              <TextInput keyboardType="default" inputMode="text"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 editable={!isSubmitting}

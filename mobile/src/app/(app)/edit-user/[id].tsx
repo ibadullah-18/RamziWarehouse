@@ -570,7 +570,7 @@ export default function EditUserScreen() {
               Ad və soyad
             </Text>
 
-            <TextInput
+            <TextInput keyboardType="default" inputMode="text"
               value={fullName}
               onChangeText={setFullName}
               editable={!isSaving}
@@ -586,7 +586,7 @@ export default function EditUserScreen() {
               İstifadəçi adı
             </Text>
 
-            <TextInput
+            <TextInput keyboardType="default" inputMode="text"
               value={username}
               onChangeText={setUsername}
               editable={!isSaving}
@@ -720,7 +720,7 @@ export default function EditUserScreen() {
             </Text>
 
             <View style={styles.passwordInputContainer}>
-              <TextInput
+              <TextInput keyboardType="default" inputMode="text"
                 value={newPassword}
                 onChangeText={setNewPassword}
                 editable={!isChangingPassword}
@@ -758,7 +758,7 @@ export default function EditUserScreen() {
               Yeni şifrəni təkrarla
             </Text>
 
-            <TextInput
+            <TextInput keyboardType="default" inputMode="text"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               editable={!isChangingPassword}

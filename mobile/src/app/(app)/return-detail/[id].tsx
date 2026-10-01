@@ -944,7 +944,7 @@ useEffect(() => {
               etdikdən sonra təsdiqləyin.
             </Text>
 
-            <TextInput
+            <TextInput keyboardType="default" inputMode="text"
               value={managerNote}
               onChangeText={setManagerNote}
               placeholder="Əməliyyat qeydi (məcburi deyil)"

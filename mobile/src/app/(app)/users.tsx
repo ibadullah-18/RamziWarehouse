@@ -365,7 +365,7 @@ export default function UsersScreen() {
             color={colors.textLight}
           />
 
-          <TextInput
+          <TextInput keyboardType="default" inputMode="text"
             value={search}
             onChangeText={setSearch}
             onSubmitEditing={handleSearch}

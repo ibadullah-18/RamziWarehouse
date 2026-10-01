@@ -326,7 +326,7 @@ export default function EditCustomerScreen() {
                 size={20}
                 color={colors.textSecondary}
               />
-              <TextInput
+              <TextInput keyboardType="default" inputMode="text"
                 ref={nameInputRef}
                 value={name}
                 onChangeText={setName}
@@ -344,7 +344,7 @@ export default function EditCustomerScreen() {
                 size={20}
                 color={colors.textSecondary}
               />
-              <TextInput
+              <TextInput inputMode="tel"
                 ref={phoneInputRef}
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
@@ -358,7 +358,7 @@ export default function EditCustomerScreen() {
 
             <Text style={styles.label}>Əlavə qeyd</Text>
             <View style={[styles.inputBox, styles.noteBox]}>
-              <TextInput
+              <TextInput keyboardType="default" inputMode="text"
                 value={note}
                 onChangeText={setNote}
                 placeholder="Müştəri haqqında qeyd..."

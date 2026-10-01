@@ -778,7 +778,7 @@ export default function CreateOrderScreen() {
               Qaimə nömrəsi
             </Text>
 
-            <TextInput
+            <TextInput keyboardType="default" inputMode="text"
               value={orderNumber}
               onChangeText={setOrderNumber}
               placeholder="Məsələn: 10524"
@@ -1093,7 +1093,7 @@ export default function CreateOrderScreen() {
               Məhsul kodu
             </Text>
 
-            <TextInput
+            <TextInput keyboardType="default" inputMode="text"
               ref={productCodeInputRef}
               value={productCode}
               onChangeText={changeProductCode}
@@ -1235,7 +1235,7 @@ export default function CreateOrderScreen() {
               Partiya nömrəsi
             </Text>
 
-            <TextInput
+            <TextInput keyboardType="default" inputMode="text"
               ref={partyNumberInputRef}
               value={partyNumber}
               onChangeText={changePartyNumber}
@@ -1350,7 +1350,7 @@ export default function CreateOrderScreen() {
                 />
               </Pressable>
 
-              <TextInput
+              <TextInput inputMode="numeric"
                 value={String(quantity)}
                 onChangeText={value => {
                   const parsed =
@@ -1463,7 +1463,7 @@ export default function CreateOrderScreen() {
 
             {isNoteVisible ? (
               <>
-                <TextInput
+                <TextInput keyboardType="default" inputMode="text"
                   value={note}
                   onChangeText={setNote}
                   multiline

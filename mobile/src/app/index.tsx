@@ -173,7 +173,7 @@ export default function LoginScreen() {
                       }
                     />
 
-                    <TextInput
+                    <TextInput keyboardType="default" inputMode="text"
                       value={username}
                       onChangeText={
                         handleUsernameChange
@@ -211,7 +211,7 @@ export default function LoginScreen() {
                       }
                     />
 
-                    <TextInput
+                    <TextInput keyboardType="default" inputMode="text"
                       value={password}
                       onChangeText={
                         handlePasswordChange

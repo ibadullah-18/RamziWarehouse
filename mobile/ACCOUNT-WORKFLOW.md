@@ -15,3 +15,11 @@
 Server və mobil tətbiq birlikdə yenilənməlidir. `AccountWorkflow` verilənlər bazası miqrasiyası ödəniş üsulunu, günlük düzəliş növlərini və gün bağlanmalarını əlavə edir. Serverin mövcud başlanğıc miqrasiya mexanizmi bunu tətbiq edir. Miqrasiya yerli və istehsal bazasına bu dəyişiklik zamanı tətbiq edilməyib.
 
 Borc nümunələri və tarix sərhədləri domain testləri ilə yoxlanılır. Açot xidmətinin testləri məbləğləri, icazələri, audit qeydlərini və bağlanma blokunu yoxlayır. InMemory test bazası SQL Server kilidlənməsini yoxlamır. Real Tab A7 və telefonlarda ekran, klaviatura, Android geri düyməsi və şəbəkə kəsilməsi ayrıca cihaz yoxlaması tələb edir.
+
+## Açot keçidləri və klaviaturalar
+
+Açot üçün sabit `account/daily`, `account/reports`, `account/detail`, `account/history` və digər səhifə yolları istifadə olunur. Köhnə `[screen]` səhifəsi silinib: `screen` Expo Router / React Navigation tərəfindən daxili parametr kimi istifadə edilir və səhifənin əsas menyuya yanlış düşməsinə səbəb olurdu. Müştəri səhifələrində yalnız `id`, tarix yekununda yalnız `date` ötürülür. Geriyə qayıdış mövcud keçid zəncirini saxlayır; tarixçəsiz birbaşa açılan səhifədən açot menyusuna qayıdış mümkündür. Sürətli təkrar toxunuşlar eyni keçidi iki dəfə yaratmır.
+
+Ad, istifadəçi adı, şifrə, qeyd və axtarış sahələri mətn klaviaturası; məbləğ sahələri qəpikli rəqəm klaviaturası; say və gün/ay/il sahələri rəqəm klaviaturası; telefon sahələri telefon klaviaturası tələb edir. Məhsul və partiya kodları serverdə hərf də qəbul etdiyinə görə mətn sahəsidir.
+
+`npm run test:accounts` sabit səhifələrin öz məzmununu açmasını, parametrin düzgün ötürülməsini, mümkün olmayan tarixlərin rədd edilməsini və bütün giriş sahələrinin klaviatura rejimini yoxlayır. Operator/sürücü keçidləri yerli sınaq məlumatları ilə brauzerdə 360 × 800 və 600 × 1000 ölçülərində yoxlanılıb. Fiziki Android klaviaturası cihazda ayrıca yoxlanmalıdır.
