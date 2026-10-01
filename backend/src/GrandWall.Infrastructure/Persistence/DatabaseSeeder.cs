@@ -122,14 +122,8 @@ public sealed class DatabaseSeeder
 
         if (existingUser is not null)
         {
-            if (existingUser.Role != role)
-            {
-                throw new InvalidOperationException(
-                    $"The seed username " +
-                    $"'{normalizedUsername}' already " +
-                    "belongs to a different role.");
-            }
-
+            // Seed settings bootstrap accounts only. Admin changes, including
+            // role changes and archived accounts, must survive every restart.
             return;
         }
 
