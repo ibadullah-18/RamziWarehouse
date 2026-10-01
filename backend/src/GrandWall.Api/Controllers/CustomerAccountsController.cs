@@ -26,12 +26,16 @@ public sealed class CustomerAccountsController : ControllerBase
         => Ok(await _service.GetReportAsync(date, cancellationToken));
 
     [HttpPost("close-day")]
-    [Authorize(Roles = "Admin,Driver")]
+    [Authorize(Roles = "Admin,Accountant,Driver")]
     public async Task<IActionResult> CloseDay(CancellationToken cancellationToken)
         => Ok(await _service.CloseDayAsync(cancellationToken));
 
+    [HttpPut("payments")]
+    public async Task<IActionResult> CorrectPayment(CorrectAccountPaymentRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _service.CorrectPaymentAsync(request, cancellationToken));
+
     [HttpPut("daily-debt")]
-    [Authorize(Roles = "Admin,Accountant")]
+    [Authorize(Roles = "Admin,Accountant,Driver")]
     public async Task<IActionResult> CorrectDaily(CorrectDailyDebtRequestDto request, CancellationToken cancellationToken)
         => Ok(await _service.CorrectDailyAsync(request, cancellationToken));
 
@@ -70,7 +74,7 @@ public sealed class CustomerAccountsController : ControllerBase
     }
 
     [HttpPost("payments")]
-    [Authorize(Roles = "Admin,Driver")]
+    [Authorize(Roles = "Admin,Accountant,Driver")]
     public async Task<ActionResult<CustomerAccountDetailsDto>> RecordPayment(
         [FromBody] RecordCustomerPaymentRequestDto request,
         CancellationToken cancellationToken)

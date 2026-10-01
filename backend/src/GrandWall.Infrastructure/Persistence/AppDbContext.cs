@@ -12,6 +12,7 @@ public sealed class AppDbContext : DbContext
     {
     }
         
+    public DbSet<AccountEntryAudit> AccountEntryAudits => Set<AccountEntryAudit>();
     public DbSet<AccountDayClosure> AccountDayClosures => Set<AccountDayClosure>();
 
     public DbSet<PushDevice> PushDevices => Set<PushDevice>();
@@ -65,6 +66,9 @@ public sealed class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<AccountEntryAudit>().Property(x=>x.UserName).HasMaxLength(150);
+        modelBuilder.Entity<AccountEntryAudit>().Property(x=>x.Description).HasMaxLength(1000);
+        modelBuilder.Entity<AccountEntryAudit>().HasIndex(x=>x.CustomerId);
         modelBuilder.Entity<AccountDayClosure>().HasKey(x => x.BusinessDate);
         modelBuilder.Entity<AccountDayClosure>().Property(x => x.RecordedByFullName).HasMaxLength(150);
 

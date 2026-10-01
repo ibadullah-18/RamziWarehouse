@@ -23,10 +23,17 @@ import {
   getReturnTypeSummary,
 } from "../../../features/product-returns/product-return-status";
 import { colors } from "../../../theme";
+import AccountDateInput from "../../../features/customer-accounts/account-date-input";
+import { isBusinessDate } from "../../../features/customer-accounts/account-navigation";
+import { todayKey } from "../../../features/customer-accounts/account-screen";
 type Kind = "both" | "return" | "showcase";
 export default function SearchScreen() {
   const { session } = useAuth();
   const token = session?.accessToken ?? "";
+  const [searchMode, setSearchMode] = useState<"customer" | "accepted">(
+    "customer",
+  );
+  const [acceptedDate, setAcceptedDate] = useState(todayKey);
   const [customer, setCustomer] = useState<Customer | null>(null),
     [picker, setPicker] = useState(false),
     [kind, setKind] = useState<Kind>("both"),
@@ -37,8 +44,14 @@ export default function SearchScreen() {
     navigation = useRef(false);
   const load = useCallback(async () => {
     const serial = ++request.current;
-    if (!customer || !token) {
+    if ((searchMode === "customer" && !customer) || !token) {
       setItems([]);
+      return;
+    }
+    if (searchMode === "accepted" && !isBusinessDate(acceptedDate)) {
+      setItems([]);
+      setError("Düzgün tarix seçin.");
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -48,7 +61,8 @@ export default function SearchScreen() {
         all: ProductReturn[] = [];
       while (true) {
         const result = await getProductReturns(token, {
-          customerId: customer.id,
+          customerId: searchMode === "customer" ? customer?.id : undefined,
+          acceptedDate: searchMode === "accepted" ? acceptedDate : undefined,
           productType:
             kind === "both"
               ? undefined
@@ -69,7 +83,7 @@ export default function SearchScreen() {
     } finally {
       if (serial === request.current) setLoading(false);
     }
-  }, [customer, kind, token]);
+  }, [customer, kind, token, searchMode, acceptedDate]);
   useFocusEffect(
     useCallback(() => {
       navigation.current = false;
@@ -95,19 +109,63 @@ export default function SearchScreen() {
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.title}>Vazvrad və vitrin axtarışı</Text>
-            <Text style={styles.muted}>
-              Müştərini və məhsul növünü seçin. Bütün tarixlər üzrə qeydlər
-              göstərilir.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              style={styles.card}
-              onPress={() => setPicker(true)}
-            >
-              <Text style={styles.name}>
-                {customer?.name ?? "Müştəri seçin"} ›
-              </Text>
-            </Pressable>
+            <View style={styles.filters}>
+              {[
+                ["customer", "Müştəri üzrə"],
+                ["accepted", "Anbara qəbul tarixi"],
+              ].map(([value, label]) => (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: searchMode === value }}
+                  key={value}
+                  style={[styles.chip, searchMode === value && styles.selected]}
+                  onPress={() => {
+                    if (searchMode === value) return;
+                    request.current++;
+                    setItems([]);
+                    setSearchMode(value as "customer" | "accepted");
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.label,
+                      searchMode === value && styles.selectedLabel,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            {searchMode === "accepted" && (
+              <>
+                <Text style={styles.muted}>
+                  Seçilmiş tarixdə menecerin təsdiqlədiyi və anbara qəbul edilən
+                  qeydlər
+                </Text>
+                <AccountDateInput
+                  value={acceptedDate}
+                  onChange={setAcceptedDate}
+                />
+              </>
+            )}
+            {searchMode === "customer" && (
+              <>
+                <Text style={styles.muted}>
+                  Müştərini və məhsul növünü seçin. Bütün tarixlər üzrə qeydlər
+                  göstərilir.
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.card}
+                  onPress={() => setPicker(true)}
+                >
+                  <Text style={styles.name}>
+                    {customer?.name ?? "Müştəri seçin"} ›
+                  </Text>
+                </Pressable>
+              </>
+            )}
             <View style={styles.filters}>
               {(
                 [
@@ -122,6 +180,8 @@ export default function SearchScreen() {
                   key={value}
                   style={[styles.chip, kind === value && styles.selected]}
                   onPress={() => {
+                    if (kind === value) return;
+                    request.current++;
                     setItems([]);
                     setKind(value);
                   }}
@@ -137,7 +197,27 @@ export default function SearchScreen() {
                 </Pressable>
               ))}
             </View>
-            {customer && <Text style={styles.muted}>{items.length} qeyd</Text>}
+            {(customer || searchMode === "accepted") && (
+              <Text style={styles.muted}>
+                {items.length} qeyd ·{" "}
+                {items.reduce(
+                  (sum, r) =>
+                    sum +
+                    r.items
+                      .filter(
+                        (i) =>
+                          kind === "both" ||
+                          i.productType ===
+                            (kind === "return"
+                              ? ProductType.Product
+                              : ProductType.Showcase),
+                      )
+                      .reduce((n, i) => n + i.quantity, 0),
+                  0,
+                )}{" "}
+                ədəd
+              </Text>
+            )}
             {error !== "" && (
               <Pressable onPress={() => void load()}>
                 <Text style={{ color: colors.danger }}>
@@ -152,11 +232,11 @@ export default function SearchScreen() {
             <ActivityIndicator color={colors.primary} />
           ) : (
             <Text style={styles.muted}>
-              {!customer
+              {!customer && searchMode === "customer"
                 ? "Axtarış üçün müştəri seçin."
                 : error
                   ? ""
-                  : "Bu müştəri üçün qeyd yoxdur."}
+                  : "Seçiminizə uyğun qeyd yoxdur."}
             </Text>
           )
         }
@@ -171,7 +251,11 @@ export default function SearchScreen() {
             }}
           >
             <Text style={styles.name}>
-              {new Date(item.returnDateUtc).toLocaleDateString("az-AZ", {
+              {new Date(
+                searchMode === "accepted"
+                  ? (item.completedAtUtc ?? item.returnDateUtc)
+                  : item.returnDateUtc,
+              ).toLocaleDateString("az-AZ", {
                 timeZone: "Asia/Baku",
                 day: "2-digit",
                 month: "2-digit",
@@ -179,6 +263,11 @@ export default function SearchScreen() {
               })}{" "}
               · {getReturnTypeSummary(item.items.map((i) => i.productType))}
             </Text>
+            {searchMode === "accepted" && (
+              <Text style={styles.name}>
+                {item.customerName} · {item.warehouseName}
+              </Text>
+            )}
             <Text style={styles.muted}>
               {getReturnStatusLabel(item.status)}
             </Text>

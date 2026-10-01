@@ -5,6 +5,8 @@ namespace GrandWall.Domain.Entities;
 
 public sealed class CustomerAccountEntry : BaseEntity
 {
+    public bool IsFinalized { get; set; }
+
     public Guid CustomerId { get; set; }
 
     public Customer Customer { get; set; } = null!;

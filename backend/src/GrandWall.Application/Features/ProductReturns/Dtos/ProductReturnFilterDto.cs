@@ -21,6 +21,7 @@ public sealed class ProductReturnFilterDto
     public DateTime? FromDateUtc { get; init; }
 
     public DateTime? ToDateUtc { get; init; }
+    public DateOnly? AcceptedDate { get; init; }
 
     public int PageNumber { get; init; } = 1;
 

@@ -22,6 +22,7 @@ import { UserRole } from "../../../auth/auth-types";
 import {
   ProductReturn,
   ReturnStatus,
+  ProductType,
 } from "../../../features/product-returns/product-return-types";
 import { colors } from "../../../theme";
 export default function EditReturnScreen() {
@@ -30,7 +31,13 @@ export default function EditReturnScreen() {
   const deleting = params.action === "delete";
   const [record, setRecord] = useState<ProductReturn | null>(null),
     [items, setItems] = useState<
-      { id: string; productCode: string; batchNumber: string }[]
+      {
+        id: string;
+        productCode: string;
+        batchNumber: string;
+        quantity: number;
+        productType: ProductType;
+      }[]
     >([]),
     [reason, setReason] = useState(""),
     [loading, setLoading] = useState(true),
@@ -54,6 +61,8 @@ export default function EditReturnScreen() {
                 id: i.id,
                 productCode: i.productCode,
                 batchNumber: i.batchNumber,
+                quantity: i.quantity,
+                productType: i.productType,
               })),
             );
           }
@@ -81,7 +90,11 @@ export default function EditReturnScreen() {
     }
     if (
       !deleting &&
-      items.some((i) => !i.productCode.trim() || !i.batchNumber.trim())
+      (!items.length ||
+        items.some(
+          (i) =>
+            !i.productCode.trim() || !i.batchNumber.trim() || i.quantity < 1,
+        ))
     ) {
       setError("Kod və partiya boş ola bilməz.");
       return;
@@ -113,10 +126,12 @@ export default function EditReturnScreen() {
     }
   };
   const allowed =
-    session?.role === UserRole.Admin &&
+    !!session &&
     record &&
     !record.isDeleted &&
-    (deleting || record.status === ReturnStatus.Completed);
+    (session.role === UserRole.Admin ||
+      record.status === ReturnStatus.Pending ||
+      record.status === ReturnStatus.Submitted);
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAwareScrollView
@@ -134,7 +149,7 @@ export default function EditReturnScreen() {
             <Text style={styles.name}>‹</Text>
           </Pressable>
           <Text style={styles.title}>
-            {deleting ? "Vazvradı / vitrini sil" : "Kod və partiyanı düzəlt"}
+            {deleting ? "Vazvradı / vitrini sil" : "Vazvradı / vitrini düzəlt"}
           </Text>
         </View>
         {loading && <ActivityIndicator color={colors.primary} />}
@@ -149,9 +164,16 @@ export default function EditReturnScreen() {
           <>
             {!deleting &&
               items.map((item, index) => (
-                <View style={styles.card} key={item.id}>
+                <View
+                  style={styles.card}
+                  key={
+                    item.id === "00000000-0000-0000-0000-000000000000"
+                      ? `new-${index}`
+                      : item.id
+                  }
+                >
                   <Text style={styles.name}>
-                    {index + 1}. məhsul · {record.items[index]?.quantity} ədəd
+                    {index + 1}. məhsul · {item.quantity} ədəd
                   </Text>
                   <Text style={styles.muted}>Məhsul kodu</Text>
                   <TextInput
@@ -166,7 +188,7 @@ export default function EditReturnScreen() {
                     onChangeText={(v) =>
                       setItems((all) =>
                         all.map((i) =>
-                          i.id === item.id
+                          all.indexOf(i) === index
                             ? { ...i, productCode: v.replace(/\D/g, "") }
                             : i,
                         ),
@@ -195,8 +217,91 @@ export default function EditReturnScreen() {
                     }
                     style={styles.input}
                   />
+                  <Text style={styles.muted}>Ədəd</Text>
+                  <TextInput
+                    returnKeyType="done"
+                    submitBehavior="blurAndSubmit"
+                    onSubmitEditing={dismissKeyboard}
+                    keyboardType="number-pad"
+                    inputMode="numeric"
+                    value={String(item.quantity || "")}
+                    editable={!busy}
+                    maxLength={7}
+                    onChangeText={(v) =>
+                      setItems((all) =>
+                        all.map((i, n) =>
+                          n === index
+                            ? { ...i, quantity: Number(v.replace(/\D/g, "")) }
+                            : i,
+                        ),
+                      )
+                    }
+                    style={styles.input}
+                  />
+                  <View style={styles.row}>
+                    {[
+                      [ProductType.Product, "Vazvrad"],
+                      [ProductType.Showcase, "Vitrin"],
+                    ].map(([type, label]) => (
+                      <Pressable
+                        accessibilityRole="button"
+                        key={type}
+                        disabled={busy}
+                        onPress={() =>
+                          setItems((all) =>
+                            all.map((i, n) =>
+                              n === index
+                                ? { ...i, productType: type as ProductType }
+                                : i,
+                            ),
+                          )
+                        }
+                        style={[
+                          styles.back,
+                          item.productType === type && {
+                            borderWidth: 1,
+                            borderColor: colors.primary,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.name}>{label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={busy}
+                    onPress={() =>
+                      setItems((all) => all.filter((_, n) => n !== index))
+                    }
+                  >
+                    <Text style={{ color: colors.danger }}>
+                      Bu məhsulu çıxar
+                    </Text>
+                  </Pressable>
                 </View>
               ))}
+            {!deleting && (
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy}
+                style={styles.back}
+                onPress={() =>
+                  setItems((all) => [
+                    ...all,
+                    {
+                      id: "00000000-0000-0000-0000-000000000000",
+                      productCode: "",
+                      batchNumber: "",
+                      quantity: 1,
+                      productType: ProductType.Product,
+                    },
+                  ])
+                }
+              >
+                <Text style={styles.name}>+ Məhsul əlavə et</Text>
+              </Pressable>
+            )}
             <Text style={styles.muted}>Səbəb — mütləqdir</Text>
             <TextInput
               returnKeyType="done"
@@ -214,7 +319,7 @@ export default function EditReturnScreen() {
             <Text style={styles.muted}>
               {deleting
                 ? "Qeyd siyahıdan silinəcək. Səbəb və əvvəlki məlumatlar tarixçədə saxlanacaq."
-                : "Əvvəlki və yeni kod/partiya, səbəb və adınız tarixçədə saxlanacaq."}
+                : "Əvvəlki və yeni məhsul məlumatları, səbəb və adınız tarixçədə saxlanacaq."}
             </Text>
             <Pressable
               accessibilityRole="button"

@@ -7,6 +7,8 @@ public sealed class CorrectProductReturnDto
 }
 public sealed class CorrectProductReturnItemDto
 {
+    public int? Quantity { get; init; }
+    public GrandWall.Domain.Enums.ProductType? ProductType { get; init; }
     public Guid Id { get; init; }
     public string ProductCode { get; init; } = string.Empty;
     public string BatchNumber { get; init; } = string.Empty;

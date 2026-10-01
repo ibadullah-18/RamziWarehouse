@@ -1,7 +1,7 @@
-import { authenticatedFetch } from './authenticated-fetch';
-import { Platform } from 'react-native';
+import { authenticatedFetch } from "./authenticated-fetch";
+import { Platform } from "react-native";
 
-import { ApiProblemDetails } from '../auth/auth-types';
+import { ApiProblemDetails } from "../auth/auth-types";
 import {
   CorrectPreviousDebtRequest,
   CreateCustomerAccountRequest,
@@ -9,60 +9,45 @@ import {
   CustomerAccountList,
   CustomerAccountQuery,
   RecordCustomerPaymentRequest,
-} from '../features/customer-accounts/customer-account-types';
+} from "../features/customer-accounts/customer-account-types";
 
-type AccountApiProblemDetails =
-  ApiProblemDetails & {
-    errors?: Record<string, string[]>;
-  };
+type AccountApiProblemDetails = ApiProblemDetails & {
+  errors?: Record<string, string[]>;
+};
 
 type AccountApiRequestOptions = {
-  method?: 'GET' | 'POST' | 'PUT';
+  method?: "GET" | "POST" | "PUT";
   body?: unknown;
 };
 
 const requestTimeoutMilliseconds = 30000;
 
 function getApiBaseUrl(): string {
-  const configuredApiUrl =
-    process.env.EXPO_PUBLIC_API_URL?.trim();
+  const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 
   if (!configuredApiUrl) {
-    throw new Error(
-      'EXPO_PUBLIC_API_URL təyin edilməyib.',
-    );
+    throw new Error("EXPO_PUBLIC_API_URL təyin edilməyib.");
   }
 
-  const normalizedApiUrl =
-    configuredApiUrl.replace(/\/+$/, '');
+  const normalizedApiUrl = configuredApiUrl.replace(/\/+$/, "");
 
-  if (Platform.OS === 'web') {
-    return normalizedApiUrl.replace(
-      '://10.0.2.2',
-      '://localhost',
-    );
+  if (Platform.OS === "web") {
+    return normalizedApiUrl.replace("://10.0.2.2", "://localhost");
   }
 
   return normalizedApiUrl;
 }
 
-async function createApiError(
-  response: Response,
-): Promise<Error> {
+async function createApiError(response: Response): Promise<Error> {
   try {
-    const problem =
-      (await response.json()) as
-        AccountApiProblemDetails;
+    const problem = (await response.json()) as AccountApiProblemDetails;
 
     if (problem.detail?.trim()) {
       return new Error(problem.detail.trim());
     }
 
     if (problem.errors) {
-      const firstMessage =
-        Object.values(problem.errors)
-          .flat()
-          .find(Boolean);
+      const firstMessage = Object.values(problem.errors).flat().find(Boolean);
 
       if (firstMessage) {
         return new Error(firstMessage);
@@ -77,20 +62,14 @@ async function createApiError(
   }
 
   if (response.status === 401) {
-    return new Error(
-      'Sessiyanın vaxtı bitib. Yenidən daxil olun.',
-    );
+    return new Error("Sessiyanın vaxtı bitib. Yenidən daxil olun.");
   }
 
   if (response.status === 403) {
-    return new Error(
-      'Bu açot əməliyyatı üçün icazəniz yoxdur.',
-    );
+    return new Error("Bu açot əməliyyatı üçün icazəniz yoxdur.");
   }
 
-  return new Error(
-    `Server sorğunu icra etmədi. Kod: ${response.status}`,
-  );
+  return new Error(`Server sorğunu icra etmədi. Kod: ${response.status}`);
 }
 
 async function sendAccountRequest<T>(
@@ -106,27 +85,21 @@ async function sendAccountRequest<T>(
 
   try {
     const headers: Record<string, string> = {
-      Accept: 'application/json',
+      Accept: "application/json",
       Authorization: `Bearer ${accessToken}`,
     };
 
     if (options.body !== undefined) {
-      headers['Content-Type'] =
-        'application/json';
+      headers["Content-Type"] = "application/json";
     }
 
-    const response = await authenticatedFetch(
-      `${getApiBaseUrl()}${path}`,
-      {
-        method: options.method ?? 'GET',
-        headers,
-        body:
-          options.body === undefined
-            ? undefined
-            : JSON.stringify(options.body),
-        signal: controller.signal,
-      },
-    );
+    const response = await authenticatedFetch(`${getApiBaseUrl()}${path}`, {
+      method: options.method ?? "GET",
+      headers,
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: controller.signal,
+    });
 
     if (!response.ok) {
       throw await createApiError(response);
@@ -134,13 +107,8 @@ async function sendAccountRequest<T>(
 
     return (await response.json()) as T;
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.name === 'AbortError'
-    ) {
-      throw new Error(
-        'Server gec cavab verdi. Yenidən yoxlayın.',
-      );
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Server gec cavab verdi. Yenidən yoxlayın.");
     }
 
     throw error;
@@ -155,32 +123,19 @@ export async function getCustomerAccounts(
 ): Promise<CustomerAccountList> {
   const parameters = new URLSearchParams();
 
-  const normalizedSearch =
-    query.search?.trim();
+  const normalizedSearch = query.search?.trim();
 
   if (normalizedSearch) {
-    parameters.set(
-      'search',
-      normalizedSearch,
-    );
+    parameters.set("search", normalizedSearch);
   }
 
   if (query.date) {
-    parameters.set(
-      'date',
-      query.date,
-    );
+    parameters.set("date", query.date);
   }
 
-  parameters.set(
-    'pageNumber',
-    String(query.pageNumber ?? 1),
-  );
+  parameters.set("pageNumber", String(query.pageNumber ?? 1));
 
-  parameters.set(
-    'pageSize',
-    String(query.pageSize ?? 30),
-  );
+  parameters.set("pageSize", String(query.pageSize ?? 30));
 
   return sendAccountRequest<CustomerAccountList>(
     `/api/customer-accounts?${parameters.toString()}`,
@@ -193,9 +148,7 @@ export async function getCustomerAccountDetails(
   customerId: string,
 ): Promise<CustomerAccountDetails> {
   return sendAccountRequest<CustomerAccountDetails>(
-    `/api/customer-accounts/${encodeURIComponent(
-      customerId,
-    )}`,
+    `/api/customer-accounts/${encodeURIComponent(customerId)}`,
     accessToken,
   );
 }
@@ -205,10 +158,10 @@ export async function createCustomerAccount(
   request: CreateCustomerAccountRequest,
 ): Promise<CustomerAccountDetails> {
   return sendAccountRequest<CustomerAccountDetails>(
-    '/api/customer-accounts',
+    "/api/customer-accounts",
     accessToken,
     {
-      method: 'POST',
+      method: "POST",
       body: request,
     },
   );
@@ -219,10 +172,10 @@ export async function recordCustomerPayment(
   request: RecordCustomerPaymentRequest,
 ): Promise<CustomerAccountDetails> {
   return sendAccountRequest<CustomerAccountDetails>(
-    '/api/customer-accounts/payments',
+    "/api/customer-accounts/payments",
     accessToken,
     {
-      method: 'POST',
+      method: "POST",
       body: request,
     },
   );
@@ -233,16 +186,56 @@ export async function correctPreviousDebt(
   request: CorrectPreviousDebtRequest,
 ): Promise<CustomerAccountDetails> {
   return sendAccountRequest<CustomerAccountDetails>(
-    '/api/customer-accounts/previous-debt',
+    "/api/customer-accounts/previous-debt",
     accessToken,
     {
-      method: 'PUT',
+      method: "PUT",
       body: request,
     },
   );
 }
-export function correctDailyDebt(token: string, body: {customerId: string; amount: number; reason: string}) { return sendAccountRequest<CustomerAccountDetails>('/api/customer-accounts/daily-debt', token, {method: 'PUT', body}); }
-export function getAccountReport(token: string, date: string) { return sendAccountRequest<import('../features/customer-accounts/customer-account-types').AccountDayReport>('/api/customer-accounts/report?date='+encodeURIComponent(date), token); }
-export function closeAccountDay(token: string) { return sendAccountRequest<import('../features/customer-accounts/customer-account-types').AccountDayReport>('/api/customer-accounts/close-day', token, {method:'POST'}); }
+export function correctDailyDebt(
+  token: string,
+  body: { customerId: string; amount: number; reason: string; date?: string },
+) {
+  return sendAccountRequest<CustomerAccountDetails>(
+    "/api/customer-accounts/daily-debt",
+    token,
+    { method: "PUT", body },
+  );
+}
+export function getAccountReport(token: string, date: string) {
+  return sendAccountRequest<
+    import("../features/customer-accounts/customer-account-types").AccountDayReport
+  >("/api/customer-accounts/report?date=" + encodeURIComponent(date), token);
+}
+export function closeAccountDay(token: string) {
+  return sendAccountRequest<
+    import("../features/customer-accounts/customer-account-types").AccountDayReport
+  >("/api/customer-accounts/close-day", token, { method: "POST" });
+}
 
-export function getAccountReportHistory(token: string) { return sendAccountRequest<import('../features/customer-accounts/customer-account-types').AccountReportHistory[]>('/api/customer-accounts/report-history', token); }
+export function getAccountReportHistory(token: string) {
+  return sendAccountRequest<
+    import("../features/customer-accounts/customer-account-types").AccountReportHistory[]
+  >("/api/customer-accounts/report-history", token);
+}
+
+export function correctAccountPayment(
+  token: string,
+  body: {
+    customerId: string;
+    entryId: string;
+    expectedAmount: number;
+    expectedPaymentMethod: string | null;
+    amount: number;
+    paymentMethod: "cash" | "card";
+    reason: string;
+  },
+) {
+  return sendAccountRequest<CustomerAccountDetails>(
+    "/api/customer-accounts/payments",
+    token,
+    { method: "PUT", body },
+  );
+}

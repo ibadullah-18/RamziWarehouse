@@ -1,7 +1,7 @@
-import { Stack } from 'expo-router';
+import { Stack } from "expo-router";
 
-import { useAuth } from '../../auth/auth-context';
-import { colors } from '../../theme';
+import { useAuth } from "../../auth/auth-context";
+import { colors } from "../../theme";
 
 const legacyModulesEnabled = false;
 
@@ -16,7 +16,7 @@ export default function AppStackLayout() {
       screenOptions={{
         headerShown: false,
         gestureEnabled: true,
-        animation: 'slide_from_right',
+        animation: "slide_from_right",
         contentStyle: {
           backgroundColor: colors.background,
         },
@@ -25,16 +25,15 @@ export default function AppStackLayout() {
       <Stack.Screen
         name="(tabs)"
         options={{
-          animation: 'none',
+          animation: "none",
         }}
       />
 
+      <Stack.Screen name="edit-return/[id]" />
       <Stack.Protected guard={isAdmin}>
-        <Stack.Screen name="edit-return/[id]" />
         <Stack.Screen name="users" />
         <Stack.Screen name="create-user" />
         <Stack.Screen name="edit-user/[id]" />
-
       </Stack.Protected>
 
       <Stack.Protected guard={isAdmin || session?.role === 1}>
@@ -43,9 +42,7 @@ export default function AppStackLayout() {
         <Stack.Screen name="edit-customer/[id]" />
       </Stack.Protected>
 
-      <Stack.Protected
-        guard={legacyModulesEnabled}
-      >
+      <Stack.Protected guard={legacyModulesEnabled}>
         <Stack.Screen name="attendance" />
         <Stack.Screen name="create-order" />
         <Stack.Screen name="order-detail" />

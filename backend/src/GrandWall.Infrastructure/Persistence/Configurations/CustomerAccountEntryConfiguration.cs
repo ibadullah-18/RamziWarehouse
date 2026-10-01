@@ -67,16 +67,14 @@ public sealed class CustomerAccountEntryConfiguration
             entry.BusinessDate,
             entry.EntryType
         })
-        .IsUnique()
-        .HasFilter("[EntryType] = 2");
+        .IsUnique(false);
 
         builder.HasIndex(entry => new
         {
             entry.CustomerId,
             entry.EntryType
         })
-        .IsUnique()
-        .HasFilter("[EntryType] = 1");
+        .IsUnique(false);
 
         builder.HasOne(entry => entry.Customer)
             .WithMany()

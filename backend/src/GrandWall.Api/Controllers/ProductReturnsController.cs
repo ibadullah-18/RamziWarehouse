@@ -224,12 +224,10 @@ public sealed class ProductReturnsController : ControllerBase
         return Ok(result);
     }
     [HttpPut("{productReturnId:guid}")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<ActionResult<ProductReturnDto>> Correct(Guid productReturnId, CorrectProductReturnDto request, CancellationToken cancellationToken)
         => Ok(await _productReturnService.CorrectAsync(productReturnId, request, cancellationToken));
 
     [HttpDelete("{productReturnId:guid}")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Delete(Guid productReturnId, [FromBody] DeleteProductReturnDto request, CancellationToken cancellationToken)
     {
         await _productReturnService.DeleteAsync(productReturnId, request, cancellationToken);

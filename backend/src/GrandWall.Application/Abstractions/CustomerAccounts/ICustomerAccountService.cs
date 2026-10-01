@@ -4,6 +4,7 @@ namespace GrandWall.Application.Abstractions.CustomerAccounts;
 
 public interface ICustomerAccountService
 {
+    Task<CustomerAccountDetailsDto> CorrectPaymentAsync(CorrectAccountPaymentRequestDto request, CancellationToken cancellationToken = default);
     Task<CustomerAccountDetailsDto> CorrectDailyAsync(CorrectDailyDebtRequestDto request, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AccountReportHistoryDto>> GetReportHistoryAsync(CancellationToken cancellationToken = default);
     Task<AccountDayReportDto> GetReportAsync(DateOnly date, CancellationToken cancellationToken = default);

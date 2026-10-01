@@ -78,6 +78,7 @@ export type ProductReturnList = {
 };
 
 export type ProductReturnQuery = {
+  acceptedDate?:string;
   customerId?: string;
   search?: string;
   status?: ReturnStatus;

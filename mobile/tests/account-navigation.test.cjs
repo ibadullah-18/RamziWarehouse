@@ -57,11 +57,11 @@ test('all text, money, quantity and phone fields declare the correct keyboard mo
  const keyboard=attrs.keyboardType?.text;const mode=attrs.inputMode?.text;
  assert.ok(keyboard,`${p} must declare a keyboard`);assert.ok(mode,`${p} must declare inputMode`);
  const value=attrs.value?.getText(source);if(value==='{amount}'||value==='{initial}'){assert.equal(keyboard,'decimal-pad');assert.equal(mode,'decimal');money++;}
- else if(value==='{String(quantity)}' || value==='{quantityText}' || ((p.includes('create-return') || p.includes('edit-return')) && (value==='{productCode}' || value==='{batchNumber}' || value==='{item.productCode}' || value==='{item.batchNumber}'))){assert.equal(keyboard,'number-pad');assert.equal(mode,'numeric');}
+ else if(value==='{String(quantity)}' || value==='{quantityText}' || (p.includes('edit-return') && value?.includes('item.quantity')) || ((p.includes('create-return') || p.includes('edit-return')) && (value==='{productCode}' || value==='{batchNumber}' || value==='{item.productCode}' || value==='{item.batchNumber}'))){assert.equal(keyboard,'number-pad');assert.equal(mode,'numeric');}
  else if(value==='{phoneNumber}'||value==='{customerPhoneNumber}'){assert.equal(keyboard,'phone-pad');assert.equal(mode,'tel');}
  else if(p.endsWith('account-date-input.tsx')){assert.equal(keyboard,'number-pad');assert.equal(mode,'numeric');}
  else {assert.equal(keyboard,'default',`${p}: ${value}`);assert.equal(mode,'text',`${p}: ${value}`);}
  inputs++;}ts.forEachChild(node,visit);}visit(source);
- }}}walk(sourceRoot);assert.ok(inputs>=40);assert.equal(money,2);
+ }}}walk(sourceRoot);assert.ok(inputs>=40);assert.equal(money,3);
 });
 

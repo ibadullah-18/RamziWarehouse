@@ -45,6 +45,7 @@ public sealed class CorrectPreviousDebtRequestDto
 
 public sealed class CustomerAccountEntryDto
 {
+    public bool IsFinalized { get; init; }
     public string? PaymentMethod { get; init; }
     public Guid Id { get; init; }
 
@@ -114,6 +115,10 @@ public sealed class CustomerAccountListDto
 
 public sealed class CustomerAccountDayDto
 {
+    public decimal OpeningOldDebt { get; init; }
+    public decimal OpeningCarriedDailyDebt { get; init; }
+    public decimal PaidFromCarriedDailyDebt { get; init; }
+    public decimal CarriedDailyTransferredToOld { get; init; }
     public decimal OldDebtRemaining { get; init; }
     public decimal CarriedDailyDebt { get; init; }
     public decimal TodayDebtRemaining { get; init; }
@@ -147,6 +152,7 @@ public sealed class CustomerDeferredDebtDto
 }
 public sealed class CustomerAccountDetailsDto
 {
+    public IReadOnlyList<AccountAuditDto> Audit { get; init; } = [];
     public decimal OldDebtRemaining { get; init; }
     public decimal CarriedDailyDebt { get; init; }
     public decimal TodayDebtRemaining { get; init; }
@@ -181,6 +187,7 @@ public sealed class CustomerAccountDetailsDto
 
 public sealed class CorrectDailyDebtRequestDto
 {
+    public DateOnly? Date { get; init; }
     public Guid CustomerId { get; init; }
     public decimal Amount { get; init; }
     public string Reason { get; init; } = string.Empty;
@@ -192,9 +199,22 @@ public sealed class AccountDayReportDto
     public decimal Card { get; init; }
     public decimal Unspecified { get; init; }
     public decimal Total => Cash + Card + Unspecified;
+    public bool HasOpenEntries { get; init; }
     public AccountDayClosureDto? Closure { get; init; }
     public IReadOnlyList<CustomerAccountSummaryDto> Customers { get; init; } = [];
 }
 public sealed record AccountDayClosureDto(string RecordedByFullName, DateTime ClosedAtUtc);
 
 public sealed record AccountReportHistoryDto(DateOnly BusinessDate, decimal PaidAmount, bool Closed);
+
+public sealed class CorrectAccountPaymentRequestDto
+{
+    public Guid CustomerId { get; init; }
+    public Guid EntryId { get; init; }
+    public decimal ExpectedAmount { get; init; }
+    public string? ExpectedPaymentMethod { get; init; }
+    public decimal Amount { get; init; }
+    public string PaymentMethod { get; init; } = "cash";
+    public string Reason { get; init; } = string.Empty;
+}
+public sealed record AccountAuditDto(Guid EntryId, string UserName, string Description, DateTime CreatedAtUtc);

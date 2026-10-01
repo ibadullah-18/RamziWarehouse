@@ -103,6 +103,12 @@ public sealed partial class ProductReturnService : IProductReturnService
                 filter.ToDateUtc.Value);
         }
 
+        if (filter.AcceptedDate.HasValue)
+        {
+            var start = DateTime.SpecifyKind(filter.AcceptedDate.Value.ToDateTime(TimeOnly.MinValue).AddHours(-4), DateTimeKind.Utc);
+            var end = start.AddDays(1);
+            query = query.Where(r => r.Status == ReturnStatus.Completed && r.CompletedAtUtc >= start && r.CompletedAtUtc < end);
+        }
         var totalCount = await query.CountAsync(cancellationToken);
 
         var productReturns = await query

@@ -7,9 +7,9 @@ using Microsoft.EntityFrameworkCore;
 namespace GrandWall.Infrastructure.Services;
 public sealed partial class ProductReturnService
 {
-    private void EnsureAdminChange(string reason)
+    private void EnsureChangeReason(string reason)
     {
-        if (!_currentUserService.Role.IsAdmin()) throw new ForbiddenException("Bu əməliyyatı yalnız admin edə bilər.");
+        if (!_currentUserService.IsAuthenticated) throw new ForbiddenException("Sistemə daxil olun.");
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length < 3 || reason.Length > 400)
             throw new ConflictException("Səbəb 3–400 simvol olmalıdır.");
     }
@@ -22,26 +22,31 @@ public sealed partial class ProductReturnService
     }
     public async Task<ProductReturnDto> CorrectAsync(Guid id, CorrectProductReturnDto request, CancellationToken cancellationToken = default)
     {
-        EnsureAdminChange(request.Reason);
+        EnsureChangeReason(request.Reason);
         var record=await EditableReturn(id,request.ExpectedRevision,cancellationToken);
-        if(record.Status!=ReturnStatus.Completed) throw new ConflictException("Yalnız təsdiqlənmiş vazvradın kod və partiyası düzəldilir.");
-        if(request.Items==null || request.Items.Count!=record.Items.Count || request.Items.Select(i=>i.Id).Distinct().Count()!=request.Items.Count || request.Items.Any(i=>!record.Items.Any(old=>old.Id==i.Id)))
-            throw new ConflictException("Məhsul siyahısı dəyişdirilə bilməz. Səhifəni yeniləyin.");
+        EnsureReturnChangeAllowed(record);
+        if(request.Items==null || request.Items.Count is <1 or >500 || request.Items.Where(i=>i.Id!=Guid.Empty).Select(i=>i.Id).Distinct().Count()!=request.Items.Count(i=>i.Id!=Guid.Empty) || request.Items.Any(i=>i.Id!=Guid.Empty && !record.Items.Any(old=>old.Id==i.Id)))
+            throw new ConflictException("Məhsul siyahısı düzgün deyil. Səhifəni yeniləyin.");
         var changes=new List<string>();
-        var candidates=new List<(ProductReturnItem Item,string Code,string Batch)>();
+        var candidates=new List<(ProductReturnItem Item,string Code,string Batch,int Quantity,ProductType Type)>();
         foreach(var input in request.Items)
         {
             var code=input.ProductCode?.Trim()??"";var batch=input.BatchNumber?.Trim()??"";
             if(code.Length is <1 or >50 || batch.Length is <1 or >50) throw new ConflictException("Kod və partiya 1–50 simvol olmalıdır.");
-            var item=record.Items.Single(i=>i.Id==input.Id);
-            if(item.ProductCode!=code || item.BatchNumber!=batch)
-                changes.Add($"Kod: {item.ProductCode} → {code}; partiya: {item.BatchNumber} → {batch}.");
-            candidates.Add((item,code,batch));
+            var item=input.Id==Guid.Empty ? new ProductReturnItem{ProductReturnId=record.Id} : record.Items.Single(i=>i.Id==input.Id);
+            var quantity=input.Quantity??item.Quantity; var type=input.ProductType??item.ProductType;
+            if(quantity<1 || quantity>1000000 || !Enum.IsDefined(type)) throw new ConflictException("Məhsulun sayı və növü düzgün deyil.");
+            if(input.Id==Guid.Empty || item.ProductCode!=code || item.BatchNumber!=batch || item.Quantity!=quantity || item.ProductType!=type)
+                changes.Add($"Kod: {item.ProductCode} → {code}; partiya: {item.BatchNumber} → {batch}; say: {item.Quantity} → {quantity}; növ: {item.ProductType} → {type}.");
+            candidates.Add((item,code,batch,quantity,type));
         }
+        var removed=record.Items.Where(i=>!request.Items.Any(r=>r.Id==i.Id)).ToList();
+        foreach(var item in removed) changes.Add($"Məhsul silindi: {item.ProductCode}, partiya {item.BatchNumber}, {item.Quantity} ədəd.");
         if(changes.Count==0) throw new ConflictException("Məlumat dəyişməyib.");
-        if(candidates.GroupBy(i=>new{Code=i.Code.ToUpperInvariant(),Batch=i.Batch.ToUpperInvariant(),i.Item.ProductType}).Any(g=>g.Count()>1))
+        if(candidates.GroupBy(i=>new{Code=i.Code.ToUpperInvariant(),Batch=i.Batch.ToUpperInvariant(),i.Type}).Any(g=>g.Count()>1))
             throw new ConflictException("Eyni kod, partiya və növ təkrarlana bilməz.");
-        foreach(var candidate in candidates){candidate.Item.ProductCode=candidate.Code;candidate.Item.BatchNumber=candidate.Batch;}
+        foreach(var item in removed) _dbContext.ProductReturnItems.Remove(item);
+        foreach(var candidate in candidates){candidate.Item.ProductCode=candidate.Code;candidate.Item.BatchNumber=candidate.Batch;candidate.Item.Quantity=candidate.Quantity;candidate.Item.ProductType=candidate.Type;if(!record.Items.Contains(candidate.Item)){record.Items.Add(candidate.Item);_dbContext.ProductReturnItems.Add(candidate.Item);}}
         foreach(var change in changes) AddAdministrationAudit(record, $"Düzəliş. {change} Səbəb: {request.Reason.Trim()}");
         record.Revision=Guid.NewGuid();
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -49,11 +54,17 @@ public sealed partial class ProductReturnService
     }
     public async Task DeleteAsync(Guid id, DeleteProductReturnDto request, CancellationToken cancellationToken = default)
     {
-        EnsureAdminChange(request.Reason);
+        EnsureChangeReason(request.Reason);
         var record=await EditableReturn(id,request.ExpectedRevision,cancellationToken);
-        AddAdministrationAudit(record,$"Admin tərəfindən silindi. Səbəb: {request.Reason.Trim()}");
+        EnsureReturnChangeAllowed(record);
+        AddAdministrationAudit(record,$"Qeyd silindi. Səbəb: {request.Reason.Trim()}");
         record.IsDeleted=true;
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+    private void EnsureReturnChangeAllowed(ProductReturn record)
+    {
+        if(!_currentUserService.Role.IsAdmin() && record.Status is not (ReturnStatus.Pending or ReturnStatus.Submitted))
+            throw new ForbiddenException("Menecer təsdiqindən sonra qeydi yalnız admin dəyişə və silə bilər.");
     }
     private void AddAdministrationAudit(ProductReturn record,string note) => _dbContext.ProductReturnStatusHistories.Add(new ProductReturnStatusHistory {
         ProductReturnId=record.Id,PreviousStatus=record.Status,NewStatus=record.Status,ChangedByUserId=_currentUserService.UserId,Note=note

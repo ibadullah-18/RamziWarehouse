@@ -1,4 +1,4 @@
-import { UserRole } from '../../auth/auth-types';
+import { UserRole } from "../../auth/auth-types";
 
 export enum CustomerAccountEntryType {
   OpeningBalance = 1,
@@ -25,7 +25,7 @@ export type CreateCustomerAccountRequest = {
 };
 
 export type RecordCustomerPaymentRequest = {
-  paymentMethod: 'cash' | 'card';
+  paymentMethod: "cash" | "card";
   customerId: string;
   amount: number;
   note: string | null;
@@ -38,7 +38,8 @@ export type CorrectPreviousDebtRequest = {
 };
 
 export type CustomerAccountEntry = {
-  paymentMethod: 'cash' | 'card' | null;
+  isFinalized: boolean;
+  paymentMethod: "cash" | "card" | null;
   id: string;
   customerId: string;
   entryType: CustomerAccountEntryType;
@@ -78,6 +79,10 @@ export type CustomerAccountList = {
 };
 
 export type CustomerAccountDay = {
+  openingOldDebt: number;
+  openingCarriedDailyDebt: number;
+  paidFromCarriedDailyDebt: number;
+  carriedDailyTransferredToOld: number;
   oldDebtRemaining: number;
   carriedDailyDebt: number;
   todayDebtRemaining: number;
@@ -98,6 +103,12 @@ export type CustomerDeferredDebt = {
   isOpeningBalance: boolean;
 };
 export type CustomerAccountDetails = {
+  audit: {
+    entryId: string;
+    userName: string;
+    description: string;
+    createdAtUtc: string;
+  }[];
   oldDebtRemaining: number;
   carriedDailyDebt: number;
   todayDebtRemaining: number;
@@ -114,6 +125,19 @@ export type CustomerAccountDetails = {
   days: CustomerAccountDay[];
 };
 
-export type AccountDayReport = { businessDate: string; cash: number; card: number; unspecified: number; total: number; closure: { recordedByFullName: string; closedAtUtc: string } | null; customers: CustomerAccountSummary[] };
+export type AccountDayReport = {
+  hasOpenEntries: boolean;
+  businessDate: string;
+  cash: number;
+  card: number;
+  unspecified: number;
+  total: number;
+  closure: { recordedByFullName: string; closedAtUtc: string } | null;
+  customers: CustomerAccountSummary[];
+};
 
-export type AccountReportHistory = {businessDate: string; paidAmount: number; closed: boolean};
+export type AccountReportHistory = {
+  businessDate: string;
+  paidAmount: number;
+  closed: boolean;
+};
