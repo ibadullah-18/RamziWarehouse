@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using GrandWall.Infrastructure.Notifications.Push;
 using GrandWall.Application.Abstractions.Identity;
 using GrandWall.Application.Abstractions.Notifications;
 using GrandWall.Application.Abstractions.ProductReturns;
@@ -15,6 +16,7 @@ namespace GrandWall.Infrastructure.Services;
 public sealed class ProductReturnSubmissionService
     : IProductReturnSubmissionService
 {
+    private readonly PushNotificationQueue _push;
     private readonly AppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
     private readonly IProductReturnService _productReturnService;
@@ -26,9 +28,10 @@ public sealed class ProductReturnSubmissionService
         ICurrentUserService currentUserService,
         IProductReturnService productReturnService,
         ITelegramOutboxService telegramOutboxService,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider, PushNotificationQueue push)
     {
         _dbContext = dbContext;
+        _push = push;
         _currentUserService = currentUserService;
         _productReturnService = productReturnService;
         _telegramOutboxService = telegramOutboxService;
@@ -56,7 +59,7 @@ public sealed class ProductReturnSubmissionService
                     currentReturn.Id == productReturnId,
                 cancellationToken);
 
-        if (productReturn is null)
+        if (productReturn is null || productReturn.IsDeleted)
         {
             throw new NotFoundException(
                 "Vazvrad məlumatı tapılmadı.");
@@ -83,11 +86,6 @@ public sealed class ProductReturnSubmissionService
                 "Yalnız gözləmədə olan vazvrad təqdim edilə bilər.");
         }
 
-        if (productReturn.Photos.Count == 0)
-        {
-            throw new ConflictException(
-                "Vazvradı təqdim etmək üçün ən azı bir sübut şəkli olmalıdır.");
-        }
 
         var previousStatus = productReturn.Status;
 
@@ -155,6 +153,7 @@ public sealed class ProductReturnSubmissionService
                 cancellationToken);
         }
 
+        await _push.EnqueueReturnAsync(productReturn,cancellationToken);
         await _dbContext.SaveChangesAsync(
             cancellationToken);
 

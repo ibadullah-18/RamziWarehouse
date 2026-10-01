@@ -1,3 +1,5 @@
+import { dismissKeyboard } from '../../../components/keyboard-form';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
@@ -6,18 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -566,14 +557,7 @@ export default function CreateReturnScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={
-          Platform.OS === 'ios'
-            ? 'padding'
-            : 'height'
-        }
-      >
+      <View style={styles.keyboardView}>
         <View style={styles.header}>
           <Pressable
             disabled={isSaving}
@@ -609,7 +593,7 @@ export default function CreateReturnScreen() {
           />
         </View>
 
-        <ScrollView
+        <KeyboardAwareScrollView bottomOffset={62}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={
@@ -916,7 +900,7 @@ export default function CreateReturnScreen() {
                 color={colors.textLight}
               />
 
-              <TextInput keyboardType="number-pad" inputMode="numeric"
+              <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="number-pad" inputMode="numeric"
                 ref={batchNumberInputRef}
                 value={batchNumber}
                 onChangeText={
@@ -962,7 +946,7 @@ export default function CreateReturnScreen() {
                 />
               </Pressable>
 
-              <TextInput inputMode="numeric"
+              <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} inputMode="numeric"
                 value={quantityText}
                 onChangeText={value => setQuantityText(value.replace(/\D/g, '').slice(0, 6))}
                 keyboardType="number-pad"
@@ -1123,7 +1107,7 @@ export default function CreateReturnScreen() {
           </Text>
 
           <View style={styles.noteContainer}>
-            <TextInput keyboardType="default" inputMode="text"
+            <TextInput returnKeyType="done" keyboardType="default" inputMode="text"
               value={additionalNote}
               onChangeText={setAdditionalNote}
               placeholder="Geri qaytarma haqqında əlavə məlumat..."
@@ -1140,7 +1124,7 @@ export default function CreateReturnScreen() {
               {additionalNote.length}/1000
             </Text>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         <View style={styles.footer}>
           <View>
@@ -1213,7 +1197,7 @@ export default function CreateReturnScreen() {
             }}
           />
         ) : null}
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }

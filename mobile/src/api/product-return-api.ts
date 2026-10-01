@@ -16,7 +16,7 @@ type ApiProblemDetails = {
 };
 
 type ApiRequestOptions = {
-  method?: 'GET' | 'POST' | 'DELETE';
+  method?: 'GET' | 'POST' | 'DELETE' | 'PUT';
   body?: string;
   timeoutMilliseconds?: number;
 };
@@ -151,6 +151,8 @@ export async function getProductReturns(
       normalizedSearch,
     );
   }
+
+  if (query.customerId) parameters.set('customerId',query.customerId);
 
   if (query.status !== undefined) {
     parameters.set(
@@ -417,4 +419,10 @@ export async function cancelProductReturn(
       }),
     },
   );
+}
+export async function correctProductReturn(token: string,id: string,request: {expectedRevision: string;reason:string;items:{id:string;productCode:string;batchNumber:string}[]}):Promise<ProductReturn>{
+ return authorizedRequest<ProductReturn>(token,'/api/product-returns/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(request)});
+}
+export async function deleteProductReturn(token:string,id:string,request:{expectedRevision:string;reason:string}):Promise<void>{
+ await authorizedRequest<void>(token,'/api/product-returns/'+encodeURIComponent(id),{method:'DELETE',body:JSON.stringify(request)});
 }

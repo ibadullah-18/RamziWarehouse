@@ -1,3 +1,5 @@
+import { dismissKeyboard } from '../../../components/keyboard-form';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import {
     type Href,
@@ -8,19 +10,7 @@ import {
     useEffect,
     useState,
 } from 'react';
-import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -532,15 +522,8 @@ export default function EditUserScreen() {
         <View style={styles.headerPlaceholder} />
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={
-          Platform.OS === 'ios'
-            ? 'padding'
-            : undefined
-        }
-      >
-        <ScrollView
+      <View style={styles.keyboardContainer}>
+        <KeyboardAwareScrollView bottomOffset={62}
           contentContainerStyle={
             styles.contentContainer
           }
@@ -571,7 +554,7 @@ export default function EditUserScreen() {
               Ad və soyad
             </Text>
 
-            <TextInput keyboardType="default" inputMode="text"
+            <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
               value={fullName}
               onChangeText={setFullName}
               editable={!isSaving}
@@ -587,7 +570,7 @@ export default function EditUserScreen() {
               İstifadəçi adı
             </Text>
 
-            <TextInput keyboardType="default" inputMode="text"
+            <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
               value={username}
               onChangeText={setUsername}
               editable={!isSaving}
@@ -721,7 +704,7 @@ export default function EditUserScreen() {
             </Text>
 
             <View style={styles.passwordInputContainer}>
-              <TextInput keyboardType="default" inputMode="text"
+              <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
                 value={newPassword}
                 onChangeText={setNewPassword}
                 editable={!isChangingPassword}
@@ -759,7 +742,7 @@ export default function EditUserScreen() {
               Yeni şifrəni təkrarla
             </Text>
 
-            <TextInput keyboardType="default" inputMode="text"
+            <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               editable={!isChangingPassword}
@@ -811,8 +794,8 @@ export default function EditUserScreen() {
             </Pressable>
           </View>
           <Pressable accessibilityRole="button" disabled={isSaving || isChangingPassword || isCurrentAccount} onPress={() => Alert.alert('İşçini sil', 'Siyahıdan silinəcək. Əvvəlki əməliyyatlar tarixçədə saxlanacaq.', [{text:'Geri',style:'cancel'},{text:'Sil',style:'destructive',onPress: async()=>{ if(!accessToken || !user?.id) return; setIsSaving(true); try { await deleteUser(accessToken, user.id); if(router.canGoBack()) router.back(); else router.replace('/users'); } catch(e) { Alert.alert('Silinmədi', e instanceof Error ? e.message : 'Yenidən yoxlayın.'); } finally {setIsSaving(false);} }}])} style={{padding:18,alignItems:'center',borderWidth:1,borderColor:colors.danger,borderRadius:12,marginTop:20}}><Text style={{color:colors.danger,fontSize:17,fontWeight:'600'}}> İşçini sil </Text></Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

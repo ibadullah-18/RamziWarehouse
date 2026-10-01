@@ -1,3 +1,4 @@
+import { dismissKeyboard } from '../../components/keyboard-form';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors } from '../../theme';
 import { updateDatePart } from './account-navigation';
@@ -9,7 +10,7 @@ export default function AccountDateInput({ value, onChange }: { value: string; o
       {[{ label: 'Gün', index: 2, length: 2 }, { label: 'Ay', index: 1, length: 2 }, { label: 'İl', index: 0, length: 4 }].map(field => (
         <View key={field.index} style={styles.field}>
           <Text style={styles.label}>{field.label}</Text>
-          <TextInput
+          <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard}
             accessibilityLabel={field.label}
             value={parts[field.index] ?? ''}
             onChangeText={digits => onChange(updateDatePart(value, field.index, digits))}

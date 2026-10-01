@@ -1,19 +1,12 @@
+import { dismissKeyboard } from '../../components/keyboard-form';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
   useEffect,
   useState,
 } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, {
   FadeInDown,
   FadeInUp,
@@ -238,7 +231,7 @@ export default function AttendanceScreen() {
       style={styles.safeArea}
       edges={['top']}
     >
-      <ScrollView
+      <KeyboardAwareScrollView bottomOffset={62}
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -440,7 +433,7 @@ export default function AttendanceScreen() {
               color={colors.textSecondary}
             />
 
-            <TextInput keyboardType="default" inputMode="text"
+            <TextInput submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
               value={search}
               onChangeText={value => {
                 setIsLoading(true);
@@ -702,7 +695,7 @@ export default function AttendanceScreen() {
               );
             })
           : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

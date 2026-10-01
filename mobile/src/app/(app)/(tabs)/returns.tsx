@@ -1,3 +1,4 @@
+import { dismissKeyboard } from '../../../components/keyboard-form';
 import { useCallback, useRef, useState } from "react";
 import { router, useFocusEffect, type Href } from "expo-router";
 import {
@@ -107,7 +108,7 @@ export default function ReturnsScreen() {
             >
               <Text style={styles.name}>Tarixçə və axtarış ›</Text>
             </Pressable>
-            <TextInput
+            <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard}
               keyboardType="default"
               inputMode="text"
               value={search}

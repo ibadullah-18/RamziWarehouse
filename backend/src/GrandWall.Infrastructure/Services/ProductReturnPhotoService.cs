@@ -49,7 +49,7 @@ public sealed class ProductReturnPhotoService
                     currentReturn.Id == productReturnId,
                 cancellationToken);
 
-        if (productReturn is null)
+        if (productReturn is null || productReturn.IsDeleted)
         {
             throw new NotFoundException(
                 "Vazvrad məlumatı tapılmadı.");
@@ -132,13 +132,14 @@ public sealed class ProductReturnPhotoService
 
         var photo = await _dbContext.ProductReturnPhotos
             .AsNoTracking()
+            .Include(currentPhoto => currentPhoto.ProductReturn)
             .FirstOrDefaultAsync(
                 currentPhoto =>
                     currentPhoto.Id == photoId &&
                     currentPhoto.ProductReturnId == productReturnId,
                 cancellationToken);
 
-        if (photo is null)
+        if (photo is null || photo.ProductReturn.IsDeleted)
         {
             throw new NotFoundException(
                 "Vazvrad şəkli tapılmadı.");
@@ -186,7 +187,7 @@ public sealed class ProductReturnPhotoService
                     currentPhoto.ProductReturnId == productReturnId,
                 cancellationToken);
 
-        if (photo is null)
+        if (photo is null || photo.ProductReturn.IsDeleted)
         {
             throw new NotFoundException(
                 "Vazvrad şəkli tapılmadı.");

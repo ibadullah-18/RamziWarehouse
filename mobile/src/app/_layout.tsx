@@ -1,3 +1,5 @@
+import {PushNotificationProvider} from '../features/notifications/push-provider';
+import { KeyboardProvider, KeyboardToolbar } from 'react-native-keyboard-controller';
 ﻿import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -71,12 +73,17 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
+    <KeyboardProvider>
     <AuthProvider>
+      <PushNotificationProvider>
       <AppToastProvider>
         <StatusBar style="light" />
         <RootNavigator />
+        <KeyboardToolbar doneText="Tamam"/>
       </AppToastProvider>
+      </PushNotificationProvider>
     </AuthProvider>
+    </KeyboardProvider>
   );
 }
 

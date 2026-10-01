@@ -113,6 +113,7 @@ public sealed class GrandWallApiFactory
 
             services.RemoveAll<AppDbContext>();
 
+            RemoveBackgroundService<PushDeliveryBackgroundService>(services);
             RemoveBackgroundService<
                 DataRetentionBackgroundService>(services);
 

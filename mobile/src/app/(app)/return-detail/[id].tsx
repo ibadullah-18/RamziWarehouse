@@ -1,11 +1,14 @@
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import {
+  type Href,
+  useFocusEffect,
   router,
   useLocalSearchParams,
 } from 'expo-router';
 import {
-  useEffect,
+  useCallback,
   useState,
 } from 'react';
 import {
@@ -28,6 +31,7 @@ import {
   submitProductReturn,
   uploadProductReturnPhoto,
 } from '../../../api/product-return-api';
+import { UserRole } from '../../../auth/auth-types';
 import { useAuth } from '../../../auth/auth-context';
 import {
   canManageOperations,
@@ -126,13 +130,14 @@ export default function ReturnDetailScreen() {
   const [managerNote, setManagerNote] =
     useState('');
 
-useEffect(() => {
+useFocusEffect(useCallback(() => {
   if (
     !accessToken ||
     !productReturnId
   ) {
     return;
   }
+  const retry = reloadNumber;
 
   let isActive = true;
 
@@ -153,6 +158,7 @@ useEffect(() => {
       if (isActive) {
         setProductReturn(result);
         setErrorMessage(null);
+        if(retry>0) setIsLoading(false);
       }
     } catch (error) {
       if (isActive) {
@@ -176,7 +182,7 @@ useEffect(() => {
   accessToken,
   productReturnId,
   reloadNumber,
-]);
+]));
 
   async function takePhoto() {
     if (
@@ -362,14 +368,6 @@ useEffect(() => {
       return;
     }
 
-    if (productReturn.photos.length === 0) {
-      Alert.alert(
-        'Sübut şəkli yoxdur',
-        'Menecerə göndərmək üçün ən azı bir şəkil çəkin.',
-      );
-
-      return;
-    }
 
     setWorkingAction('submit');
 
@@ -397,18 +395,10 @@ useEffect(() => {
   }
 
   function confirmSubmit() {
-    if (!productReturn?.photos.length) {
-      Alert.alert(
-        'Sübut şəkli yoxdur',
-        'Ən azı bir məhsul şəkli çəkin.',
-      );
-
-      return;
-    }
 
     Alert.alert(
       'Menecerə göndərilsin?',
-      'Məhsul kodlarını, partiyaları və şəkilləri yoxlayın.',
+      'Məhsul kodlarını və partiyaları yoxlayın. Şəkil əlavə etmək istəyə bağlıdır.',
       [
         {
           text: 'Xeyr',
@@ -606,12 +596,12 @@ useEffect(() => {
   const canEdit =
     productReturn.status ===
       ReturnStatus.Pending &&
-    isCreator;
+    (isCreator || canManageReturn) && !productReturn.isDeleted;
 
   const canProcess =
     productReturn.status ===
       ReturnStatus.Submitted &&
-    canManageReturn;
+    canManageReturn && !productReturn.isDeleted;
 
   const totalQuantity =
     productReturn.items.reduce(
@@ -661,7 +651,7 @@ useEffect(() => {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView bottomOffset={62}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={
           styles.scrollContent
@@ -873,8 +863,7 @@ useEffect(() => {
             <Text
               style={styles.emptyPhotoDescription}
             >
-              Məhsulların ən azı bir sübut
-              şəklini çəkin.
+              Şəkil əlavə etmək istəyə bağlıdır.
             </Text>
           </View>
         )}
@@ -885,9 +874,6 @@ useEffect(() => {
             onPress={confirmSubmit}
             style={({ pressed }) => [
               styles.submitButton,
-              productReturn.photos.length ===
-                0 &&
-                styles.disabledButton,
               pressed && styles.pressed,
             ]}
           >
@@ -944,7 +930,7 @@ useEffect(() => {
               etdikdən sonra təsdiqləyin.
             </Text>
 
-            <TextInput keyboardType="default" inputMode="text"
+            <TextInput returnKeyType="done" keyboardType="default" inputMode="text"
               value={managerNote}
               onChangeText={setManagerNote}
               placeholder="Əməliyyat qeydi (məcburi deyil)"
@@ -1022,6 +1008,11 @@ useEffect(() => {
           Məhsullar
         </Text>
 
+        {session?.role === UserRole.Admin && !productReturn.isDeleted && <View style={{gap:12,marginBottom:20}}>
+          {productReturn.status === ReturnStatus.Completed && <Pressable style={styles.submitButton} onPress={()=>router.push(('/edit-return/'+productReturn.id) as Href)}><Text style={styles.submitButtonText}>Kod və partiyanı düzəlt</Text></Pressable>}
+          <Pressable style={styles.cancelButton} onPress={()=>router.push(('/edit-return/'+productReturn.id+'?action=delete') as Href)}><Text style={styles.cancelButtonText}>Vazvradı / vitrini səbəblə sil</Text></Pressable>
+        </View>}
+        {productReturn.isDeleted && <Text style={{color:colors.danger}}>Qeyd admin tərəfindən silinib. Tarixçə aşağıda saxlanır.</Text>}
         {productReturn.items.map(item => (
           <View
             key={item.id}
@@ -1135,7 +1126,7 @@ useEffect(() => {
             </View>
           </>
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

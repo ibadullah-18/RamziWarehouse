@@ -39,6 +39,8 @@ export type ProductReturnStatusHistory = {
 };
 
 export type ProductReturn = {
+  isDeleted: boolean;
+  revision: string;
   id: string;
   returnDateUtc: string;
 
@@ -76,6 +78,7 @@ export type ProductReturnList = {
 };
 
 export type ProductReturnQuery = {
+  customerId?: string;
   search?: string;
   status?: ReturnStatus;
   productType?: ProductType;

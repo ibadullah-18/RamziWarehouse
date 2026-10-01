@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using GrandWall.Infrastructure.Notifications.Push;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,6 +52,8 @@ public static class DependencyInjection
                 });
         });
 
+        services.AddScoped<PushNotificationQueue>();
+        services.AddHttpClient<PushDeliveryProcessor>(client=>{client.BaseAddress=new Uri("https://exp.host/--/api/v2/push/");client.Timeout=TimeSpan.FromSeconds(20);}).RemoveAllLoggers();
         services.AddScoped<DatabaseSeeder>();
 
         services.Configure<JwtSettings>(

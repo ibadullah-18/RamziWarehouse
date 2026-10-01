@@ -1,3 +1,5 @@
+import { dismissKeyboard } from '../../components/keyboard-form';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import {
     type Href,
@@ -7,17 +9,7 @@ import {
     useMemo,
     useState,
 } from 'react';
-import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createUser } from '../../api/users-api';
@@ -340,15 +332,8 @@ export default function CreateUserScreen() {
         <View style={styles.headerPlaceholder} />
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={
-          Platform.OS === 'ios'
-            ? 'padding'
-            : undefined
-        }
-      >
-        <ScrollView
+      <View style={styles.keyboardContainer}>
+        <KeyboardAwareScrollView bottomOffset={62}
           contentContainerStyle={
             styles.contentContainer
           }
@@ -383,7 +368,7 @@ export default function CreateUserScreen() {
               icon="person-outline"
               label="Ad və soyad"
             >
-              <TextInput keyboardType="default" inputMode="text"
+              <TextInput submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
                 value={fullName}
                 onChangeText={setFullName}
                 editable={!isSubmitting}
@@ -401,7 +386,7 @@ export default function CreateUserScreen() {
               icon="at-outline"
               label="İstifadəçi adı"
             >
-              <TextInput keyboardType="default" inputMode="text"
+              <TextInput submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
                 value={username}
                 onChangeText={setUsername}
                 editable={!isSubmitting}
@@ -421,7 +406,7 @@ export default function CreateUserScreen() {
               label="Şifrə"
             >
               <View style={styles.passwordContainer}>
-                <TextInput keyboardType="default" inputMode="text"
+                <TextInput submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
                   value={password}
                   onChangeText={setPassword}
                   editable={!isSubmitting}
@@ -462,7 +447,7 @@ export default function CreateUserScreen() {
               icon="checkmark-circle-outline"
               label="Şifrəni təkrarla"
             >
-              <TextInput keyboardType="default" inputMode="text"
+              <TextInput submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 editable={!isSubmitting}
@@ -537,8 +522,8 @@ export default function CreateUserScreen() {
                 : 'İşçini yarat'}
             </Text>
           </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

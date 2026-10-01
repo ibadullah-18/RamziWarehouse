@@ -1,22 +1,15 @@
+import { dismissKeyboard } from './keyboard-form';
+import { KeyboardAwareScrollView, KeyboardToolbar } from 'react-native-keyboard-controller';
+import { useAuth } from '../auth/auth-context';
+import { canManageOperations } from '../auth/permissions';
+import { getCustomers } from '../api/customers-api';
 import { Ionicons } from '@expo/vector-icons';
 import {
   useEffect,
   useRef,
   useState,
 } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -34,6 +27,7 @@ import {
 } from '../theme';
 
 type CustomerPickerModalProps = {
+  includeInactive?: boolean;
   visible: boolean;
   accessToken: string;
   selectedCustomerId?: string;
@@ -49,11 +43,14 @@ function getErrorMessage(error: unknown) {
 
 export function CustomerPickerModal({
   visible,
+  includeInactive = false,
   accessToken,
   selectedCustomerId,
   onClose,
   onSelect,
 }: CustomerPickerModalProps) {
+  const {session} = useAuth();
+  const canCreate = canManageOperations(session?.role);
   const nameInputRef =
     useRef<TextInput>(null);
 
@@ -118,10 +115,7 @@ export function CustomerPickerModal({
       async function loadCustomers() {
         try {
           const result =
-            await getActiveCustomers(
-              currentAccessToken,
-              currentSearch,
-            );
+            includeInactive ? [...await getCustomers(currentAccessToken,{search:currentSearch})] : await getActiveCustomers(currentAccessToken,currentSearch);
 
           if (isActive) {
             setCustomers(result);
@@ -153,6 +147,7 @@ export function CustomerPickerModal({
     reloadNumber,
     searchText,
     visible,
+    includeInactive,
   ]);
 
   function resetCreateForm() {
@@ -193,6 +188,7 @@ export function CustomerPickerModal({
   }
 
   function openCreateForm() {
+    if(!canCreate) return;
     setCustomerName(searchText.trim());
     setCustomerPhoneNumber('');
     setCustomerNote('');
@@ -324,14 +320,7 @@ export function CustomerPickerModal({
       statusBarTranslucent={false}
     >
       <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          style={styles.container}
-          behavior={
-            Platform.OS === 'ios'
-              ? 'padding'
-              : undefined
-          }
-        >
+        <View style={styles.container}>
           <View style={styles.header}>
             <Pressable
               accessibilityRole="button"
@@ -364,7 +353,7 @@ export function CustomerPickerModal({
 
             <View style={styles.headerText}>
               <Text style={styles.headerCaption}>
-                QAİMƏ
+                MÜŞTƏRİ
               </Text>
 
               <Text style={styles.headerTitle}>
@@ -399,7 +388,7 @@ export function CustomerPickerModal({
           </View>
 
           {isCreateMode ? (
-            <ScrollView
+            <KeyboardAwareScrollView bottomOffset={62}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               contentContainerStyle={
@@ -493,7 +482,7 @@ export function CustomerPickerModal({
                   color={colors.textLight}
                 />
 
-                <TextInput inputMode="tel"
+                <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} inputMode="tel"
                   ref={phoneInputRef}
                   value={customerPhoneNumber}
                   onChangeText={value => {
@@ -537,7 +526,7 @@ export function CustomerPickerModal({
                   style={styles.noteIcon}
                 />
 
-                <TextInput keyboardType="default" inputMode="text"
+                <TextInput returnKeyType="done" keyboardType="default" inputMode="text"
                   value={customerNote}
                   onChangeText={value => {
                     setCustomerNote(value);
@@ -604,7 +593,7 @@ export function CustomerPickerModal({
                   Müştəri siyahısına qayıt
                 </Text>
               </Pressable>
-            </ScrollView>
+            </KeyboardAwareScrollView>
           ) : (
             <>
               <View style={styles.searchContainer}>
@@ -614,7 +603,7 @@ export function CustomerPickerModal({
                   color={colors.textLight}
                 />
 
-                <TextInput keyboardType="default" inputMode="text"
+                <TextInput submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
                   value={searchText}
                   onChangeText={changeSearchText}
                   placeholder="Müştərinin adını yaz..."
@@ -644,6 +633,7 @@ export function CustomerPickerModal({
               </View>
 
               <Pressable
+                disabled={!canCreate}
                 onPress={openCreateForm}
                 style={({ pressed }) => [
                   styles.newCustomerButton,
@@ -873,7 +863,8 @@ export function CustomerPickerModal({
               />
             </>
           )}
-        </KeyboardAvoidingView>
+        </View>
+      <KeyboardToolbar doneText="Tamam"/>
       </SafeAreaView>
     </Modal>
   );

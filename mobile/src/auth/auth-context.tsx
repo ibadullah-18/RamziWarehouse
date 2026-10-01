@@ -1,3 +1,4 @@
+import {unregisterPush} from '../features/notifications/push-registration';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState } from 'react-native';
 import { authApi } from '../api/auth-api';
@@ -37,7 +38,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signIn = useCallback(async (request: LoginRequest) => {
     await appSession.accept(await authApi.login(request));
   }, []);
-  const signOut = useCallback(() => appSession.signOut(), []);
+  const signOut = useCallback(async () => {
+    if(session?.role===1)await unregisterPush(session.accessToken).catch(()=>{});
+    await appSession.signOut();
+  }, [session]);
   const value = useMemo(() => ({ session, isLoading, isAuthenticated: session !== null, signIn, signOut }), [session, isLoading, signIn, signOut]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

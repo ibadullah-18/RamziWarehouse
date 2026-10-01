@@ -122,7 +122,7 @@ public sealed class DataRetentionCleanupService
     {
         var expiredReturns = await _dbContext.ProductReturns
             .Where(productReturn =>
-                productReturn.DeleteAfterUtc.HasValue &&
+                !productReturn.IsDeleted && productReturn.DeleteAfterUtc.HasValue &&
                 productReturn.DeleteAfterUtc <= utcNow)
             .OrderBy(productReturn =>
                 productReturn.DeleteAfterUtc)

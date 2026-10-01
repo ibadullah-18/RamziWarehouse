@@ -5,6 +5,9 @@ namespace GrandWall.Domain.Entities;
 
 public sealed class ProductReturn : ExpirableEntity
 {
+    public bool IsDeleted { get; set; }
+    public Guid Revision { get; set; } = Guid.NewGuid();
+
     public DateTime ReturnDateUtc { get; set; } = DateTime.UtcNow;
 
     public Guid CustomerId { get; set; }

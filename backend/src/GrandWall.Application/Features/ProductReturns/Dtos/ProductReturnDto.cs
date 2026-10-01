@@ -4,6 +4,9 @@ namespace GrandWall.Application.Features.ProductReturns.Dtos;
 
 public sealed class ProductReturnDto
 {
+    public bool IsDeleted { get; init; }
+    public Guid Revision { get; init; }
+
     public Guid Id { get; init; }
 
     public DateTime ReturnDateUtc { get; init; }

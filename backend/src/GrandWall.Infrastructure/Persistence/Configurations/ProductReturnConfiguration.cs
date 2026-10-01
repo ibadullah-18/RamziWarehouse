@@ -9,6 +9,7 @@ public sealed class ProductReturnConfiguration
 {
     public void Configure(EntityTypeBuilder<ProductReturn> builder)
     {
+        builder.Property(x => x.Revision).IsConcurrencyToken();
         builder.ToTable("ProductReturns");
 
         builder.HasKey(productReturn => productReturn.Id);

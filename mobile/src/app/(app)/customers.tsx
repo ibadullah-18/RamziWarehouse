@@ -1,3 +1,5 @@
+import { dismissKeyboard } from '../../components/keyboard-form';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -8,16 +10,7 @@ import {
     useCallback,
     useState,
 } from 'react';
-import {
-    ActivityIndicator,
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, {
     FadeInDown,
     FadeInUp,
@@ -138,7 +131,7 @@ export default function CustomersScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView
+      <KeyboardAwareScrollView bottomOffset={62}
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -202,7 +195,7 @@ export default function CustomersScreen() {
             size={20}
             color={colors.textSecondary}
           />
-          <TextInput keyboardType="default" inputMode="text"
+          <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
             value={search}
             onChangeText={value => {
               setIsLoading(true);
@@ -395,7 +388,7 @@ export default function CustomersScreen() {
               </Animated.View>
             ))
           : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

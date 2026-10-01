@@ -1,21 +1,12 @@
+import { dismissKeyboard } from '../../components/keyboard-form';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import {
     router,
     type Href,
 } from 'expo-router';
 import { useRef, useState } from 'react';
-import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createCustomer } from '../../api/customers-api';
@@ -141,11 +132,8 @@ export default function CreateCustomerScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
+      <View style={styles.flex}>
+        <KeyboardAwareScrollView bottomOffset={62}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
@@ -212,7 +200,7 @@ export default function CreateCustomerScreen() {
                 size={20}
                 color={colors.textSecondary}
               />
-              <TextInput inputMode="tel"
+              <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} inputMode="tel"
                 ref={phoneInputRef}
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
@@ -226,7 +214,7 @@ export default function CreateCustomerScreen() {
 
             <Text style={styles.label}>Əlavə qeyd</Text>
             <View style={[styles.inputBox, styles.noteBox]}>
-              <TextInput keyboardType="default" inputMode="text"
+              <TextInput returnKeyType="done" keyboardType="default" inputMode="text"
                 value={note}
                 onChangeText={setNote}
                 placeholder="Müştəri haqqında vacib qeyd..."
@@ -269,8 +257,8 @@ export default function CreateCustomerScreen() {
               {isSubmitting ? 'Yaradılır...' : 'Müştərini yarat'}
             </Text>
           </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

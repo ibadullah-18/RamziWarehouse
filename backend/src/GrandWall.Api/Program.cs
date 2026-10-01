@@ -114,6 +114,8 @@ builder.Services
     .AddDbContextCheck<AppDbContext>(
         name: "sql-server");
 
+builder.Services.AddHostedService<PushDeliveryBackgroundService>();
+
 builder.Services.AddHostedService<
     DataRetentionBackgroundService>();
 

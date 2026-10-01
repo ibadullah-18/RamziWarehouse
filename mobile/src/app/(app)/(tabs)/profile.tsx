@@ -1,3 +1,4 @@
+import {PushNotificationSettings} from '../../../features/notifications/push-provider';
 ﻿import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useState } from 'react';
@@ -201,6 +202,7 @@ export default function ProfileScreen() {
         <AdminUsersButton />
 
         <CustomersButton />
+        <PushNotificationSettings/>
 
         <Pressable
           disabled={isSigningOut}

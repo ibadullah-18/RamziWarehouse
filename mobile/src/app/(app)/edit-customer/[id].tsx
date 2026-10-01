@@ -1,3 +1,6 @@
+import { dismissKeyboard } from '../../../components/keyboard-form';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { UserRole } from '../../../auth/auth-types';
 import { Ionicons } from '@expo/vector-icons';
 import {
     router,
@@ -9,19 +12,7 @@ import {
     useRef,
     useState,
 } from 'react';
-import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -258,11 +249,8 @@ export default function EditCustomerScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
+      <View style={styles.flex}>
+        <KeyboardAwareScrollView bottomOffset={62}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
@@ -327,7 +315,7 @@ export default function EditCustomerScreen() {
                 size={20}
                 color={colors.textSecondary}
               />
-              <TextInput keyboardType="default" inputMode="text"
+              <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
                 ref={nameInputRef}
                 value={name}
                 onChangeText={setName}
@@ -345,7 +333,7 @@ export default function EditCustomerScreen() {
                 size={20}
                 color={colors.textSecondary}
               />
-              <TextInput inputMode="tel"
+              <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} inputMode="tel"
                 ref={phoneInputRef}
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
@@ -359,7 +347,7 @@ export default function EditCustomerScreen() {
 
             <Text style={styles.label}>Əlavə qeyd</Text>
             <View style={[styles.inputBox, styles.noteBox]}>
-              <TextInput keyboardType="default" inputMode="text"
+              <TextInput returnKeyType="done" keyboardType="default" inputMode="text"
                 value={note}
                 onChangeText={setNote}
                 placeholder="Müştəri haqqında qeyd..."
@@ -402,9 +390,9 @@ export default function EditCustomerScreen() {
               {isSubmitting ? 'Yadda saxlanılır...' : 'Dəyişiklikləri saxla'}
             </Text>
           </Pressable>
-          <Pressable accessibilityRole="button" disabled={isSubmitting} onPress={() => Alert.alert('Müştərini sil', 'Siyahıdan silinəcək. Əvvəlki əməliyyatlar tarixçədə saxlanacaq.', [{text:'Geri',style:'cancel'},{text:'Sil',style:'destructive',onPress: async()=>{ if(!accessToken || !customerId) return; setIsSubmitting(true); try { await deleteCustomer(accessToken, customerId); if(router.canGoBack()) router.back(); else router.replace('/customers'); } catch(e) { Alert.alert('Silinmədi', e instanceof Error ? e.message : 'Yenidən yoxlayın.'); } finally {setIsSubmitting(false);} }}])} style={{padding:18,alignItems:'center',borderWidth:1,borderColor:colors.danger,borderRadius:12,marginTop:20}}><Text style={{color:colors.danger,fontSize:17,fontWeight:'600'}}> Müştərini sil </Text></Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          {session?.role === UserRole.Admin && <Pressable accessibilityRole="button" disabled={isSubmitting} onPress={() => Alert.alert('Müştərini sil', 'Siyahıdan silinəcək. Əvvəlki əməliyyatlar tarixçədə saxlanacaq.', [{text:'Geri',style:'cancel'},{text:'Sil',style:'destructive',onPress: async()=>{ if(!accessToken || !customerId) return; setIsSubmitting(true); try { await deleteCustomer(accessToken, customerId); if(router.canGoBack()) router.back(); else router.replace('/customers'); } catch(e) { Alert.alert('Silinmədi', e instanceof Error ? e.message : 'Yenidən yoxlayın.'); } finally {setIsSubmitting(false);} }}])} style={{padding:18,alignItems:'center',borderWidth:1,borderColor:colors.danger,borderRadius:12,marginTop:20}}><Text style={{color:colors.danger,fontSize:17,fontWeight:'600'}}> Müştərini sil </Text></Pressable>}
+        </KeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

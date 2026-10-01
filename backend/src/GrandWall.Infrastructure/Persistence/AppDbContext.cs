@@ -14,6 +14,9 @@ public sealed class AppDbContext : DbContext
         
     public DbSet<AccountDayClosure> AccountDayClosures => Set<AccountDayClosure>();
 
+    public DbSet<PushDevice> PushDevices => Set<PushDevice>();
+    public DbSet<PushDelivery> PushDeliveries => Set<PushDelivery>();
+
     public DbSet<User> Users => Set<User>();
 
     public DbSet<AttendanceRecord> AttendanceRecords =>
@@ -65,6 +68,13 @@ public sealed class AppDbContext : DbContext
         modelBuilder.Entity<AccountDayClosure>().HasKey(x => x.BusinessDate);
         modelBuilder.Entity<AccountDayClosure>().Property(x => x.RecordedByFullName).HasMaxLength(150);
 
+        modelBuilder.Entity<PushDevice>().HasKey(x=>x.Token);
+        modelBuilder.Entity<PushDevice>().Property(x=>x.Token).HasMaxLength(200);
+        modelBuilder.Entity<PushDelivery>().Property(x=>x.Token).HasMaxLength(200);
+        modelBuilder.Entity<PushDelivery>().Property(x=>x.Body).HasMaxLength(500);
+        modelBuilder.Entity<PushDelivery>().Property(x=>x.TicketId).HasMaxLength(200);
+        modelBuilder.Entity<PushDelivery>().HasIndex(x=>new{x.Completed,x.NextAttemptUtc});
+        modelBuilder.Entity<PushDelivery>().HasIndex(x=>new{x.ProductReturnId,x.Token}).IsUnique();
         modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(AppDbContext).Assembly);
     }
@@ -85,6 +95,8 @@ public sealed class AppDbContext : DbContext
     private void UpdateAuditFields()
     {
         var utcNow = DateTime.UtcNow;
+        foreach (var entry in ChangeTracker.Entries<ProductReturn>())
+            if (entry.State == EntityState.Modified) entry.Entity.Revision = Guid.NewGuid();
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {

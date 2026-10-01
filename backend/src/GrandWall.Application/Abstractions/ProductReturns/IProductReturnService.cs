@@ -25,4 +25,6 @@ public interface IProductReturnService
         Guid productReturnId,
         ProcessProductReturnDto request,
         CancellationToken cancellationToken = default);
+    Task<ProductReturnDto> CorrectAsync(Guid id, CorrectProductReturnDto request, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid id, DeleteProductReturnDto request, CancellationToken cancellationToken = default);
 }

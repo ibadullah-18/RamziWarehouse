@@ -1,17 +1,8 @@
+import { dismissKeyboard } from '../components/keyboard-form';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, {
   FadeInDown,
   FadeInUp,
@@ -103,15 +94,8 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={
-          Platform.OS === 'ios'
-            ? 'padding'
-            : undefined
-        }
-      >
-        <ScrollView
+      <View style={styles.keyboardView}>
+        <KeyboardAwareScrollView bottomOffset={62}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={
@@ -173,7 +157,7 @@ export default function LoginScreen() {
                       }
                     />
 
-                    <TextInput keyboardType="default" inputMode="text"
+                    <TextInput submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
                       value={username}
                       onChangeText={
                         handleUsernameChange
@@ -349,8 +333,8 @@ export default function LoginScreen() {
           <Text style={styles.footer}>
             GrandWall • Daxili anbar sistemi
           </Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

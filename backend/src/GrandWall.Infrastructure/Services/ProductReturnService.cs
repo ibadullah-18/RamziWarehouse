@@ -12,7 +12,7 @@ using GrandWall.Infrastructure.Persistence;
 
 namespace GrandWall.Infrastructure.Services;
 
-public sealed class ProductReturnService : IProductReturnService
+public sealed partial class ProductReturnService : IProductReturnService
 {
     private readonly AppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
@@ -37,7 +37,7 @@ public sealed class ProductReturnService : IProductReturnService
     {
         var query = _dbContext.ProductReturns
             .AsNoTracking()
-            .AsQueryable();
+            .Where(r => !r.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -146,7 +146,7 @@ public sealed class ProductReturnService : IProductReturnService
                     currentReturn.Id == productReturnId,
                 cancellationToken);
 
-        if (productReturn is null)
+        if (productReturn is null || (productReturn.IsDeleted && _currentUserService.Role != UserRole.Admin))
         {
             throw new NotFoundException(
                 "Vazvrad məlumatı tapılmadı.");
@@ -271,17 +271,12 @@ public sealed class ProductReturnService : IProductReturnService
                 "Vazvrad məlumatı tapılmadı.");
         }
 
-        if (productReturn.Status != ReturnStatus.Submitted)
+        if (productReturn.IsDeleted || productReturn.Status != ReturnStatus.Submitted)
         {
             throw new ConflictException(
                 "Yalnız işçi tərəfindən təqdim edilmiş vazvrad tamamlana bilər.");
         }
 
-        if (productReturn.Photos.Count == 0)
-        {
-            throw new ConflictException(
-                "Vazvradı tamamlamaq üçün ən azı bir şəkil olmalıdır.");
-        }
 
         var previousStatus = productReturn.Status;
 
@@ -343,8 +338,8 @@ public sealed class ProductReturnService : IProductReturnService
                 "Vazvrad məlumatı tapılmadı.");
         }
 
-        if (productReturn.Status != ReturnStatus.Pending &&
-            productReturn.Status != ReturnStatus.Submitted)
+        if (productReturn.IsDeleted || (productReturn.Status != ReturnStatus.Pending &&
+            productReturn.Status != ReturnStatus.Submitted))
         {
             throw new ConflictException(
                 "Yalnız gözləmədə və ya təqdim edilmiş vazvrad ləğv edilə bilər.");
@@ -469,6 +464,8 @@ public sealed class ProductReturnService : IProductReturnService
     {
         return new ProductReturnDto
         {
+            IsDeleted = productReturn.IsDeleted,
+            Revision = productReturn.Revision,
             Id = productReturn.Id,
             ReturnDateUtc = productReturn.ReturnDateUtc,
             CustomerId = productReturn.CustomerId,

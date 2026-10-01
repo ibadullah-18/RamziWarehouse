@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using GrandWall.Application.Common.Exceptions;
 
@@ -47,6 +48,9 @@ public sealed class ExceptionHandlingMiddleware
             NotFoundException =>
                 (StatusCodes.Status404NotFound, "Məlumat tapılmadı"),
 
+            DbUpdateConcurrencyException =>
+                (StatusCodes.Status409Conflict, "Məlumat yenilənib"),
+
             ConflictException =>
                 (StatusCodes.Status409Conflict, "Məlumat ziddiyyəti"),
 
@@ -78,7 +82,7 @@ public sealed class ExceptionHandlingMiddleware
             Detail = statusCode ==
                      StatusCodes.Status500InternalServerError
                 ? "Gözlənilməz server xətası baş verdi."
-                : exception.Message,
+                : exception is DbUpdateConcurrencyException ? "Qeyd başqa istifadəçi tərəfindən dəyişdirilib. Səhifəni yeniləyib təkrar yoxlayın." : exception.Message,
             Instance = context.Request.Path
         };
 

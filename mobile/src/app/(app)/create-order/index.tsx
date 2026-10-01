@@ -1,3 +1,5 @@
+import { dismissKeyboard } from '../../../components/keyboard-form';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
@@ -5,18 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -716,14 +707,7 @@ export default function CreateOrderScreen() {
       edges={['top', 'bottom']}
       style={styles.safeArea}
     >
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={
-          Platform.OS === 'ios'
-            ? 'padding'
-            : undefined
-        }
-      >
+      <View style={styles.keyboardView}>
         <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
@@ -752,7 +736,7 @@ export default function CreateOrderScreen() {
           <View style={styles.headerPlaceholder} />
         </View>
 
-        <ScrollView
+        <KeyboardAwareScrollView bottomOffset={62}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={
@@ -1235,7 +1219,7 @@ export default function CreateOrderScreen() {
               Partiya nömrəsi
             </Text>
 
-            <TextInput keyboardType="default" inputMode="text"
+            <TextInput submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} keyboardType="default" inputMode="text"
               ref={partyNumberInputRef}
               value={partyNumber}
               onChangeText={changePartyNumber}
@@ -1350,7 +1334,7 @@ export default function CreateOrderScreen() {
                 />
               </Pressable>
 
-              <TextInput inputMode="numeric"
+              <TextInput returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} inputMode="numeric"
                 value={String(quantity)}
                 onChangeText={value => {
                   const parsed =
@@ -1463,7 +1447,7 @@ export default function CreateOrderScreen() {
 
             {isNoteVisible ? (
               <>
-                <TextInput keyboardType="default" inputMode="text"
+                <TextInput returnKeyType="done" keyboardType="default" inputMode="text"
                   value={note}
                   onChangeText={setNote}
                   multiline
@@ -1484,7 +1468,7 @@ export default function CreateOrderScreen() {
               </>
             ) : null}
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         <View style={styles.footer}>
           <View style={styles.footerSummary}>
@@ -1556,7 +1540,7 @@ export default function CreateOrderScreen() {
             }}
           />
         ) : null}
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
