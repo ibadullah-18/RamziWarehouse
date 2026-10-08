@@ -46,6 +46,8 @@ import {
 } from "./customer-account-types";
 import { colors } from "../../theme";
 import AccountDateInput from "./account-date-input";
+import { AppUpdateBanner } from "../../components/app-update-banner";
+import SettlementScreen from './settlement-screen';
 import {
   AccountMode,
   AccountPage,
@@ -362,6 +364,7 @@ export default function AccountScreen({ mode }: { mode: Mode }) {
     details?.carriedDailyDebt ?? 0,
   );
   if (!allowed) return <Redirect href="/(app)/(tabs)/returns" />;
+  if (["payment"].includes(mode)) return <SettlementScreen customerId={params.id ?? ''} />;
   return (
     <SafeAreaView
       style={styles.safe}
@@ -427,6 +430,7 @@ export default function AccountScreen({ mode }: { mode: Mode }) {
           {loading && <ActivityIndicator color={colors.primary} />}
           {mode === "home" && (
             <>
+              <AppUpdateBanner />
               <Text style={styles.muted}>
                 {dateLabel(todayKey())} ·{" "}
                 {admin ? "Admin" : driver ? "Sürücü" : "Açot operatoru"}
@@ -508,10 +512,8 @@ export default function AccountScreen({ mode }: { mode: Mode }) {
             <>
               <View style={styles.card}>
                 <Amount label="Köhnə borc" value={details.oldDebtRemaining} />
-                <Amount
-                  label="Əvvəlki günlərdən qalan günlük borc"
-                  value={details.carriedDailyDebt}
-                />
+                {details.carriedDailyDebt>0&&<Amount label="Əvvəlki günlərdən qalan günlük borc" value={details.carriedDailyDebt}/>}
+                {details.advance>0&&<Amount label="Avans" value={details.advance}/>}
                 <Amount
                   label="Bugünkü qalıq borc"
                   value={details.todayDebtRemaining}
@@ -586,10 +588,7 @@ export default function AccountScreen({ mode }: { mode: Mode }) {
               )}
               <View style={styles.card}>
                 <Amount label="Köhnə borc" value={details.oldDebtRemaining} />
-                <Amount
-                  label="Əvvəlki günlük qalıq"
-                  value={details.carriedDailyDebt}
-                />
+                {details.carriedDailyDebt>0&&<Amount label="Əvvəlki günlük qalıq" value={details.carriedDailyDebt}/>}
                 <Amount
                   label="Bugünkü qalıq"
                   value={details.todayDebtRemaining}
@@ -808,9 +807,17 @@ export default function AccountScreen({ mode }: { mode: Mode }) {
                   </Text>
                 </View>
               ))}
-              {details.days.map((day) => (
+              {details.days.filter(day=>!params.date||day.businessDate===params.date).map((day) => !params.date ? (
+                <Pressable key={day.businessDate} style={styles.card} onPress={()=>router.push(`/account/history-day?id=${encodeURIComponent(details.customerId)}&date=${day.businessDate}` as Href)}>
+                  <Text style={styles.name}>{dateLabel(day.businessDate)}</Text><Amount label="Ödəniş" value={day.paidAmount}/>
+                </Pressable>
+              ) : (
                 <View style={styles.card} key={day.businessDate}>
                   <Text style={styles.name}>{dateLabel(day.businessDate)}</Text>
+                  <Amount label="Nağd" value={day.cash}/><Amount label="Kart" value={day.card}/>
+                  {day.bonus>0&&<Amount label="Bonus" value={day.bonus}/>}
+                  {day.returnCredit!==0&&<Amount label="Vazvrat" value={day.returnCredit}/>}
+                  {day.advance>0&&<Amount label="Avans" value={day.advance}/>}
                   <Text style={styles.muted}>Ödənişdən əvvəlki borclar</Text>
                   <Amount
                     label="İlkin ümumi borc"
@@ -821,7 +828,7 @@ export default function AccountScreen({ mode }: { mode: Mode }) {
                   {day.openingOldDebt > 0 && (
                     <Amount label="Köhnə borc" value={day.openingOldDebt} />
                   )}
-                  {(day.openingCarriedDailyDebt > 0 ||
+                  {day.businessDate<'2026-10-08' && (day.openingCarriedDailyDebt > 0 ||
                     day.carriedDailyTransferredToOld > 0) && (
                     <View style={styles.entry}>
                       <Text style={styles.name}>
@@ -925,6 +932,9 @@ export default function AccountScreen({ mode }: { mode: Mode }) {
                               5: "Köhnə borc azalması",
                               6: "Günlük borc artımı",
                               7: "Günlük borc azalması",
+                              8: "Təsdiqlənmiş vazvrat",
+                              9: "Bonus güzəşti",
+                              10: "Vazvrat düzəlişi",
                             } as Record<number, string>
                           )[e.entryType]
                         }{" "}
@@ -1007,6 +1017,8 @@ export default function AccountScreen({ mode }: { mode: Mode }) {
                   />
                 )}
                 <Amount label="Yekun ödəniş" value={report.total} />
+                {report.customers.some(c=>c.bonus>0)&&<Amount label="Bonus" value={report.customers.reduce((sum,c)=>sum+c.bonus,0)}/>}
+                {report.customers.some(c=>c.returnCredit!==0)&&<Amount label="Vazvrat" value={report.customers.reduce((sum,c)=>sum+c.returnCredit,0)}/>}
                 <Amount
                   label="Yazılmış günlük borc"
                   value={report.customers.reduce(

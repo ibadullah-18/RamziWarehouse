@@ -214,10 +214,16 @@ public sealed partial class ProductReturnService : IProductReturnService
                 "Eyni məhsul kodu, partiya və növ bir neçə dəfə daxil edilib.");
         }
 
-        var utcNow = DateTime.UtcNow;
+        ValidateReturnAmount(request.Amount);
+        ReturnPerson? person = null;
+        if(request.ReturnPersonId.HasValue)
+            person=await _dbContext.ReturnPersons.FirstOrDefaultAsync(p=>p.Id==request.ReturnPersonId&&p.IsActive,cancellationToken)
+                ?? throw new ConflictException("Aktiv vazvrat yaradan şəxs seçin.");
+        var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
 
         var productReturn = new ProductReturn
         {
+            Amount=request.Amount, ReturnPersonId=person?.Id,ReturnPersonName=person?.Name,
             ReturnDateUtc = utcNow,
             CustomerId = request.CustomerId,
             WarehouseId = request.WarehouseId,
@@ -294,6 +300,8 @@ public sealed partial class ProductReturnService : IProductReturnService
         productReturn.Complete(
             _currentUserService.UserId,
             utcNow);
+        ApplyReturnCredit(productReturn,productReturn.Amount);
+        productReturn.Revision=Guid.NewGuid();
 
         var statusHistory = new ProductReturnStatusHistory
         {
@@ -470,6 +478,7 @@ public sealed partial class ProductReturnService : IProductReturnService
     {
         return new ProductReturnDto
         {
+            Amount=productReturn.Amount,ReturnPersonName=productReturn.ReturnPersonName,
             IsDeleted = productReturn.IsDeleted,
             Revision = productReturn.Revision,
             Id = productReturn.Id,

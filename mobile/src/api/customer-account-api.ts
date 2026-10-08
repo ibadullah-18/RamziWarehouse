@@ -102,7 +102,7 @@ async function sendAccountRequest<T>(
     });
 
     if (!response.ok) {
-      throw await createApiError(response);
+      throw Object.assign(await createApiError(response),{statusCode:response.status});
     }
 
     return (await response.json()) as T;
@@ -179,6 +179,10 @@ export async function recordCustomerPayment(
       body: request,
     },
   );
+}
+
+export function completeSettlement(accessToken:string,request:{operationId:string;customerId:string;cash:number;card:number;bonus:number;productReturnId:string|null;note:string|null}):Promise<CustomerAccountDetails>{
+  return sendAccountRequest('/api/customer-accounts/settlements',accessToken,{method:'POST',body:request});
 }
 
 export async function correctPreviousDebt(

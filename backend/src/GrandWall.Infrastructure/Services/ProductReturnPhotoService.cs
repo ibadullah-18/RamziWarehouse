@@ -55,7 +55,15 @@ public sealed class ProductReturnPhotoService
                 "Vazvrad məlumatı tapılmadı.");
         }
 
-        if (productReturn.Status != ReturnStatus.Pending)
+        if(file.OperationId==Guid.Empty)throw new ConflictException("Şəkil əməliyyatının identifikatoru düzgün deyil.");
+        if(file.OperationId.HasValue){
+            var existing=await _dbContext.ProductReturnPhotos.AsNoTracking().Include(p=>p.UploadedByUser).FirstOrDefaultAsync(p=>p.ProductReturnId==productReturnId&&p.UploadOperationId==file.OperationId,cancellationToken);
+            if(existing!=null){
+                if(existing.UploadedByUserId!=_currentUserService.UserId||existing.OriginalFileName!=file.FileName)throw new ConflictException("Şəkil əməliyyatı artıq istifadə olunub.");
+                return new ProductReturnPhotoDto{Id=existing.Id,OriginalFileName=existing.OriginalFileName,ContentType=existing.ContentType,FileSizeBytes=existing.FileSizeBytes,UploadedByUserId=existing.UploadedByUserId,UploadedByFullName=existing.UploadedByUser.FullName,CreatedAtUtc=existing.CreatedAtUtc};
+            }
+        }
+        if (productReturn.Status is not (ReturnStatus.Pending or ReturnStatus.Submitted))
         {
             throw new ConflictException(
                 "Yalnız gözləmədə olan vazvrada şəkil əlavə edilə bilər.");
@@ -73,6 +81,7 @@ public sealed class ProductReturnPhotoService
 
         var photo = new ProductReturnPhoto
         {
+            UploadOperationId=file.OperationId,
             ProductReturnId = productReturn.Id,
             CloudinaryPublicId = storedFile.PublicId,
             OriginalFileName = storedFile.OriginalFileName,
@@ -83,6 +92,8 @@ public sealed class ProductReturnPhotoService
 
         try
         {
+            productReturn.Revision=Guid.NewGuid();
+            _dbContext.ProductReturnStatusHistories.Add(new ProductReturnStatusHistory{ProductReturnId=productReturn.Id,PreviousStatus=productReturn.Status,NewStatus=productReturn.Status,ChangedByUserId=_currentUserService.UserId,Note=$"Şəkil əlavə edildi: {photo.OriginalFileName}"});
             _dbContext.ProductReturnPhotos.Add(photo);
 
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -104,6 +115,12 @@ public sealed class ProductReturnPhotoService
                     storedFile.PublicId);
             }
 
+            if(file.OperationId.HasValue){
+                _dbContext.Entry(photo).State=EntityState.Detached;
+                var existing=await _dbContext.ProductReturnPhotos.AsNoTracking().Include(p=>p.UploadedByUser).FirstOrDefaultAsync(p=>p.ProductReturnId==productReturnId&&p.UploadOperationId==file.OperationId,CancellationToken.None);
+                if(existing!=null&&existing.UploadedByUserId==_currentUserService.UserId&&existing.OriginalFileName==file.FileName)
+                    return new ProductReturnPhotoDto{Id=existing.Id,OriginalFileName=existing.OriginalFileName,ContentType=existing.ContentType,FileSizeBytes=existing.FileSizeBytes,UploadedByUserId=existing.UploadedByUserId,UploadedByFullName=existing.UploadedByUser.FullName,CreatedAtUtc=existing.CreatedAtUtc};
+            }
             throw;
         }
 
@@ -122,7 +139,7 @@ public sealed class ProductReturnPhotoService
     public async Task<FileDownloadDto> DownloadPhotoAsync(
     Guid productReturnId,
     Guid photoId,
-    CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, bool thumbnail = false)
     {
         if (!_currentUserService.IsAuthenticated)
         {
@@ -150,9 +167,10 @@ public sealed class ProductReturnPhotoService
         try
         {
             storedFile =
-                await _fileStorageService.DownloadImageAsync(
+                await (thumbnail ? _fileStorageService.DownloadThumbnailAsync(
+                    photo.CloudinaryPublicId,cancellationToken) : _fileStorageService.DownloadImageAsync(
                     photo.CloudinaryPublicId,
-                    cancellationToken);
+                    cancellationToken));
         }
         catch (FileNotFoundException)
         {
@@ -193,26 +211,14 @@ public sealed class ProductReturnPhotoService
                 "Vazvrad şəkli tapılmadı.");
         }
 
-        if (photo.ProductReturn.Status != ReturnStatus.Pending)
+        if (photo.ProductReturn.Status is not (ReturnStatus.Pending or ReturnStatus.Submitted))
         {
             throw new ConflictException(
                 "Yalnız gözləmədə olan vazvradın şəkli silinə bilər.");
         }
 
-        var isUploader =
-            photo.UploadedByUserId == _currentUserService.UserId;
-
-        var isManager =
-            _currentUserService.Role
-                .CanManageOperations();
-
-        if (!isUploader && !isManager)
-        {
-            throw new ForbiddenException(
-                "Bu şəkli yalnız yükləyən istifadəçi " +
-                "və ya menecer silə bilər.");
-        }
-
+        photo.ProductReturn.Revision=Guid.NewGuid();
+        _dbContext.ProductReturnStatusHistories.Add(new ProductReturnStatusHistory{ProductReturnId=productReturnId,PreviousStatus=photo.ProductReturn.Status,NewStatus=photo.ProductReturn.Status,ChangedByUserId=_currentUserService.UserId,Note=$"Şəkil silindi: {photo.OriginalFileName}"});
         _dbContext.ProductReturnPhotos.Remove(photo);
 
         await _dbContext.SaveChangesAsync(cancellationToken);

@@ -81,6 +81,47 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.ToTable("AccountEntryAudits");
                 });
 
+            modelBuilder.Entity("GrandWall.Domain.Entities.AccountSettlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Bonus")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("Card")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Cash")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<Guid?>("ProductReturnId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.ToTable("AccountSettlements");
+                });
+
             modelBuilder.Entity("GrandWall.Domain.Entities.AttendanceRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -206,6 +247,12 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SettlementId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SourceReturnId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
@@ -541,6 +588,14 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AppliedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime?>("CompletedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -567,6 +622,13 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("ReturnDateUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReturnPersonId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReturnPersonName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<Guid>("Revision")
                         .IsConcurrencyToken()
@@ -674,6 +736,9 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UploadOperationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("UploadedByUserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -685,6 +750,10 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.HasIndex("ProductReturnId");
 
                     b.HasIndex("UploadedByUserId");
+
+                    b.HasIndex("ProductReturnId", "UploadOperationId")
+                        .IsUnique()
+                        .HasFilter("[UploadOperationId] IS NOT NULL");
 
                     b.ToTable("ProductReturnPhotos", null, t =>
                         {
@@ -838,6 +907,25 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "ExpiresAtUtc");
 
                     b.ToTable("RefreshTokens", (string)null);
+                });
+
+            modelBuilder.Entity("GrandWall.Domain.Entities.ReturnPerson", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ReturnPersons");
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.User", b =>

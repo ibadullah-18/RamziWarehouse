@@ -13,6 +13,8 @@ public sealed class AppDbContext : DbContext
     }
         
     public DbSet<AccountEntryAudit> AccountEntryAudits => Set<AccountEntryAudit>();
+    public DbSet<ReturnPerson> ReturnPersons => Set<ReturnPerson>();
+    public DbSet<AccountSettlement> AccountSettlements => Set<AccountSettlement>();
     public DbSet<AccountDayClosure> AccountDayClosures => Set<AccountDayClosure>();
 
     public DbSet<PushDevice> PushDevices => Set<PushDevice>();
@@ -66,6 +68,15 @@ public sealed class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<ReturnPerson>().Property(x=>x.Name).HasMaxLength(150);
+        modelBuilder.Entity<AccountSettlement>().Property(x=>x.Cash).HasPrecision(18,2);
+        modelBuilder.Entity<AccountSettlement>().Property(x=>x.Card).HasPrecision(18,2);
+        modelBuilder.Entity<AccountSettlement>().Property(x=>x.Bonus).HasPrecision(18,2);
+        modelBuilder.Entity<AccountSettlement>().Property(x=>x.Note).HasMaxLength(400);
+        modelBuilder.Entity<AccountSettlement>().HasIndex(x=>x.CustomerId);
+        modelBuilder.Entity<ProductReturn>().Property(x=>x.Amount).HasPrecision(18,2);
+        modelBuilder.Entity<ProductReturn>().Property(x=>x.AppliedAmount).HasPrecision(18,2);
+        modelBuilder.Entity<ProductReturn>().Property(x=>x.ReturnPersonName).HasMaxLength(150);
         modelBuilder.Entity<AccountEntryAudit>().Property(x=>x.UserName).HasMaxLength(150);
         modelBuilder.Entity<AccountEntryAudit>().Property(x=>x.Description).HasMaxLength(1000);
         modelBuilder.Entity<AccountEntryAudit>().HasIndex(x=>x.CustomerId);

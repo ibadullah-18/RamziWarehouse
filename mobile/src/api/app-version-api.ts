@@ -1,5 +1,5 @@
-﻿import Constants from 'expo-constants';
-import { Linking, Platform } from 'react-native';
+import Constants from "expo-constants";
+import { Linking, Platform } from "react-native";
 
 export type AndroidAppVersion = {
   platform: string;
@@ -15,14 +15,14 @@ function getApiBaseUrl(): string {
   const value = process.env.EXPO_PUBLIC_API_URL?.trim();
 
   if (!value) {
-    throw new Error('EXPO_PUBLIC_API_URL təyin edilməyib.');
+    throw new Error("EXPO_PUBLIC_API_URL təyin edilməyib.");
   }
 
-  return value.replace(/\/+$/, '');
+  return value.replace(/\/+$/, "");
 }
 
 export function getInstalledVersionCode(): number {
-  if (Platform.OS !== 'android') {
+  if (Platform.OS !== "android") {
     return 0;
   }
 
@@ -30,8 +30,7 @@ export function getInstalledVersionCode(): number {
   // EAS autoIncrement istifadə etdiyinə görə app.json-dakı
   // versionCode quraşdırılmış APK/AAB ilə eyni olmaya bilər.
   const value =
-    Constants.nativeBuildVersion ??
-    Constants.expoConfig?.android?.versionCode;
+    Constants.nativeBuildVersion ?? Constants.expoConfig?.android?.versionCode;
 
   const parsed = Number(value);
 
@@ -39,34 +38,42 @@ export function getInstalledVersionCode(): number {
 }
 
 export async function getAndroidAppVersion(): Promise<AndroidAppVersion> {
-  const response = await fetch(
-    `${getApiBaseUrl()}/api/app-version/android`,
-    {
-      method: 'GET',
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/api/app-version/android`, {
+      method: "GET",
+      signal: controller.signal,
       headers: {
-        Accept: 'application/json',
+        Accept: "application/json",
       },
-    },
-  );
+    });
 
-  if (!response.ok) {
-    throw new Error(
-      `Versiya məlumatı alınmadı (${response.status}).`,
-    );
+    if (!response.ok) {
+      throw new Error(`Versiya məlumatı alınmadı (${response.status}).`);
+    }
+
+    const info = (await response.json()) as AndroidAppVersion;
+    if (
+      !Number.isInteger(info.latestVersionCode) ||
+      info.latestVersionCode <= 0 ||
+      typeof info.downloadUrl !== "string" ||
+      !info.downloadUrl.startsWith("https://grandwall.az/")
+    ) {
+      throw new Error("Versiya məlumatı düzgün deyil.");
+    }
+    return info;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return (await response.json()) as AndroidAppVersion;
 }
 
-export async function openAppUpdate(
-  downloadUrl: string,
-): Promise<void> {
+export async function openAppUpdate(downloadUrl: string): Promise<void> {
   const canOpen = await Linking.canOpenURL(downloadUrl);
 
   if (!canOpen) {
-    throw new Error('Yeniləmə linkini açmaq mümkün olmadı.');
+    throw new Error("Yeniləmə linkini açmaq mümkün olmadı.");
   }
 
   await Linking.openURL(downloadUrl);
 }
-

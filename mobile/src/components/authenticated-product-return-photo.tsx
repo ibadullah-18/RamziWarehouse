@@ -1,285 +1,71 @@
-import { Ionicons } from '@expo/vector-icons';
-import {
-    File,
-    Paths,
-} from 'expo-file-system';
-import {
-    useEffect,
-    useState,
-} from 'react';
-import {
-    ActivityIndicator,
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
-
-import {
-    downloadProductReturnPhoto,
-} from '../api/product-return-api';
-import {
-    colors,
-    fontSize,
-    radius,
-    spacing,
-} from '../theme';
-
-type AuthenticatedProductReturnPhotoProps = {
-  accessToken: string;
-  productReturnId: string;
-  photoId: string;
-  contentType: string;
-};
-
-function getFileExtension(
-  contentType: string,
-) {
-  const normalizedType =
-    contentType.toLowerCase();
-
-  if (normalizedType.includes('png')) {
-    return 'png';
-  }
-
-  if (normalizedType.includes('webp')) {
-    return 'webp';
-  }
-
-  if (
-    normalizedType.includes('heic') ||
-    normalizedType.includes('heif')
-  ) {
-    return 'heic';
-  }
-
-  return 'jpg';
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : 'Şəkli açmaq mümkün olmadı.';
-}
-
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
+import { cachedReturnPhoto } from "./return-photo-cache";
+import { useAuth } from "../auth/auth-context";
+import { colors } from "../theme";
 export function AuthenticatedProductReturnPhoto({
   accessToken,
   productReturnId,
   photoId,
-  contentType,
-}: AuthenticatedProductReturnPhotoProps) {
-  const [imageUri, setImageUri] =
-    useState<string | null>(null);
-
-  const [errorMessage, setErrorMessage] =
-    useState<string | null>(null);
-
-  const [isLoading, setIsLoading] =
-    useState(true);
-
-  const [retryNumber, setRetryNumber] =
-    useState(0);
-
+  onPress,
+}: {
+  accessToken: string;
+  productReturnId: string;
+  photoId: string;
+  contentType: string;
+  onPress?: () => void;
+}) {
+  const { session } = useAuth();
+  const [uri, setUri] = useState<string | null>(null),
+    [error, setError] = useState(false),
+    [retry, setRetry] = useState(0);
   useEffect(() => {
-    let isActive = true;
-    let downloadedFile: File | null = null;
-
-    const extension =
-      getFileExtension(contentType);
-
-    async function loadPhoto() {
-      try {
-        const photoBytes =
-          await downloadProductReturnPhoto(
-            accessToken,
-            productReturnId,
-            photoId,
-          );
-
-        if (!isActive) {
-          return;
-        }
-
-        const localFile = new File(
-          Paths.cache,
-          `grandwall-return-${photoId}.${extension}`,
-        );
-
-        if (localFile.exists) {
-          localFile.delete();
-        }
-
-        localFile.write(photoBytes);
-
-        downloadedFile = localFile;
-
-        if (isActive) {
-          setImageUri(localFile.uri);
-          setErrorMessage(null);
-        }
-      } catch (error) {
-        if (isActive) {
-          setErrorMessage(
-            getErrorMessage(error),
-          );
-        }
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void loadPhoto();
-
+    let active = true;
+    void cachedReturnPhoto(
+      accessToken,
+      session?.userId ?? "anonymous",
+      productReturnId,
+      photoId,
+    )
+      .then((path) => {
+        if (active) setUri(path);
+      })
+      .catch(() => {
+        if (active) setError(true);
+      });
     return () => {
-      isActive = false;
-
-      try {
-        if (
-          downloadedFile &&
-          downloadedFile.exists
-        ) {
-          downloadedFile.delete();
-        }
-      } catch {
-        // Müvəqqəti fayl artıq silinibsə heç nə edilmir.
-      }
+      active = false;
     };
-  }, [
-    accessToken,
-    contentType,
-    photoId,
-    productReturnId,
-    retryNumber,
-  ]);
-
-  function retry() {
-    setImageUri(null);
-    setErrorMessage(null);
-    setIsLoading(true);
-
-    setRetryNumber(
-      currentValue => currentValue + 1,
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <View style={styles.stateContainer}>
-        <ActivityIndicator
-          size="small"
-          color={colors.primary}
-        />
-
-        <Text style={styles.stateText}>
-          Şəkil açılır...
-        </Text>
-      </View>
-    );
-  }
-
-  if (errorMessage || !imageUri) {
-    return (
-      <View style={styles.stateContainer}>
-        <Ionicons
-          name="image-outline"
-          size={28}
-          color={colors.textLight}
-        />
-
-        <Text
-          style={styles.errorText}
-          numberOfLines={2}
-        >
-          {errorMessage ??
-            'Şəkil açılmadı.'}
-        </Text>
-
-        <Pressable
-          onPress={retry}
-          style={({ pressed }) => [
-            styles.retryButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons
-            name="refresh"
-            size={15}
-            color={colors.primary}
-          />
-
-          <Text style={styles.retryText}>
-            Yenidən yoxla
-          </Text>
-        </Pressable>
-      </View>
-    );
-  }
-
+  }, [accessToken, session?.userId, productReturnId, photoId, retry]);
   return (
-    <Image
-      source={{
-        uri: imageUri,
-      }}
-      style={styles.image}
-      resizeMode="cover"
-      accessibilityLabel="Vazvrad sübut şəkli"
-    />
+    <Pressable
+      onPress={error ? () => setRetry((n) => n + 1) : onPress}
+      accessibilityLabel={error ? "Şəkli yenidən aç" : "Şəkli böyük aç"}
+    >
+      <View
+        style={{
+          width: 220,
+          height: 160,
+          backgroundColor: colors.surface,
+          borderRadius: 12,
+          overflow: "hidden",
+          justifyContent: "center",
+        }}
+      >
+        {uri ? (
+          <Image
+            source={{ uri }}
+            style={{ width: 220, height: 160 }}
+            resizeMode="cover"
+          />
+        ) : error ? (
+          <Text style={{ color: colors.text, padding: 16 }}>
+            Şəkil açılmadı. Yenidən sına
+          </Text>
+        ) : (
+          <ActivityIndicator color={colors.primary} />
+        )}
+      </View>
+    </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  image: {
-    width: 220,
-    height: 165,
-    backgroundColor:
-      colors.surfaceSecondary,
-  },
-
-  stateContainer: {
-    width: 220,
-    height: 165,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.md,
-    backgroundColor:
-      colors.surfaceSecondary,
-  },
-
-  stateText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    marginTop: spacing.sm,
-  },
-
-  errorText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    lineHeight: 17,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
-    marginTop: spacing.sm,
-  },
-
-  retryText: {
-    color: colors.primary,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-  },
-
-  pressed: {
-    opacity: 0.65,
-  },
-});

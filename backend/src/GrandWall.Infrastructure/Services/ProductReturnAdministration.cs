@@ -28,6 +28,7 @@ public sealed partial class ProductReturnService
         if(request.Items==null || request.Items.Count is <1 or >500 || request.Items.Where(i=>i.Id!=Guid.Empty).Select(i=>i.Id).Distinct().Count()!=request.Items.Count(i=>i.Id!=Guid.Empty) || request.Items.Any(i=>i.Id!=Guid.Empty && !record.Items.Any(old=>old.Id==i.Id)))
             throw new ConflictException("Məhsul siyahısı düzgün deyil. Səhifəni yeniləyin.");
         var changes=new List<string>();
+        if(request.Amount.HasValue){ValidateReturnAmount(request.Amount.Value);if(record.Amount!=request.Amount.Value){changes.Add($"Məbləğ: {record.Amount:0.00} → {request.Amount.Value:0.00} AZN.");record.Amount=request.Amount.Value;if(record.Status==ReturnStatus.Completed)ApplyReturnCredit(record,record.Amount);}}
         var candidates=new List<(ProductReturnItem Item,string Code,string Batch,int Quantity,ProductType Type)>();
         foreach(var input in request.Items)
         {
@@ -59,6 +60,8 @@ public sealed partial class ProductReturnService
         EnsureReturnChangeAllowed(record);
         AddAdministrationAudit(record,$"Qeyd silindi. Səbəb: {request.Reason.Trim()}");
         record.IsDeleted=true;
+        record.Revision=Guid.NewGuid();
+        if(record.Status==ReturnStatus.Completed)ApplyReturnCredit(record,0);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
     private void EnsureReturnChangeAllowed(ProductReturn record)

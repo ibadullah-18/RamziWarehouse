@@ -33,6 +33,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             - entries.Where(e => e.BusinessDate == date && e.EntryType == CustomerAccountEntryType.DailyDecrease).Sum(e => e.Amount);
         var paid = entries.Where(e => e.BusinessDate == date && e.EntryType == CustomerAccountEntryType.Payment).Sum(e => e.Amount);
         return new() { CustomerId=c.Id, CustomerName=c.Name, PhoneNumber=c.PhoneNumber, IsActive=c.IsActive,
+            Advance=b.Advance,Bonus=entries.Where(e=>e.BusinessDate==date&&e.EntryType==CustomerAccountEntryType.Bonus).Sum(e=>e.Amount),ReturnCredit=entries.Where(e=>e.BusinessDate==date&&e.EntryType==CustomerAccountEntryType.ReturnCredit).Sum(e=>e.Amount)-entries.Where(e=>e.BusinessDate==date&&e.EntryType==CustomerAccountEntryType.CreditReversal).Sum(e=>e.Amount),
             BusinessDate=date, PreviousDebt=before.Total, TodayDebt=debt, TodayPayment=paid,
             PaidFromTodayDebt=Math.Min(paid, debt), PaidFromPreviousDebt=Math.Max(0,paid-debt),
             PreviousDebtRemaining=b.Old, TodayDebtRemaining=b.Today, CarriedDailyDebt=b.Carried,
@@ -47,7 +48,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
         var ids=customers.Select(c=>c.Id).ToList();
         var entries=await db.CustomerAccountEntries.AsNoTracking().Where(e=>ids.Contains(e.CustomerId) && e.BusinessDate<=date).ToListAsync(cancellationToken);
         var summaries=customers.Select(c=>Summary(c,entries.Where(e=>e.CustomerId==c.Id).ToList(),date))
-            .Where(c=>!deletedIds.Contains(c.CustomerId) || c.RemainingDebt>0).OrderByDescending(c=>c.HasUnpaidDailyDebt).ThenBy(c=>c.CustomerName).ToList();
+            .Where(c=>!deletedIds.Contains(c.CustomerId) || c.RemainingDebt>0 || c.Advance>0).OrderByDescending(c=>c.HasUnpaidDailyDebt).ThenBy(c=>c.CustomerName).ToList();
         return new() { Items=summaries.Skip((query.PageNumber-1)*query.PageSize).Take(query.PageSize).ToList(),
             BusinessDate=date, TotalCount=summaries.Count, PageNumber=query.PageNumber, PageSize=query.PageSize };
     }
@@ -67,6 +68,10 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             var added=g.Where(e=>e.EntryType is CustomerAccountEntryType.Debt or CustomerAccountEntryType.DailyIncrease).Sum(e=>e.Amount)-g.Where(e=>e.EntryType==CustomerAccountEntryType.DailyDecrease).Sum(e=>e.Amount);
             var paid=g.Where(e=>e.EntryType==CustomerAccountEntryType.Payment).Sum(e=>e.Amount);
             return new CustomerAccountDayDto {
+                Cash=g.Where(e=>e.EntryType==CustomerAccountEntryType.Payment&&e.PaymentMethod=="cash").Sum(e=>e.Amount),
+                Card=g.Where(e=>e.EntryType==CustomerAccountEntryType.Payment&&e.PaymentMethod=="card").Sum(e=>e.Amount),
+                Bonus=g.Where(e=>e.EntryType==CustomerAccountEntryType.Bonus).Sum(e=>e.Amount),
+                ReturnCredit=g.Where(e=>e.EntryType==CustomerAccountEntryType.ReturnCredit).Sum(e=>e.Amount)-g.Where(e=>e.EntryType==CustomerAccountEntryType.CreditReversal).Sum(e=>e.Amount),Advance=closing.Advance,
                 OpeningOldDebt=opening.Old+initial, OpeningCarriedDailyDebt=opening.Carried,
                 PaidFromCarriedDailyDebt=Math.Min(opening.Carried,Math.Max(0,paid-added)),
                 CarriedDailyTransferredToOld=Math.Max(0,yesterday.Carried+yesterday.Today-opening.Carried),
@@ -81,7 +86,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
         return new() { CustomerId=c.Id, CustomerName=c.Name, PhoneNumber=c.PhoneNumber, IsActive=c.IsActive,
             PreviousDebt=b.Old, OldDebtRemaining=b.Old, CarriedDailyDebt=b.Carried, TodayDebtRemaining=b.Today,
             Audit=(await db.AccountEntryAudits.AsNoTracking().Where(a=>a.CustomerId==customerId).OrderByDescending(a=>a.CreatedAtUtc).ToListAsync(cancellationToken)).Select(a=>new AccountAuditDto(a.EntryId,a.UserName,a.Description,a.CreatedAtUtc)).ToList(),
-            RemainingDebt=b.Total, TotalPaid=paid, TotalDebt=b.Total+paid, TotalNewDebt=days.Sum(d=>d.AddedDebt), Days=days };
+            Advance=b.Advance, Bonus=entries.Where(e=>e.EntryType==CustomerAccountEntryType.Bonus).Sum(e=>e.Amount), ReturnCredit=entries.Where(e=>e.EntryType==CustomerAccountEntryType.ReturnCredit).Sum(e=>e.Amount)-entries.Where(e=>e.EntryType==CustomerAccountEntryType.CreditReversal).Sum(e=>e.Amount), RemainingDebt=b.Total, TotalPaid=paid, TotalDebt=b.Total+paid, TotalNewDebt=days.Sum(d=>d.AddedDebt), Days=days };
     }
     private CustomerAccountEntry Entry(Guid id,CustomerAccountEntryType type,decimal amount,string? note,string? method=null) => new() {
         CustomerId=id,EntryType=type,Amount=amount,BusinessDate=Today,Note=note,PaymentMethod=method,
@@ -119,7 +124,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
         Allow("Admin","Accountant","Driver"); Money(r.Amount);
         if(r.Amount<=0 || r.PaymentMethod is not ("cash" or "card")) throw new ConflictException("Məbləği və nağd/kart seçimini yoxlayın.");
         await Mutate(r.CustomerId,entries=> {
-            if(r.Amount>Balance(entries,Today).Total) throw new ConflictException("Ödəniş qalıq borcdan çox ola bilməz.");
+            if(Today<AccountLedger.DailyRolloverSince && r.Amount>Balance(entries,Today).Total) throw new ConflictException("Ödəniş qalıq borcdan çox ola bilməz.");
             db.Add(Entry(r.CustomerId,CustomerAccountEntryType.Payment,r.Amount,r.Note,r.PaymentMethod)); return Task.CompletedTask;
         },cancellationToken);
         return await GetByCustomerIdAsync(r.CustomerId,cancellationToken);
@@ -150,7 +155,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             var delta=amount-current;
             if(delta==0) throw new ConflictException("Məbləğ dəyişməyib.");
             // Already allocated payments cannot be silently moved by a correction.
-            if(daily && delta<0 && -delta>b.Today) throw new ConflictException("Yeni günlük məbləğ artıq ödənilmiş məbləğdən az ola bilməz.");
+            if(daily && date<AccountLedger.DailyRolloverSince && delta<0 && -delta>b.Today) throw new ConflictException("Yeni günlük məbləğ artıq ödənilmiş məbləğdən az ola bilməz.");
             var type=daily ? (delta>0?CustomerAccountEntryType.DailyIncrease:CustomerAccountEntryType.DailyDecrease)
                 : (delta>0?CustomerAccountEntryType.AdjustmentIncrease:CustomerAccountEntryType.AdjustmentDecrease);
             var adjustment=Entry(id,type,Math.Abs(delta),$"{(daily?"Günlük":"Köhnə")} borc: {current:0.00} → {amount:0.00} AZN. Səbəb: {reason.Trim()}");
@@ -175,7 +180,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
         var closure=await db.AccountDayClosures.AsNoTracking().FirstOrDefaultAsync(x=>x.BusinessDate==date,cancellationToken);
         return new() { BusinessDate=date, HasOpenEntries=entries.Any(e=>e.BusinessDate==date && !e.IsFinalized), Cash=payments.Where(e=>e.PaymentMethod=="cash").Sum(e=>e.Amount), Card=payments.Where(e=>e.PaymentMethod=="card").Sum(e=>e.Amount),
             Unspecified=payments.Where(e=>e.PaymentMethod==null).Sum(e=>e.Amount), Closure=closure==null?null:new(closure.RecordedByFullName,closure.ClosedAtUtc),
-            Customers=customers.Select(c=>Summary(c,entries.Where(e=>e.CustomerId==c.Id).ToList(),date)).Where(c=>c.TodayDebt>0||c.TodayPayment>0||c.CarriedDailyDebt>0).OrderBy(c=>c.CustomerName).ToList() };
+            Customers=customers.Select(c=>Summary(c,entries.Where(e=>e.CustomerId==c.Id).ToList(),date)).Where(c=>c.TodayDebt>0||c.TodayPayment>0||c.CarriedDailyDebt>0||c.Bonus>0||c.ReturnCredit!=0).OrderBy(c=>c.CustomerName).ToList() };
     }
     public async Task<AccountDayReportDto> CloseDayAsync(CancellationToken cancellationToken=default)
     {
@@ -186,6 +191,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             var open=await db.CustomerAccountEntries.Where(e=>e.BusinessDate==Today && !e.IsFinalized).ToListAsync(cancellationToken);
             foreach(var entry in open) entry.IsFinalized=true;
             var closure=await db.AccountDayClosures.FirstOrDefaultAsync(x=>x.BusinessDate==Today,cancellationToken);
+            if(closure!=null && open.Count==0){await tx.CommitAsync(cancellationToken);return;}
             if(closure==null){closure=new AccountDayClosure{BusinessDate=Today};db.Add(closure);}
             closure.RecordedByUserId=user.UserId;closure.RecordedByFullName=user.FullName;closure.ClosedAtUtc=clock.GetUtcNow().UtcDateTime;
             await db.SaveChangesAsync(cancellationToken);

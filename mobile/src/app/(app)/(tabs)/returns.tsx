@@ -19,6 +19,7 @@ import {
   ReturnStatus,
 } from "../../../features/product-returns/product-return-types";
 import { colors } from "../../../theme";
+import { AppUpdateBanner } from "../../../components/app-update-banner";
 export default function ReturnsScreen() {
   const { session } = useAuth();
   const [items, setItems] = useState<ProductReturn[]>([]),
@@ -90,6 +91,7 @@ export default function ReturnsScreen() {
         }
         ListHeaderComponent={
           <View style={styles.header}>
+            <AppUpdateBanner />
             <Text style={styles.title}>Vazvrad</Text>
             <Text style={styles.muted}>
               Menecer təsdiqi gözləyənlər · {items.length}

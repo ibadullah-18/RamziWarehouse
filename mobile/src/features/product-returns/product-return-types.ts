@@ -39,6 +39,8 @@ export type ProductReturnStatusHistory = {
 };
 
 export type ProductReturn = {
+  amount: number;
+  returnPersonName: string | null;
   isDeleted: boolean;
   revision: string;
   id: string;
@@ -99,6 +101,8 @@ export type CreateProductReturnItemRequest = {
 };
 
 export type CreateProductReturnRequest = {
+  amount?: number;
+  returnPersonId?: string | null;
   customerId: string;
   warehouseId: string;
   additionalNote: string | null;

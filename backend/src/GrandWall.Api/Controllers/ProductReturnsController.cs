@@ -140,12 +140,13 @@ public sealed class ProductReturnsController : ControllerBase
     public async Task<ActionResult<ProductReturnPhotoDto>> UploadPhoto(
      Guid productReturnId,
      IFormFile file,
-     CancellationToken cancellationToken)
+     CancellationToken cancellationToken, [FromForm] Guid? operationId = null)
     {
         await using var fileStream = file.OpenReadStream();
 
         var uploadRequest = new FileUploadRequest
         {
+            OperationId=operationId,
             Content = fileStream,
             FileName = file.FileName,
             ContentType = file.ContentType,
@@ -172,13 +173,13 @@ public sealed class ProductReturnsController : ControllerBase
     public async Task<IActionResult> DownloadPhoto(
     Guid productReturnId,
     Guid photoId,
-    CancellationToken cancellationToken)
+    CancellationToken cancellationToken, [FromQuery] bool thumbnail = false)
     {
         var photoFile =
             await _productReturnPhotoService.DownloadPhotoAsync(
                 productReturnId,
                 photoId,
-                cancellationToken);
+                cancellationToken, thumbnail);
 
         return File(
             photoFile.Content,

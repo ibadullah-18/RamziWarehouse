@@ -4,6 +4,8 @@ namespace GrandWall.Application.Features.ProductReturns.Dtos;
 
 public sealed class ProductReturnDto
 {
+    public decimal Amount { get; init; }
+    public string? ReturnPersonName { get; init; }
     public bool IsDeleted { get; init; }
     public Guid Revision { get; init; }
 

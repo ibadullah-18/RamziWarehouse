@@ -10,6 +10,7 @@ public sealed class ProductReturnPhotoConfiguration
     public void Configure(
         EntityTypeBuilder<ProductReturnPhoto> builder)
     {
+        builder.HasIndex(p=>new{p.ProductReturnId,p.UploadOperationId}).IsUnique().HasFilter("[UploadOperationId] IS NOT NULL");
         builder.ToTable(
             "ProductReturnPhotos",
             table => table.HasCheckConstraint(

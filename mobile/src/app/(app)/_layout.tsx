@@ -30,7 +30,9 @@ export default function AppStackLayout() {
       />
 
       <Stack.Screen name="edit-return/[id]" />
+      <Stack.Screen name="create-customer" />
       <Stack.Protected guard={isAdmin}>
+        <Stack.Screen name="return-persons" />
         <Stack.Screen name="users" />
         <Stack.Screen name="create-user" />
         <Stack.Screen name="edit-user/[id]" />
@@ -38,7 +40,6 @@ export default function AppStackLayout() {
 
       <Stack.Protected guard={isAdmin || session?.role === 1}>
         <Stack.Screen name="customers" />
-        <Stack.Screen name="create-customer" />
         <Stack.Screen name="edit-customer/[id]" />
       </Stack.Protected>
 

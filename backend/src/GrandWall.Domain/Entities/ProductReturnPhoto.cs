@@ -4,6 +4,7 @@ namespace GrandWall.Domain.Entities;
 
 public sealed class ProductReturnPhoto : BaseEntity
 {
+    public Guid? UploadOperationId { get; set; }
     public Guid ProductReturnId { get; set; }
 
     public ProductReturn ProductReturn { get; set; } = null!;

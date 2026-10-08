@@ -1,6 +1,7 @@
 namespace GrandWall.Application.Features.ProductReturns.Dtos;
 public sealed class CorrectProductReturnDto
 {
+    public decimal? Amount { get; init; }
     public Guid ExpectedRevision { get; init; }
     public string Reason { get; init; } = string.Empty;
     public List<CorrectProductReturnItemDto> Items { get; init; } = [];

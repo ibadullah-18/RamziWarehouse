@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
@@ -37,10 +37,12 @@ jobs:
         with:
           filters: |
             backend:
+              - '.github/workflows/ci.yml'
               - 'backend/**'
               - 'ops/**'
               - 'docker-compose.production.yml'
             mobile:
+              - '.github/workflows/ci.yml'
               - 'mobile/**'
 
   backend:
@@ -127,6 +129,9 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+      - name: Run mobile tests
+        run: node --test tests/*.test.cjs
 
       - name: Run Expo Doctor
         run: npx --yes expo-doctor@1.20.2
@@ -300,6 +305,9 @@ jobs:
 
       - name: Install mobile packages
         run: npm ci
+
+      - name: Prepare a newer Android release
+        run: node scripts/prepare-android-release.cjs
 
       - name: Build Android APK with EAS
         env:

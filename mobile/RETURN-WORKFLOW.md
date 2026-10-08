@@ -14,7 +14,21 @@ Günlük açot siyahısının sol yuxarısındakı Açotu bitir həmin ana qəd�
 
 Admin günlük borc düzəlişində keçmiş tarixi seçə bilər. Ödəniş düzəlişində əvvəlki və yeni məbləğ/üsul, səbəb və icraçı ayrıca auditdə qalır. Düzəliş sonrakı günlərin borcunu mənfiyə salırsa server rədd edir. Yeni miqrasiya əvvəl bitirilmiş günlərdəki qeydlərin kilidini saxlayır.
 
-Menecer müştəri yarada bilər. Rəqəm sahələri rəqəm klaviaturası açır. Tamam düyməsi klaviaturanı bağlayır, formalar fokuslanan sahəyə görə sürüşür. Fiziki Android cihazında klaviatura və bildiriş yoxlaması ayrıca edilməlidir.
+Bütün rollar müştəri yarada bilər; müştəri redaktəsi və qaimə hüquqları ayrıca qalır. Məhsul və partiya kodları mətn kimi saxlanılır: `611`, `611-1`, `510-611-1` ayrıdır. Məbləğ və say üçün rəqəm klaviaturası, kod və partiya üçün tire daxil etməyə imkan verən mətn klaviaturası açılır. Tamam düyməsi klaviaturanı bağlayır.
+
+## 08.10.2026 tarixindən yeni borc qaydası
+
+Bu tarixdən günlük borcun ödənilməyən hissəsi növbəti gün bir dəfə köhnə borca keçir. Əvvəlki tarixlər öz beşgünlük hesablama qaydası ilə göstərilir; tarixi hesabatlar yenidən yazılmır. Avans köhnə/günlük borcu mənfiyə salmır və növbəti satışlara avtomatik tətbiq edilir.
+
+Ödəniş ekranında nağd və kart məbləği ayrı yazılır. “Vazvrat / Bonus əlavə et” bölməsi istəyə görə açılır. Bonus borcu azaldır, real alınan pula əlavə edilmir. Vazvrat ayrıca real qeydə bağlanır və yalnız menecer təsdiqindən sonra borcu azaldır. Təsdiq, maliyyə qeydi və status eyni database əməliyyatında saxlanılır; sonrakı məbləğ düzəlişi/silinmə cari tarixə fərq və ya geri qaytarma kimi yazılır.
+
+“Açotu tamamla” müştərinin həmin andakı açıq günlük qeydlərini kilidləyir. Ödənişlər, bonus və əməliyyat identifikatoru serializable transaction daxilində saxlanılır. Eyni identifikatorla təkrar sorğu ödənişi təkrarlamır. Sonra yeni borc və yeni ödəniş əlavə etmək olar; günün yekunu həmin tarix üzrə yenilənir. Keçmiş açotda tarixə basmaq həmin günün ayrı detal səhifəsini açır; nağd, kart, faktiki ödəniş və varsa bonus/vazvrat göstərilir.
+
+Admin “Vazvrat yaradanlar” siyahısında ad əlavə edir, düzəldir və deaktiv edir. Seçilən ad tarixi qeyd kimi saxlanılır və hesab/menecer adlarından ayrıdır. Köhnə vazvratlara məbləğ avtomatik yazılmır və əvvəlki borc dəyişdirilmir. Maliyyə ilə bağlı vazvratlar və açot qeydləri 40 günlük təmizləmədən qorunur.
+
+Şəkillər telefonda ən uzun tərəfi 1600 piksel olan JPEG şəklində sıxılır. Önizləmə 480 piksel Cloudinary variantını alır; istifadəçiyə aid keş təkrar yükləməni azaldır. Tam ekran yalnız lazım olan böyük şəkli və qonşu şəkilləri yükləyir; sürüşdürmə, əvvəlki/növbəti və böyütmə mövcuddur. Fiziki Android cihazında sürət, toxunuş və bildiriş yoxlaması ayrıca edilməlidir.
+
+Əsas ekranlar və vazvrat yaratma səhifəsi bütün rollarda yeniləmə banneri göstərir. Fokus və tətbiqə qayıdış yeni versiyanı yoxlayır. CI APK hazırlayanda versiya nömrəsini yayımlanmış APK-dan böyük seçir və təkrar buraxılışları ardıcıllıqla işləyir.
 
 ## Android bildirişlərini aktivləşdirmək
 

@@ -1,4 +1,4 @@
-﻿import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import {
   router,
   type Href,
@@ -73,6 +73,7 @@ export default function AdminManagementScreen() {
       </Animated.View>
 
       <AppUpdateBanner />
+      <QuickActionCard title="Vazvrat yaradanlar" description="Adları və aktivliyi idarə et" icon="people-outline" onPress={() => router.push('/return-persons' as Href)} />
 
       <Animated.View
         entering={FadeInDown

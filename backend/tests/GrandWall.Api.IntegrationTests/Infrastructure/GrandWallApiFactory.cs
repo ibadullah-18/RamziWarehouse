@@ -125,6 +125,9 @@ public sealed class GrandWallApiFactory
                 {
                     options.UseInMemoryDatabase(
                         _databaseName);
+                    // This provider does not emulate SQL transactions; service tests
+                    // verify atomic outcomes, while production uses SQL Server.
+                    options.ConfigureWarnings(w=>w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
                 });
 
             services.RemoveAll<IFileStorageService>();

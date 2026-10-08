@@ -11,7 +11,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createCustomer } from '../../api/customers-api';
 import { useAuth } from '../../auth/auth-context';
-import { canManageOperations } from '../../auth/permissions';
 import {
     colors,
     fontSize,
@@ -28,7 +27,7 @@ function getErrorMessage(error: unknown): string {
 export default function CreateCustomerScreen() {
   const { session } = useAuth();
   const accessToken = session?.accessToken;
-  const canManage = canManageOperations(session?.role);
+  const canManage = !!session;
 
   const nameInputRef = useRef<TextInput>(null);
   const phoneInputRef = useRef<TextInput>(null);

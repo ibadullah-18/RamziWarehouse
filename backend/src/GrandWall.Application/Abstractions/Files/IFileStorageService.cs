@@ -4,6 +4,8 @@ namespace GrandWall.Application.Abstractions.Files;
 
 public interface IFileStorageService
 {
+    Task<StoredFileContentDto> DownloadThumbnailAsync(string publicId,CancellationToken cancellationToken=default)
+        => DownloadImageAsync(publicId,cancellationToken);
     Task<StoredFileDto> UploadImageAsync(
         FileUploadRequest request,
         string folder,

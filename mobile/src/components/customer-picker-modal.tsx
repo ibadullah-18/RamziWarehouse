@@ -1,7 +1,6 @@
 import { dismissKeyboard } from './keyboard-form';
 import { KeyboardAwareScrollView, KeyboardToolbar } from 'react-native-keyboard-controller';
 import { useAuth } from '../auth/auth-context';
-import { canManageOperations } from '../auth/permissions';
 import { getCustomers } from '../api/customers-api';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -50,7 +49,7 @@ export function CustomerPickerModal({
   onSelect,
 }: CustomerPickerModalProps) {
   const {session} = useAuth();
-  const canCreate = canManageOperations(session?.role);
+  const canCreate = !!session;
   const nameInputRef =
     useRef<TextInput>(null);
 

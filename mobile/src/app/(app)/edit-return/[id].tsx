@@ -44,6 +44,7 @@ export default function EditReturnScreen() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const lock = useRef(false);
+  const [returnAmount,setReturnAmount]=useState('');
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -56,6 +57,7 @@ export default function EditReturnScreen() {
         .then((r) => {
           if (active) {
             setRecord(r);
+            setReturnAmount(String(r.amount??0));
             setItems(
               r.items.map((i) => ({
                 id: i.id,
@@ -112,6 +114,7 @@ export default function EditReturnScreen() {
         else router.replace("/(app)/(tabs)/search");
       } else {
         await correctProductReturn(session.accessToken, record.id, {
+          amount:Number(returnAmount.replace(',','.')),
           expectedRevision: record.revision,
           reason,
           items,
@@ -162,6 +165,7 @@ export default function EditReturnScreen() {
         )}
         {allowed && (
           <>
+            {!deleting&&<><Text style={styles.muted}>Vazvrat məbləği (AZN)</Text><TextInput value={returnAmount} onChangeText={setReturnAmount} keyboardType="decimal-pad" inputMode="decimal" returnKeyType="done" submitBehavior="blurAndSubmit" onSubmitEditing={dismissKeyboard} style={styles.input}/></>}
             {!deleting &&
               items.map((item, index) => (
                 <View
@@ -180,8 +184,8 @@ export default function EditReturnScreen() {
                     returnKeyType="done"
                     submitBehavior="blurAndSubmit"
                     onSubmitEditing={dismissKeyboard}
-                    keyboardType="number-pad"
-                    inputMode="numeric"
+                    keyboardType="default"
+                    inputMode="text"
                     value={item.productCode}
                     maxLength={50}
                     editable={!busy}
@@ -189,7 +193,7 @@ export default function EditReturnScreen() {
                       setItems((all) =>
                         all.map((i) =>
                           all.indexOf(i) === index
-                            ? { ...i, productCode: v.replace(/\D/g, "") }
+                            ? { ...i, productCode: v }
                             : i,
                         ),
                       )
@@ -201,8 +205,8 @@ export default function EditReturnScreen() {
                     returnKeyType="done"
                     submitBehavior="blurAndSubmit"
                     onSubmitEditing={dismissKeyboard}
-                    keyboardType="number-pad"
-                    inputMode="numeric"
+                    keyboardType="default"
+                    inputMode="text"
                     value={item.batchNumber}
                     maxLength={50}
                     editable={!busy}
@@ -210,7 +214,7 @@ export default function EditReturnScreen() {
                       setItems((all) =>
                         all.map((i) =>
                           i.id === item.id
-                            ? { ...i, batchNumber: v.replace(/\D/g, "") }
+                            ? { ...i, batchNumber: v }
                             : i,
                         ),
                       )

@@ -13,7 +13,7 @@ public interface IProductReturnPhotoService
     Task<FileDownloadDto> DownloadPhotoAsync(
         Guid productReturnId,
         Guid photoId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, bool thumbnail = false);
 
     Task DeletePhotoAsync(
         Guid productReturnId,

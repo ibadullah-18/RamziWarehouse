@@ -22,6 +22,7 @@ type ApiRequestOptions = {
 };
 
 export type ProductReturnPhotoUpload = {
+  operationId?: string;
   uri: string;
   fileName: string;
   contentType: string;
@@ -198,6 +199,7 @@ export async function uploadProductReturnPhoto(
   const formData = new FormData();
 
   formData.append("file", localFile, photo.fileName);
+  if(photo.operationId)formData.append('operationId',photo.operationId);
 
   const controller = new AbortController();
 
@@ -242,6 +244,7 @@ export async function downloadProductReturnPhoto(
   accessToken: string,
   productReturnId: string,
   photoId: string,
+  thumbnail = false,
 ): Promise<Uint8Array> {
   const controller = new AbortController();
 
@@ -253,7 +256,7 @@ export async function downloadProductReturnPhoto(
     const response = await authenticatedFetch(
       `${getApiBaseUrl()}` +
         `/api/product-returns/${productReturnId}` +
-        `/photos/${photoId}/file`,
+        `/photos/${photoId}/file?thumbnail=${thumbnail}`,
       {
         method: "GET",
 
@@ -350,6 +353,7 @@ export async function correctProductReturn(
   id: string,
   request: {
     expectedRevision: string;
+    amount?: number;
     reason: string;
     items: {
       id: string;

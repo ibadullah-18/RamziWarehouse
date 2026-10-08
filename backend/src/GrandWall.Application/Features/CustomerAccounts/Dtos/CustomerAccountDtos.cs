@@ -70,6 +70,9 @@ public sealed class CustomerAccountEntryDto
 
 public sealed class CustomerAccountSummaryDto
 {
+    public decimal Advance { get; init; }
+    public decimal Bonus { get; init; }
+    public decimal ReturnCredit { get; init; }
     public decimal CarriedDailyDebt { get; init; }
     public bool HasUnpaidDailyDebt { get; init; }
     public Guid CustomerId { get; init; }
@@ -115,6 +118,11 @@ public sealed class CustomerAccountListDto
 
 public sealed class CustomerAccountDayDto
 {
+    public decimal Cash { get; init; }
+    public decimal Card { get; init; }
+    public decimal Bonus { get; init; }
+    public decimal ReturnCredit { get; init; }
+    public decimal Advance { get; init; }
     public decimal OpeningOldDebt { get; init; }
     public decimal OpeningCarriedDailyDebt { get; init; }
     public decimal PaidFromCarriedDailyDebt { get; init; }
@@ -152,6 +160,9 @@ public sealed class CustomerDeferredDebtDto
 }
 public sealed class CustomerAccountDetailsDto
 {
+    public decimal Bonus { get; init; }
+    public decimal ReturnCredit { get; init; }
+    public decimal Advance { get; init; }
     public IReadOnlyList<AccountAuditDto> Audit { get; init; } = [];
     public decimal OldDebtRemaining { get; init; }
     public decimal CarriedDailyDebt { get; init; }

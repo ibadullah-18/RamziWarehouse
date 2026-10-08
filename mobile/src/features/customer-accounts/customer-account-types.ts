@@ -53,6 +53,9 @@ export type CustomerAccountEntry = {
 };
 
 export type CustomerAccountSummary = {
+  advance: number;
+  bonus: number;
+  returnCredit: number;
   carriedDailyDebt: number;
   hasUnpaidDailyDebt: boolean;
   customerId: string;
@@ -79,6 +82,11 @@ export type CustomerAccountList = {
 };
 
 export type CustomerAccountDay = {
+  cash: number;
+  card: number;
+  bonus: number;
+  returnCredit: number;
+  advance: number;
   openingOldDebt: number;
   openingCarriedDailyDebt: number;
   paidFromCarriedDailyDebt: number;
@@ -103,6 +111,9 @@ export type CustomerDeferredDebt = {
   isOpeningBalance: boolean;
 };
 export type CustomerAccountDetails = {
+  advance: number;
+  bonus: number;
+  returnCredit: number;
   audit: {
     entryId: string;
     userName: string;

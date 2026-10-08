@@ -48,7 +48,6 @@ public sealed class CustomersController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "ManagerOrAdmin")]
     public async Task<ActionResult<CustomerDto>> Create(
         [FromBody] CreateCustomerRequestDto request,
         CancellationToken cancellationToken)

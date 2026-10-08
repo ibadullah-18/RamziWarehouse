@@ -1,67 +1,73 @@
-﻿import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   StyleSheet,
   Text,
   View,
-} from 'react-native';
+} from "react-native";
 
 import {
   AndroidAppVersion,
   getAndroidAppVersion,
   getInstalledVersionCode,
   openAppUpdate,
-} from '../api/app-version-api';
-import {
-  colors,
-  fontSize,
-  radius,
-  spacing,
-} from '../theme';
+} from "../api/app-version-api";
+import { colors, fontSize, radius, spacing } from "../theme";
 
 export function AppUpdateBanner() {
-  const [versionInfo, setVersionInfo] =
-    useState<AndroidAppVersion | null>(null);
+  const [versionInfo, setVersionInfo] = useState<AndroidAppVersion | null>(
+    null,
+  );
 
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissedVersion, setDismissedVersion] = useState(0);
   const [isOpening, setIsOpening] = useState(false);
 
-  useEffect(() => {
-    let active = true;
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      let checking = false;
 
-    async function checkVersion() {
-      try {
-        const installedVersionCode =
-          getInstalledVersionCode();
+      async function checkVersion() {
+        if(checking)return;
+        checking=true;
+        try {
+          const installedVersionCode = getInstalledVersionCode();
+          if (installedVersionCode <= 0) return;
 
-        const info = await getAndroidAppVersion();
+          const info = await getAndroidAppVersion();
 
-        if (!active) {
-          return;
+          if (!active) {
+            return;
+          }
+
+          if (
+            installedVersionCode > 0 &&
+            installedVersionCode < info.latestVersionCode
+          ) {
+            setVersionInfo(info);
+          } else {setVersionInfo(null);}
+        } catch (error) {
+          console.warn("GrandWall update yoxlaması uğursuz oldu:", error);
+        } finally {
+          checking=false;
         }
-
-        if (
-          installedVersionCode > 0 &&
-          installedVersionCode < info.latestVersionCode
-        ) {
-          setVersionInfo(info);
-        }
-      } catch (error) {
-        console.warn(
-          'GrandWall update yoxlaması uğursuz oldu:',
-          error,
-        );
       }
-    }
 
-    void checkVersion();
+      void checkVersion();
+      const subscription = AppState.addEventListener("change", (state) => {
+        if (state === "active") void checkVersion();
+      });
 
-    return () => {
-      active = false;
-    };
-  }, []);
+      return () => {
+        active = false;
+        subscription.remove();
+      };
+    }, []),
+  );
 
   const handleUpdate = useCallback(async () => {
     if (!versionInfo || isOpening) {
@@ -72,16 +78,13 @@ export function AppUpdateBanner() {
       setIsOpening(true);
       await openAppUpdate(versionInfo.downloadUrl);
     } catch (error) {
-      console.warn(
-        'GrandWall update linki açıla bilmədi:',
-        error,
-      );
+      console.warn("GrandWall update linki açıla bilmədi:", error);
     } finally {
       setIsOpening(false);
     }
   }, [isOpening, versionInfo]);
 
-  if (!versionInfo || dismissed) {
+  if (!versionInfo || dismissedVersion===versionInfo.latestVersionCode) {
     return null;
   }
 
@@ -96,9 +99,7 @@ export function AppUpdateBanner() {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.title}>
-          Yeni versiya mövcuddur
-        </Text>
+        <Text style={styles.title}>Yeni versiya mövcuddur</Text>
 
         <Text style={styles.description}>
           GrandWall {versionInfo.latestVersion}
@@ -114,27 +115,18 @@ export function AppUpdateBanner() {
         ]}
       >
         {isOpening ? (
-          <ActivityIndicator
-            size="small"
-            color={colors.white}
-          />
+          <ActivityIndicator size="small" color={colors.white} />
         ) : (
-          <Text style={styles.updateText}>
-            Yenilə
-          </Text>
+          <Text style={styles.updateText}>Yenilə</Text>
         )}
       </Pressable>
 
       <Pressable
-        onPress={() => setDismissed(true)}
+        onPress={() => setDismissedVersion(versionInfo.latestVersionCode)}
         hitSlop={10}
         style={styles.closeButton}
       >
-        <Ionicons
-          name="close"
-          size={18}
-          color={colors.textSecondary}
-        />
+        <Ionicons name="close" size={18} color={colors.textSecondary} />
       </Pressable>
     </View>
   );
@@ -142,8 +134,8 @@ export function AppUpdateBanner() {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -155,8 +147,8 @@ const styles = StyleSheet.create({
   icon: {
     width: 42,
     height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: radius.md,
     backgroundColor: colors.primarySoft,
   },
@@ -169,7 +161,7 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 
   description: {
@@ -182,8 +174,8 @@ const styles = StyleSheet.create({
     minWidth: 64,
     height: 36,
     paddingHorizontal: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: radius.md,
     backgroundColor: colors.primary,
   },
@@ -191,7 +183,7 @@ const styles = StyleSheet.create({
   updateText: {
     color: colors.white,
     fontSize: fontSize.xs,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 
   closeButton: {

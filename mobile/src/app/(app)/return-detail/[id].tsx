@@ -11,6 +11,7 @@ import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,6 +33,9 @@ import { UserRole } from "../../../auth/auth-types";
 import { useAuth } from "../../../auth/auth-context";
 import { canManageOperations } from "../../../auth/permissions";
 import { AuthenticatedProductReturnPhoto } from "../../../components/authenticated-product-return-photo";
+import { ReturnPhotoGallery } from "../../../components/return-photo-gallery";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import { randomUUID } from "expo-crypto";
 import {
   getProductTypeLabel,
   getReturnStatusLabel,
@@ -104,6 +108,13 @@ export default function ReturnDetailScreen() {
   const [workingAction, setWorkingAction] = useState<WorkingAction>(null);
 
   const [managerNote, setManagerNote] = useState("");
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
+  const [pendingPhoto, setPendingPhoto] = useState<{
+    uri: string;
+    fileName: string;
+    contentType: string;
+    operationId: string;
+  } | null>(null);
   const editorNavigation = useRef(false);
   const openEditor = (deleting = false) => {
     if (editorNavigation.current || workingAction || !productReturn) return;
@@ -180,7 +191,7 @@ export default function ReturnDetailScreen() {
       mediaTypes: ["images"],
       cameraType: ImagePicker.CameraType.back,
       allowsEditing: false,
-      quality: 0.75,
+      quality: 1,
     });
 
     if (result.canceled) {
@@ -195,38 +206,42 @@ export default function ReturnDetailScreen() {
       return;
     }
 
-    if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
-      Alert.alert(
-        "Şəkil çox böyükdür",
-        "Şəklin ölçüsü maksimum 10 MB ola bilər.",
-      );
-
-      return;
-    }
-
     setWorkingAction("photo");
-
+    let candidate = {
+      uri: asset.uri,
+      fileName: `return-${productReturn.id}-${Date.now()}.jpg`,
+      contentType: "image/jpeg",
+      operationId: randomUUID(),
+    };
+    setPendingPhoto(candidate);
     try {
+      const context = ImageManipulator.manipulate(asset.uri);
+      if (Math.max(asset.width, asset.height) > 1600)
+        context.resize(
+          asset.width >= asset.height ? { width: 1600 } : { height: 1600 },
+        );
+      const image = await context.renderAsync();
+      const saved = await image.saveAsync({
+        compress: 0.8,
+        format: SaveFormat.JPEG,
+      });
+      candidate = { ...candidate, uri: saved.uri };
+      setPendingPhoto(candidate);
       const uploadedPhoto = await uploadProductReturnPhoto(
         accessToken,
         productReturn.id,
-        {
-          uri: asset.uri,
-
-          fileName:
-            asset.fileName ??
-            `return-${productReturn.id}` + `-${Date.now()}.jpg`,
-
-          contentType: asset.mimeType ?? "image/jpeg",
-        },
+        candidate,
       );
+      setPendingPhoto(null);
 
       setProductReturn((currentValue) =>
         currentValue
           ? {
               ...currentValue,
 
-              photos: [...currentValue.photos, uploadedPhoto],
+              photos: currentValue.photos.some((p) => p.id === uploadedPhoto.id)
+                ? currentValue.photos
+                : [...currentValue.photos, uploadedPhoto],
             }
           : currentValue,
       );
@@ -315,6 +330,13 @@ export default function ReturnDetailScreen() {
   }
 
   function confirmSubmit() {
+    if (pendingPhoto) {
+      Alert.alert(
+        "Şəkil göndərilməyib",
+        "Əvvəl şəkli yenidən göndərin və ya seçilmiş şəkli ləğv edin.",
+      );
+      return;
+    }
     Alert.alert(
       "Menecerə göndərilsin?",
       "Məhsul kodlarını və partiyaları yoxlayın. Şəkil əlavə etmək istəyə bağlıdır.",
@@ -461,13 +483,11 @@ export default function ReturnDetailScreen() {
     );
   }
 
-  const isCreator = productReturn.createdByUserId === session?.userId;
-
   const canManageReturn = canManageOperations(session?.role);
 
   const canEdit =
-    productReturn.status === ReturnStatus.Pending &&
-    (isCreator || canManageReturn) &&
+    (productReturn.status === ReturnStatus.Pending ||
+      productReturn.status === ReturnStatus.Submitted) &&
     !productReturn.isDeleted;
 
   const canProcess =
@@ -607,6 +627,74 @@ export default function ReturnDetailScreen() {
         ) : null}
 
         <Text style={styles.sectionTitle}>Sübut şəkilləri</Text>
+        {galleryIndex !== null && (
+          <ReturnPhotoGallery
+            photos={productReturn.photos}
+            returnId={productReturn.id}
+            index={galleryIndex}
+            onClose={() => setGalleryIndex(null)}
+          />
+        )}
+        {pendingPhoto && (
+          <View style={{ gap: 12 }}>
+            <Text style={{ color: colors.text }}>
+              Şəkil seçilib ·{" "}
+              {workingAction === "photo" ? "Göndərilir…" : "Göndərilməyib"}
+            </Text>
+            <Image
+              source={{ uri: pendingPhoto.uri }}
+              style={{ width: 160, height: 120 }}
+            />
+            <Pressable
+              disabled={Boolean(workingAction) || !canEdit}
+              onPress={async () => {
+                setWorkingAction("photo");
+                try {
+                  const photo = await uploadProductReturnPhoto(
+                    accessToken,
+                    productReturn.id,
+                    pendingPhoto,
+                  );
+                  setProductReturn((r) =>
+                    r
+                      ? {
+                          ...r,
+                          photos: r.photos.some((item) => item.id === photo.id)
+                            ? r.photos
+                            : [...r.photos, photo],
+                        }
+                      : r,
+                  );
+                  setPendingPhoto(null);
+                } catch (e) {
+                  Alert.alert("Şəkil göndərilmədi", getErrorMessage(e));
+                } finally {
+                  setWorkingAction(null);
+                }
+              }}
+            >
+              <Text style={{ color: colors.primary }}>Yenidən göndər</Text>
+            </Pressable>
+            <Pressable
+              disabled={Boolean(workingAction)}
+              onPress={() => setPendingPhoto(null)}
+            >
+              <Text style={{ color: colors.textSecondary }}>Şəkli ləğv et</Text>
+            </Pressable>
+          </View>
+        )}
+        <Text style={{ color: colors.textSecondary }}>
+          Vazvratı yaradan: {productReturn.returnPersonName ?? "Əvvəlki qeyd"} ·
+          Məbləğ: {(productReturn.amount ?? 0).toFixed(2)} AZN
+        </Text>
+        <Text style={{ color: colors.textSecondary }}>
+          Sistemə daxil edən: {productReturn.createdByFullName}
+        </Text>
+        {productReturn.processedByFullName && (
+          <Text style={{ color: colors.textSecondary }}>
+            Təsdiqləyən / işləyən: {productReturn.processedByFullName}
+          </Text>
+        )}
 
         {productReturn.photos.length > 0 ? (
           <ScrollView
@@ -622,6 +710,11 @@ export default function ReturnDetailScreen() {
                   productReturnId={productReturn.id}
                   photoId={photo.id}
                   contentType={photo.contentType}
+                  onPress={() =>
+                    setGalleryIndex(
+                      productReturn.photos.findIndex((p) => p.id === photo.id),
+                    )
+                  }
                 />
 
                 <View style={styles.photoFooter}>
@@ -674,7 +767,7 @@ export default function ReturnDetailScreen() {
           </View>
         )}
 
-        {canEdit ? (
+        {canEdit && productReturn.status === ReturnStatus.Pending ? (
           <Pressable
             disabled={Boolean(workingAction)}
             onPress={confirmSubmit}

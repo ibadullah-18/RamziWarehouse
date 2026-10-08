@@ -5,6 +5,10 @@ namespace GrandWall.Domain.Entities;
 
 public sealed class ProductReturn : ExpirableEntity
 {
+    public decimal Amount { get; set; }
+    public decimal AppliedAmount { get; set; }
+    public Guid? ReturnPersonId { get; set; }
+    public string? ReturnPersonName { get; set; }
     public bool IsDeleted { get; set; }
     public Guid Revision { get; set; } = Guid.NewGuid();
 
@@ -51,6 +55,7 @@ public sealed class ProductReturn : ExpirableEntity
         }
 
         Status = ReturnStatus.Submitted;
+        Revision = Guid.NewGuid();
     }
 
     public void Complete(
@@ -66,6 +71,7 @@ public sealed class ProductReturn : ExpirableEntity
         ProcessedByUserId = processedByUserId;
         ProcessedAtUtc = completedAtUtc;
         Status = ReturnStatus.Completed;
+        Revision = Guid.NewGuid();
 
         StartRetentionPeriod(completedAtUtc);
     }
@@ -84,6 +90,7 @@ public sealed class ProductReturn : ExpirableEntity
         ProcessedByUserId = processedByUserId;
         ProcessedAtUtc = cancelledAtUtc;
         Status = ReturnStatus.Cancelled;
+        Revision = Guid.NewGuid();
 
         StartRetentionPeriod(cancelledAtUtc);
     }

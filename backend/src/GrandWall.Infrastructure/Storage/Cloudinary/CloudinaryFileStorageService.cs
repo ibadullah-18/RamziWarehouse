@@ -111,6 +111,10 @@ public sealed class CloudinaryFileStorageService : IFileStorageService
     public async Task<StoredFileContentDto> DownloadImageAsync(
     string publicId,
     CancellationToken cancellationToken = default)
+        => await DownloadAsync(publicId,false,cancellationToken);
+    public Task<StoredFileContentDto> DownloadThumbnailAsync(string publicId,CancellationToken cancellationToken=default)
+        => DownloadAsync(publicId,true,cancellationToken);
+    private async Task<StoredFileContentDto> DownloadAsync(string publicId,bool thumbnail,CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(publicId))
         {
@@ -122,6 +126,7 @@ public sealed class CloudinaryFileStorageService : IFileStorageService
         cancellationToken.ThrowIfCancellationRequested();
 
         var deliveryUrl = _cloudinary.Api.UrlImgUp
+            .Transform(thumbnail ? new Transformation().Width(480).Height(480).Crop("limit").Quality("auto").FetchFormat("jpg") : new Transformation())
             .BuildUrl(publicId);
 
         using var response = await ImageDownloadClient.GetAsync(

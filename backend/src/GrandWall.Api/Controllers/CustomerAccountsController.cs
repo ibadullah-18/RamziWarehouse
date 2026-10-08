@@ -21,6 +21,10 @@ public sealed class CustomerAccountsController : ControllerBase
     public async Task<IActionResult> ReportHistory(CancellationToken cancellationToken)
         => Ok(await _service.GetReportHistoryAsync(cancellationToken));
 
+    [HttpPost("settlements")]
+    public async Task<IActionResult> CompleteSettlement(CompleteSettlementRequest request,CancellationToken ct)
+        => Ok(await _service.CompleteSettlementAsync(request,ct));
+
     [HttpGet("report")]
     public async Task<IActionResult> Report([FromQuery] DateOnly date, CancellationToken cancellationToken)
         => Ok(await _service.GetReportAsync(date, cancellationToken));

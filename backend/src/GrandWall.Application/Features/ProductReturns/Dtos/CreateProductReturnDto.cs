@@ -2,6 +2,8 @@
 
 public sealed class CreateProductReturnDto
 {
+    public decimal Amount { get; init; }
+    public Guid? ReturnPersonId { get; init; }
     public Guid CustomerId { get; init; }
 
     public Guid WarehouseId { get; init; }
