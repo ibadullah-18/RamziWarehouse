@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -442,49 +442,10 @@ public sealed class OrderWorkflowTests
             order.Delivery.DeliveredAtUtc.Value.AddDays(40),
             order.DeleteAfterUtc.Value);
 
-        var outboxMessages =
+        // Telegram messages are switched off, so nothing is queued.
+        Assert.False(
             await dbContext.TelegramOutboxMessages
-                .AsNoTracking()
-                .Include(message => message.Photos)
-                .Where(message =>
-                    message.RelatedEntityId == orderId)
-                .ToListAsync();
-
-        Assert.Contains(
-            outboxMessages,
-            message =>
-                message.RelatedEntityType ==
-                    TelegramRelatedEntityTypes.Order &&
-                message.Channel ==
-                    TelegramChannel.Orders);
-
-        var preparationMessage =
-            Assert.Single(
-                outboxMessages.Where(message =>
-                    message.RelatedEntityType ==
-                        TelegramRelatedEntityTypes
-                            .OrderPreparation));
-
-        Assert.Equal(
-            TelegramChannel.Orders,
-            preparationMessage.Channel);
-
-        Assert.Single(
-            preparationMessage.Photos);
-
-        var deliveryMessage =
-            Assert.Single(
-                outboxMessages.Where(message =>
-                    message.RelatedEntityType ==
-                        TelegramRelatedEntityTypes
-                            .OrderDelivery));
-
-        Assert.Equal(
-            TelegramChannel.Delivery,
-            deliveryMessage.Channel);
-
-        Assert.Single(
-            deliveryMessage.Photos);
+                .AnyAsync(message => message.RelatedEntityId == orderId));
     }
 
     private sealed record WorkflowTestData(

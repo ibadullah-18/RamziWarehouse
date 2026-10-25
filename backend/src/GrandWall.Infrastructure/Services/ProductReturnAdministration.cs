@@ -1,5 +1,6 @@
 using GrandWall.Application.Common.Exceptions;
 using GrandWall.Application.Features.ProductReturns.Dtos;
+using GrandWall.Application.Features.ProductReturns.Validators;
 using GrandWall.Domain.Entities;
 using GrandWall.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,7 @@ public sealed partial class ProductReturnService
         foreach(var input in request.Items)
         {
             var code=input.ProductCode?.Trim()??"";var batch=input.BatchNumber?.Trim()??"";
+            if(!ProductCodeRules.IsValid(code)||!ProductCodeRules.IsValid(batch)) throw new ConflictException(ProductCodeRules.Message);
             if(code.Length is <1 or >50 || batch.Length is <1 or >50) throw new ConflictException("Kod və partiya 1–50 simvol olmalıdır.");
             var item=input.Id==Guid.Empty ? new ProductReturnItem{ProductReturnId=record.Id} : record.Items.Single(i=>i.Id==input.Id);
             var quantity=input.Quantity??item.Quantity; var type=input.ProductType??item.ProductType;

@@ -1,2 +1,5 @@
-import AccountScreen from '../../../features/customer-accounts/account-screen';
-export default function Accounts() { return <AccountScreen mode="home"/>; }
+import AccountHomeScreen from '../../../features/customer-accounts/account-home-screen';
+
+export default function Accounts() {
+  return <AccountHomeScreen />;
+}

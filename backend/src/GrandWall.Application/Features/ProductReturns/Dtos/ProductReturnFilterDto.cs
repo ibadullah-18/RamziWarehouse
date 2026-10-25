@@ -1,4 +1,4 @@
-﻿using GrandWall.Domain.Enums;
+using GrandWall.Domain.Enums;
 
 namespace GrandWall.Application.Features.ProductReturns.Dtos;
 
@@ -22,6 +22,9 @@ public sealed class ProductReturnFilterDto
 
     public DateTime? ToDateUtc { get; init; }
     public DateOnly? AcceptedDate { get; init; }
+
+    /// <summary>When true, only returns not cancelled and not yet credited to a customer's debt.</summary>
+    public bool? Unapplied { get; init; }
 
     public int PageNumber { get; init; } = 1;
 

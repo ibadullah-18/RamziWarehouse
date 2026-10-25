@@ -1,4 +1,4 @@
-﻿using GrandWall.Application.Features.Customers.Dtos;
+using GrandWall.Application.Features.Customers.Dtos;
 
 namespace GrandWall.Application.Abstractions.Customers;
 
@@ -7,6 +7,7 @@ public interface ICustomerService
     Task<IReadOnlyList<CustomerDto>> GetAllAsync(
         string? search,
         bool? isActive,
+        bool? isAccountCustomer = null,
         CancellationToken cancellationToken = default);
 
     Task<CustomerDto> GetByIdAsync(

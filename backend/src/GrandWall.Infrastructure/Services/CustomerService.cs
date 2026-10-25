@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using GrandWall.Application.Abstractions.Identity;
 using GrandWall.Domain.Enums;
 using GrandWall.Application.Abstractions.Customers;
@@ -24,6 +24,7 @@ public sealed class CustomerService : ICustomerService
     public async Task<IReadOnlyList<CustomerDto>> GetAllAsync(
         string? search,
         bool? isActive,
+        bool? isAccountCustomer = null,
         CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Customers
@@ -44,6 +45,12 @@ public sealed class CustomerService : ICustomerService
         {
             query = query.Where(customer =>
                 customer.IsActive == isActive.Value);
+        }
+
+        if (isAccountCustomer.HasValue)
+        {
+            query = query.Where(customer =>
+                customer.IsAccountCustomer == isAccountCustomer.Value);
         }
 
         return await query
@@ -79,7 +86,8 @@ public sealed class CustomerService : ICustomerService
             Name = request.Name.Trim(),
             PhoneNumber = NormalizeOptional(request.PhoneNumber),
             Note = NormalizeOptional(request.Note),
-            IsActive = true
+            IsActive = true,
+            IsAccountCustomer = request.IsAccountCustomer
         };
 
         _dbContext.Customers.Add(customer);
@@ -107,6 +115,10 @@ public sealed class CustomerService : ICustomerService
         customer.PhoneNumber = NormalizeOptional(request.PhoneNumber);
         customer.Note = NormalizeOptional(request.Note);
         customer.IsActive = request.IsActive!.Value;
+        if (request.IsAccountCustomer.HasValue)
+        {
+            customer.IsAccountCustomer = request.IsAccountCustomer.Value;
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -130,6 +142,7 @@ public sealed class CustomerService : ICustomerService
             PhoneNumber = customer.PhoneNumber,
             Note = customer.Note,
             IsActive = customer.IsActive,
+            IsAccountCustomer = customer.IsAccountCustomer,
             CreatedAtUtc = customer.CreatedAtUtc,
             UpdatedAtUtc = customer.UpdatedAtUtc
         };

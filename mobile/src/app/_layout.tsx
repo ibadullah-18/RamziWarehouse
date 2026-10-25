@@ -1,3 +1,4 @@
+import '../components/web-alert-polyfill';
 import {PushNotificationProvider} from '../features/notifications/push-provider';
 import { KeyboardProvider, KeyboardToolbar } from 'react-native-keyboard-controller';
 ﻿import { Stack } from 'expo-router';

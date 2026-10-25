@@ -1,8 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using GrandWall.Application.Abstractions.Files;
 using GrandWall.Application.Abstractions.Identity;
+using GrandWall.Application.Abstractions.Notifications;
 using GrandWall.Application.Abstractions.ProductReturns;
+using GrandWall.Application.Common.Notifications;
 using GrandWall.Application.Common.Exceptions;
 using GrandWall.Application.Common.Files;
 using GrandWall.Application.Features.ProductReturns.Dtos;
@@ -19,13 +21,16 @@ public sealed class ProductReturnPhotoService
     private readonly ICurrentUserService _currentUserService;
     private readonly IFileStorageService _fileStorageService;
     private readonly ILogger<ProductReturnPhotoService> _logger;
+    private readonly ITelegramOutboxService _telegramOutboxService;
 
     public ProductReturnPhotoService(
         AppDbContext dbContext,
         ICurrentUserService currentUserService,
         IFileStorageService fileStorageService,
-        ILogger<ProductReturnPhotoService> logger)
+        ILogger<ProductReturnPhotoService> logger,
+        ITelegramOutboxService telegramOutboxService)
     {
+        _telegramOutboxService = telegramOutboxService;
         _dbContext = dbContext;
         _currentUserService = currentUserService;
         _fileStorageService = fileStorageService;
@@ -44,6 +49,8 @@ public sealed class ProductReturnPhotoService
         }
 
         var productReturn = await _dbContext.ProductReturns
+            .Include(currentReturn => currentReturn.Customer)
+            .Include(currentReturn => currentReturn.Items)
             .FirstOrDefaultAsync(
                 currentReturn =>
                     currentReturn.Id == productReturnId,
@@ -95,6 +102,28 @@ public sealed class ProductReturnPhotoService
             productReturn.Revision=Guid.NewGuid();
             _dbContext.ProductReturnStatusHistories.Add(new ProductReturnStatusHistory{ProductReturnId=productReturn.Id,PreviousStatus=productReturn.Status,NewStatus=productReturn.Status,ChangedByUserId=_currentUserService.UserId,Note=$"Şəkil əlavə edildi: {photo.OriginalFileName}"});
             _dbContext.ProductReturnPhotos.Add(photo);
+
+            // Photos added after the return went to the manager are sent to Telegram one by one,
+            // because the submission message could not contain them yet.
+            if (productReturn.Status == ReturnStatus.Submitted)
+            {
+                await _telegramOutboxService.EnqueueAsync(
+                    TelegramChannel.Returns,
+                    $"📷 Vazvrad şəkli{Environment.NewLine}Müştəri: {productReturn.Customer.Name}{Environment.NewLine}" +
+                    string.Join(Environment.NewLine, productReturn.Items.Take(5).Select(item => $"Kod: {item.ProductCode} | Partiya: {item.BatchNumber}")),
+                    TelegramRelatedEntityTypes.ProductReturn,
+                    productReturn.Id,
+                    new[]
+                    {
+                        new TelegramOutboxPhotoRequest
+                        {
+                            CloudinaryPublicId = storedFile.PublicId,
+                            OriginalFileName = storedFile.OriginalFileName,
+                            ContentType = storedFile.ContentType
+                        }
+                    },
+                    cancellationToken);
+            }
 
             await _dbContext.SaveChangesAsync(cancellationToken);
         }

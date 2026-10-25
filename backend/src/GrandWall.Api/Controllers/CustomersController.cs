@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using GrandWall.Application.Abstractions.Customers;
 using GrandWall.Application.Features.Customers.Dtos;
@@ -23,12 +23,14 @@ public sealed class CustomersController : ControllerBase
         ActionResult<IReadOnlyList<CustomerDto>>> GetAll(
             [FromQuery] string? search,
             [FromQuery] bool? isActive,
+            [FromQuery] bool? isAccountCustomer,
             CancellationToken cancellationToken)
     {
         var customers =
             await _customerService.GetAllAsync(
                 search,
                 isActive,
+                isAccountCustomer,
                 cancellationToken);
 
         return Ok(customers);

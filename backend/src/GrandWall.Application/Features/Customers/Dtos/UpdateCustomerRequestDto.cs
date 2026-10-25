@@ -1,4 +1,4 @@
-﻿namespace GrandWall.Application.Features.Customers.Dtos;
+namespace GrandWall.Application.Features.Customers.Dtos;
 
 public sealed class UpdateCustomerRequestDto
 {
@@ -9,4 +9,6 @@ public sealed class UpdateCustomerRequestDto
     public string? Note { get; init; }
 
     public bool? IsActive { get; init; }
+
+    public bool? IsAccountCustomer { get; init; }
 }

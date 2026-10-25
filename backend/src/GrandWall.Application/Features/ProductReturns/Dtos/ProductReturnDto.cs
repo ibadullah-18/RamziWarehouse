@@ -1,10 +1,13 @@
-﻿using GrandWall.Domain.Enums;
+using GrandWall.Domain.Enums;
 
 namespace GrandWall.Application.Features.ProductReturns.Dtos;
 
 public sealed class ProductReturnDto
 {
     public decimal Amount { get; init; }
+
+    /// <summary>The part already credited to the customer's debt (0 = not used yet).</summary>
+    public decimal AppliedAmount { get; init; }
     public string? ReturnPersonName { get; init; }
     public bool IsDeleted { get; init; }
     public Guid Revision { get; init; }

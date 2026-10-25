@@ -1,15 +1,17 @@
-import { authenticatedFetch } from "./authenticated-fetch";
 import { Platform } from "react-native";
 
 import { ApiProblemDetails } from "../auth/auth-types";
 import {
-  CorrectPreviousDebtRequest,
-  CreateCustomerAccountRequest,
+  AccountDay,
+  AccountHistoryMonth,
   CustomerAccountDetails,
   CustomerAccountList,
   CustomerAccountQuery,
-  RecordCustomerPaymentRequest,
+  CustomerMonth,
+  DailyDebtItem,
+  SettlementRequest,
 } from "../features/customer-accounts/customer-account-types";
+import { authenticatedFetch } from "./authenticated-fetch";
 
 type AccountApiProblemDetails = ApiProblemDetails & {
   errors?: Record<string, string[]>;
@@ -19,6 +21,8 @@ type AccountApiRequestOptions = {
   method?: "GET" | "POST" | "PUT";
   body?: unknown;
 };
+
+export type AccountApiError = Error & { statusCode: number };
 
 const requestTimeoutMilliseconds = 30000;
 
@@ -102,7 +106,9 @@ async function sendAccountRequest<T>(
     });
 
     if (!response.ok) {
-      throw Object.assign(await createApiError(response),{statusCode:response.status});
+      throw Object.assign(await createApiError(response), {
+        statusCode: response.status,
+      });
     }
 
     return (await response.json()) as T;
@@ -117,25 +123,61 @@ async function sendAccountRequest<T>(
   }
 }
 
-export async function getCustomerAccounts(
+/** One açot day: the roster with old/daily debt, payments and the totals. */
+export function getAccountDay(accessToken: string, date: string) {
+  return sendAccountRequest<AccountDay>(
+    `/api/customer-accounts/day?date=${encodeURIComponent(date)}`,
+    accessToken,
+  );
+}
+
+export function startAccountDay(accessToken: string) {
+  return sendAccountRequest<AccountDay>(
+    "/api/customer-accounts/day/start",
+    accessToken,
+    { method: "POST" },
+  );
+}
+
+export function closeAccountDay(accessToken: string) {
+  return sendAccountRequest<AccountDay>(
+    "/api/customer-accounts/day/close",
+    accessToken,
+    { method: "POST" },
+  );
+}
+
+/** Saves today's daily debts; only the differences are posted. */
+export function saveDailyDebts(accessToken: string, items: DailyDebtItem[]) {
+  return sendAccountRequest<AccountDay>(
+    "/api/customer-accounts/day/debts",
+    accessToken,
+    { method: "PUT", body: { items } },
+  );
+}
+
+export function completeSettlement(
+  accessToken: string,
+  request: SettlementRequest,
+) {
+  return sendAccountRequest<CustomerAccountDetails>(
+    "/api/customer-accounts/settlements",
+    accessToken,
+    { method: "POST", body: request },
+  );
+}
+
+export function getCustomerAccounts(
   accessToken: string,
   query: CustomerAccountQuery = {},
-): Promise<CustomerAccountList> {
+) {
   const parameters = new URLSearchParams();
-
   const normalizedSearch = query.search?.trim();
 
-  if (normalizedSearch) {
-    parameters.set("search", normalizedSearch);
-  }
-
-  if (query.date) {
-    parameters.set("date", query.date);
-  }
-
+  if (normalizedSearch) parameters.set("search", normalizedSearch);
+  if (query.date) parameters.set("date", query.date);
   parameters.set("pageNumber", String(query.pageNumber ?? 1));
-
-  parameters.set("pageSize", String(query.pageSize ?? 30));
+  parameters.set("pageSize", String(query.pageSize ?? 100));
 
   return sendAccountRequest<CustomerAccountList>(
     `/api/customer-accounts?${parameters.toString()}`,
@@ -143,90 +185,79 @@ export async function getCustomerAccounts(
   );
 }
 
-export async function getCustomerAccountDetails(
+/** Loads every page of the account customers (Sədərək shops and anyone with a balance). */
+export async function getAllCustomerAccounts(
+  accessToken: string,
+  search?: string,
+) {
+  const items: CustomerAccountList["items"] = [];
+  let page = 1;
+  let total = 0;
+  do {
+    const result = await getCustomerAccounts(accessToken, {
+      search,
+      pageNumber: page++,
+      pageSize: 100,
+    });
+    items.push(...result.items);
+    total = result.totalCount;
+    if (result.items.length === 0) break;
+  } while (items.length < total);
+  return items;
+}
+
+export function getCustomerAccountDetails(
   accessToken: string,
   customerId: string,
-): Promise<CustomerAccountDetails> {
+) {
   return sendAccountRequest<CustomerAccountDetails>(
     `/api/customer-accounts/${encodeURIComponent(customerId)}`,
     accessToken,
   );
 }
 
-export async function createCustomerAccount(
-  accessToken: string,
-  request: CreateCustomerAccountRequest,
-): Promise<CustomerAccountDetails> {
-  return sendAccountRequest<CustomerAccountDetails>(
-    "/api/customer-accounts",
+export function getAccountHistory(accessToken: string, month: string) {
+  return sendAccountRequest<AccountHistoryMonth>(
+    `/api/customer-accounts/history?month=${encodeURIComponent(month)}`,
     accessToken,
-    {
-      method: "POST",
-      body: request,
-    },
   );
 }
 
-export async function recordCustomerPayment(
+export function getCustomerMonth(
   accessToken: string,
-  request: RecordCustomerPaymentRequest,
-): Promise<CustomerAccountDetails> {
-  return sendAccountRequest<CustomerAccountDetails>(
-    "/api/customer-accounts/payments",
+  customerId: string,
+  month: string,
+) {
+  return sendAccountRequest<CustomerMonth>(
+    `/api/customer-accounts/${encodeURIComponent(customerId)}/month?month=${encodeURIComponent(month)}`,
     accessToken,
-    {
-      method: "POST",
-      body: request,
-    },
   );
 }
 
-export function completeSettlement(accessToken:string,request:{operationId:string;customerId:string;cash:number;card:number;bonus:number;productReturnId:string|null;note:string|null}):Promise<CustomerAccountDetails>{
-  return sendAccountRequest('/api/customer-accounts/settlements',accessToken,{method:'POST',body:request});
-}
-
-export async function correctPreviousDebt(
+export function correctPreviousDebt(
   accessToken: string,
-  request: CorrectPreviousDebtRequest,
-): Promise<CustomerAccountDetails> {
+  body: { customerId: string; correctedPreviousDebt: number; reason: string },
+) {
   return sendAccountRequest<CustomerAccountDetails>(
     "/api/customer-accounts/previous-debt",
     accessToken,
-    {
-      method: "PUT",
-      body: request,
-    },
+    { method: "PUT", body },
   );
 }
+
 export function correctDailyDebt(
-  token: string,
+  accessToken: string,
   body: { customerId: string; amount: number; reason: string; date?: string },
 ) {
   return sendAccountRequest<CustomerAccountDetails>(
     "/api/customer-accounts/daily-debt",
-    token,
+    accessToken,
     { method: "PUT", body },
   );
 }
-export function getAccountReport(token: string, date: string) {
-  return sendAccountRequest<
-    import("../features/customer-accounts/customer-account-types").AccountDayReport
-  >("/api/customer-accounts/report?date=" + encodeURIComponent(date), token);
-}
-export function closeAccountDay(token: string) {
-  return sendAccountRequest<
-    import("../features/customer-accounts/customer-account-types").AccountDayReport
-  >("/api/customer-accounts/close-day", token, { method: "POST" });
-}
-
-export function getAccountReportHistory(token: string) {
-  return sendAccountRequest<
-    import("../features/customer-accounts/customer-account-types").AccountReportHistory[]
-  >("/api/customer-accounts/report-history", token);
-}
 
 export function correctAccountPayment(
-  token: string,
+  accessToken: string,
   body: {
     customerId: string;
     entryId: string;
@@ -239,7 +270,7 @@ export function correctAccountPayment(
 ) {
   return sendAccountRequest<CustomerAccountDetails>(
     "/api/customer-accounts/payments",
-    token,
+    accessToken,
     { method: "PUT", body },
   );
 }

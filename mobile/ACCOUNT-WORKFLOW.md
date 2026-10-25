@@ -1,35 +1,56 @@
 # Açot iş qaydaları
 
-- Galaxy Tab A7 (SM-T500/T505): 10,4 düym, dik ekranda 1200 × 2000 fiziki piksel. İnterfeys məntiqi ekran eninə uyğunlaşır; telefonlarda da bir sütun saxlanılır.
-- Günlük borc → əvvəlki günlük qalıq → köhnə borc: ödəniş ardıcıllığı.
-- Borcun yarandığı gün 1-ci gündür. Yeni günlük borc bütün günlük qalığın müddətini yeniləyir. Son yaradılma tarixindən 5 təqvim günü sonra, yəni 6-cı gün, qalıq köhnə borca keçir.
-- Keçid tarixə görə serverdə hesablanır; ayrıca gecə işi tələb etmir. Keçmiş günlərin yekunu həmin tarixə görə hesablanır.
-- Köhnə borc düzəlişi həmin an qalan köhnə borcu dəyişir. Günlük düzəliş bugünkü yazılmış borcu dəyişir; artıq ödənilmiş hissədən aşağı endirmək qəbul edilmir.
-- Düzəlişlər əvvəlki qeydi silmir: əlavə audit yazısı məbləğin əvvəlki/yeni qiymətini, səbəbini və müəllifini saxlayır.
-- Köhnə qeydlərdə ödəniş üsulu məlum olmadığı üçün onların məbləği hesabatda ayrıca göstərilir.
-- Günün bağlanması bütün açot günü üçündür. Həmin günün yeni borcu, düzəlişi və ödənişi bundan sonra bloklanır. Təkrar bağlama eyni yekunu qaytarır.
-- Açot tarixçəsinin 6 aylıq avtomatik silinməsi dayandırılıb. Yeni versiya köhnə versiyada artıq silinmiş qeydləri geri qaytarmır.
+Açot yalnız telefon və planşet üçündür. Telefonda bir sütun, planşetdə iki sütun göstərilir (Galaxy Tab A7: 10,4 düym, dik ekran). Açota admin, açot operatoru və sürücü daxil ola bilər.
 
-## Quraşdırma və yoxlama
+## Müştəri: “Sədərək dükanı”
 
-Server və mobil tətbiq birlikdə yenilənməlidir. `AccountWorkflow` verilənlər bazası miqrasiyası ödəniş üsulunu, günlük düzəliş növlərini və gün bağlanmalarını əlavə edir. Serverin mövcud başlanğıc miqrasiya mexanizmi bunu tətbiq edir. Miqrasiya yerli və istehsal bazasına bu dəyişiklik zamanı tətbiq edilməyib.
+Müştəri yaradanda və dəyişəndə “Sədərək dükanı” açarı var. Açıq olanda müştəri açotda görünür və seçilir. Bağlı olanlar açot siyahılarında görünmür; **vazvradda bütün müştərilər** görünür. Borcu və ya avansı olan müştəri açarı bağlı olsa da açotdan itmir. Köhnə müştərilərdən açot qeydi olanların hamısı yeniləmə zamanı avtomatik “Sədərək dükanı” olur.
 
-Borc nümunələri və tarix sərhədləri domain testləri ilə yoxlanılır. Açot xidmətinin testləri məbləğləri, icazələri, audit qeydlərini və bağlanma blokunu yoxlayır. InMemory test bazası SQL Server kilidlənməsini yoxlamır. Real Tab A7 və telefonlarda ekran, klaviatura, Android geri düyməsi və şəbəkə kəsilməsi ayrıca cihaz yoxlaması tələb edir.
+## Günün gedişi
 
-## Açot keçidləri və klaviaturalar
+1. **Açota başla.** Açot səhifəsində `24.10.2026 açota başla` düyməsi günü başladır və “Günlük borclar” səhifəsini açır.
+2. **Günlük borclar.** Hər müştərinin bugünkü günlük borcu yazılıb **Yadda saxla** basılır. Yenidən saxlamaq heç nəyi təkrarlamır; məbləğ dəyişsə yalnız fərq yazılır. **İlkin köhnə borc** yalnız bir dəfə, müştərinin köhnə borc qeydi olmayanda soruşulur (admin və açot operatoru yaza bilər). Sonradan düzəlişlə dəyişdirilir.
+3. **Pul yığımı.** `Pul yığımına başla` günün müştərilərini göstərir. Bitməyən müştərinin yanında **−**, bitəndə **+** olur və kart yaşıl rəngə keçir. Müştəriyə basanda ödəniş pəncərəsi açılır. Siyahıda olmayan müştərini **Müştəri əlavə et** ilə seçmək olar.
+4. **Müştəri ilə açotu bitir.** Nağd və kart (ayrı-ayrı və ya qarışıq) yazılır. Ödəmədiyi halda da müştəri məbləğsiz bitirilə bilər.
+5. **Günü bitir (yekun).** Bütün müştərilər üçün yekun hazırlanır: yığılan pul, nağd və kart.
 
-Açot üçün sabit `account/daily`, `account/reports`, `account/detail`, `account/history` və digər səhifə yolları istifadə olunur. Köhnə `[screen]` səhifəsi silinib: `screen` Expo Router / React Navigation tərəfindən daxili parametr kimi istifadə edilir və səhifənin əsas menyuya yanlış düşməsinə səbəb olurdu. Müştəri səhifələrində yalnız `id`, tarix yekununda yalnız `date` ötürülür. Geriyə qayıdış mövcud keçid zəncirini saxlayır; tarixçəsiz birbaşa açılan səhifədən açot menyusuna qayıdış mümkündür. Sürətli təkrar toxunuşlar eyni keçidi iki dəfə yaratmır.
+## Borc və ödəniş qaydası
 
-Ad, istifadəçi adı, şifrə, qeyd və axtarış sahələri mətn klaviaturası; məbləğ sahələri qəpikli rəqəm klaviaturası; say və gün/ay/il sahələri rəqəm klaviaturası; telefon sahələri telefon klaviaturası tələb edir. Vazvrad yaratmada məhsul kodu və partiya rəqəm klaviaturasından daxil edilir; əvvəlki kod təklifləri göstərilmir.
+- İki borc var: **köhnə borc** və **günlük borc**. “Günlük köhnə borc” ayrıca bölmə yoxdur: dünənkini saxladınızsa, o günlük borca qatılır və bu günün yeni borcu onun üstünə gəlir.
+- Alınan pul, vazvrat və bonus **əvvəl günlük borcdan, sonra köhnə borcdan** çıxılır. Hələ artıq qalan məbləğ **avans** kimi qeyd olunur və növbəti borcdan avtomatik çıxılır.
+- **Günlük borcu sabaha saxla** açıqdırsa, ödənilməyən günlük borc sabah avtomatik günlükdə görünür. Bağlıdırsa, ödənilməyən hissə həmin an köhnə borca keçir.
+- Köhnə borcun əməliyyatla yazılması üçün ayrıca əməliyyat yaranır; heç nə silinmir.
 
-`npm run test:accounts` sabit səhifələrin öz məzmununu açmasını, parametrin düzgün ötürülməsini, mümkün olmayan tarixlərin rədd edilməsini və bütün giriş sahələrinin klaviatura rejimini yoxlayır. Operator/sürücü keçidləri yerli sınaq məlumatları ilə brauzerdə 360 × 800 və 600 × 1000 ölçülərində yoxlanılıb. Fiziki Android klaviaturası cihazda ayrıca yoxlanmalıdır.
+## Vazvrat və bonus ödəniş zamanı
 
-## İcazələr və silinmə
+Ödəniş pəncərəsində müştərinin hələ borca tətbiq olunmamış vazvratları seçilir, hər birinin məbləği yazılır. Seçilən məbləğ **dərhal** borcdan çıxılır; sonradan menecer təsdiqi borcu təkrar azaltmır (menecer təsdiqi vazvradın anbara qəbulu üçün saxlanılır). Ləğv edilmiş vazvrat təklif olunmur. Bonus üçün açar və məbləğ yeri var; o da dərhal borcu azaldır. Bonus və vazvrat “real alınan pul”a əlavə edilmir. Ekranın altında nəticə önizləməsi göstərilir: neçə ₼ borcdan çıxır, nə qalır, nə sabaha saxlanır. Müştəri üçün yeni vazvrat yaratmaq düyməsi var.
 
-Açotu yalnız admin, açot operatoru və sürücü görə bilər. Menecerə həm mobil keçidlər, həm server girişləri bağlıdır. Admin və operator ilkin köhnə borc yaza bilər; köhnə borcu yalnız admin düzəldir. Günlük borcu bu üç rol yarada bilər. Operator yalnız özünün həmin gün yaratdığı borcu düzəldə bilər, admin bütün günlük borcları düzəldə bilər. Ödənişi və günü bağlamanı sürücü və admin edir. Şifrə dəyişməsi yalnız adminə açıqdır.
+## Bitmiş gün və sonradan gələn sifariş
 
-Vazvrad əsas siyahısı yalnız menecer təsdiqi gözləyən qeydləri göstərir, tarixə görə gizlətmir və bütün səhifələri yükləyir. Tamamlanan, ləğv olunan və şəkil gözləyən qeydlər axtarış bölməsində qalır. Siyahı səhifəyə qayıdanda yenilənir.
+Gün bitəndən sonra həmin gün ərzində müştəri sifariş verərsə, onu seçib borc və ya pul yazmaq olar; gün avtomatik yenidən açılır, sonra yenə bitirilir. Təqvim günü dəyişəndə (məsələn 25-i) əvvəlki gün **kilidlənir**: onu yalnız admin səbəb yazıb düzəldə bilər; düzəlişlər ayrıca auditdə saxlanılır. Hər gün yeni açot günüdür.
 
-Admin işçi və müştərini silə bilər. Silinmə arxivləşdirmədir: əvvəlki əməliyyatlara istinadlar qorunur, silinmiş adlar seçim siyahısından çıxır. İşçinin refresh tokenləri bağlanır, artıq verilmiş access token də hər sorğuda aktiv hesab və cari rol yoxlaması ilə dərhal rədd edilir. Admin öz hesabını silə bilməz və son aktiv admin saxlanılır. Borcu olan silinmiş müştəri qalıq ödənənə qədər açotda görünür, yeni borc və vazvrad ala bilmir. Tarixçəsi və hesabatdakı məbləğlər saxlanır.
+## Tarixçə
 
-Server yenilənəndə əlavə olaraq `ArchiveUsersAndCustomers` miqrasiyası tətbiq edilməlidir. Bu işdə canlı bazaya miqrasiya tətbiq edilməyib.
+- **Günlərə görə**: seçilmiş ayın hər günü üçün yığılan pul, nağd, kart və müştəri sayı.
+- **Günün yekunu**: `Filman Məcid — köhnə 300, günlük 250, ödədi 350 (nağd + kart), qalan borc 200`. Vazvrat və bonus varsa, məbləği ilə göstərilir. Ən yuxarıda yığılan pul, nağd və kart cəmi var.
+- **Müştərilərə görə**: müştərini seçib ayın bütün ödənişlərini, o cümlədən köhnə/günlük borcunu və qalanı görürsünüz; admin düzəliş edə bilər.
+
+## İcazələr
+
+| Əməliyyat | Admin | Açot operatoru | Sürücü |
+| --- | --- | --- | --- |
+| Günlük borc yazmaq, pul yığımı, günü bitirmək | + | + | + |
+| İlkin köhnə borc yazmaq | + | + | − |
+| Bugünkü ödənişi/günlük borcu düzəltmək | + | + | + |
+| Köhnə borcu düzəltmək | + | − | − |
+| Bitmiş günü düzəltmək | + | − | − |
+
+Menecer və anbar işçisi açota daxil ola bilmir (həm mobil, həm server). Silinmiş müştərinin borcu qalırsa, o siyahıda görünür və yeni borc ala bilmir.
+
+## Server və yoxlama
+
+Server və mobil tətbiq birlikdə yenilənməlidir. Yeni miqrasiya `AccountDaysAndShopFlag` bunları edir: `Customers.IsAccountCustomer`, `AccountDays` (başlama/bitirmə), `AccountSettlements` üçün sabaha saxlama və vazvrat açarı; `EntryType` yoxlama məhdudiyyətini 1–11 aralığına gətirir. Miqrasiya yerli və canlı bazaya tətbiq edilməyib.
+
+26.10.2026 tarixindən yeni qayda işləyir. Bu tarixdən əvvəlki günlərdə ödənilməyən günlük borc növbəti gün avtomatik köhnə borca keçmişdi və eyni qaydada göstərilir; ümumi borc dəyişmir.
+
+`npm run test:accounts` marşrutları, tarix və məbləğ hesablamalarını, klaviatura rejimlərini yoxlayır. `dotnet test` açot günü, ödəniş, vazvrat/bonus tətbiqi, bitmiş gün kilidi və icazələri yoxlayır. InMemory test bazası SQL Server kilidlənməsini yoxlamır; fiziki Tab A7 və telefonda ekran, klaviatura və geri düyməsi ayrıca yoxlanmalıdır.

@@ -1,10 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using GrandWall.Application.Abstractions.Identity;
 using GrandWall.Application.Abstractions.Notifications;
 using GrandWall.Application.Abstractions.ProductReturns;
 using GrandWall.Application.Common.Exceptions;
 using GrandWall.Application.Common.Notifications;
 using GrandWall.Application.Features.ProductReturns.Dtos;
+using GrandWall.Application.Features.ProductReturns.Validators;
 using GrandWall.Domain.Entities;
 using GrandWall.Domain.Enums;
 using GrandWall.Infrastructure.Notifications.Telegram.Formatting;
@@ -103,6 +104,11 @@ public sealed partial class ProductReturnService : IProductReturnService
                 filter.ToDateUtc.Value);
         }
 
+        if (filter.Unapplied == true)
+        {
+            query = query.Where(r => r.AppliedAmount == 0 && r.Status != ReturnStatus.Cancelled);
+        }
+
         if (filter.AcceptedDate.HasValue)
         {
             var start = DateTime.SpecifyKind(filter.AcceptedDate.Value.ToDateTime(TimeOnly.MinValue).AddHours(-4), DateTimeKind.Utc);
@@ -171,7 +177,7 @@ public sealed partial class ProductReturnService : IProductReturnService
             .AnyAsync(
                 customer =>
                     customer.Id == request.CustomerId &&
-                    customer.IsActive,
+                    customer.IsActive && !customer.IsDeleted,
                 cancellationToken);
 
         if (!customerExists)
@@ -214,11 +220,20 @@ public sealed partial class ProductReturnService : IProductReturnService
                 "Eyni məhsul kodu, partiya və növ bir neçə dəfə daxil edilib.");
         }
 
+        if (request.Items.Any(item =>
+                !ProductCodeRules.IsValid(item.ProductCode.Trim()) ||
+                !ProductCodeRules.IsValid(item.BatchNumber.Trim())))
+        {
+            throw new ConflictException(ProductCodeRules.Message);
+        }
+
         ValidateReturnAmount(request.Amount);
         ReturnPerson? person = null;
         if(request.ReturnPersonId.HasValue)
             person=await _dbContext.ReturnPersons.FirstOrDefaultAsync(p=>p.Id==request.ReturnPersonId&&p.IsActive,cancellationToken)
                 ?? throw new ConflictException("Aktiv vazvrat yaradan şəxs seçin.");
+        else if(await _dbContext.ReturnPersons.AnyAsync(p=>p.IsActive,cancellationToken))
+            throw new ConflictException("Vazvratı yaradan işçinin adını seçin.");
         var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
 
         var productReturn = new ProductReturn
@@ -369,6 +384,9 @@ public sealed partial class ProductReturnService : IProductReturnService
         productReturn.Cancel(
             _currentUserService.UserId,
             utcNow);
+        // A return cancelled after it was credited at the açot gives the debt back.
+        if (productReturn.AppliedAmount > 0) ApplyReturnCredit(productReturn, 0);
+        productReturn.Revision = Guid.NewGuid();
 
         var statusHistory = new ProductReturnStatusHistory
         {
@@ -478,7 +496,7 @@ public sealed partial class ProductReturnService : IProductReturnService
     {
         return new ProductReturnDto
         {
-            Amount=productReturn.Amount,ReturnPersonName=productReturn.ReturnPersonName,
+            Amount=productReturn.Amount,AppliedAmount=productReturn.AppliedAmount,ReturnPersonName=productReturn.ReturnPersonName,
             IsDeleted = productReturn.IsDeleted,
             Revision = productReturn.Revision,
             Id = productReturn.Id,

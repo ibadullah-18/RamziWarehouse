@@ -1,4 +1,4 @@
-﻿using GrandWall.Application.Abstractions.Notifications;
+using GrandWall.Application.Abstractions.Notifications;
 using GrandWall.Application.Common.Notifications;
 using GrandWall.Infrastructure.Persistence;
 
@@ -7,6 +7,7 @@ namespace GrandWall.Infrastructure.Notifications.Telegram.Outbox;
 public sealed class TelegramOutboxService
     : ITelegramOutboxService
 {
+    private const bool TelegramMessagesEnabled = false;
     private const int MaximumTextLength = 4096;
     private const int MaximumEntityTypeLength = 100;
     private const int MaximumPublicIdLength = 500;
@@ -32,6 +33,13 @@ public sealed class TelegramOutboxService
         IReadOnlyCollection<TelegramOutboxPhotoRequest>? photos = null,
         CancellationToken cancellationToken = default)
     {
+        // Telegram messages are switched off: nothing is queued and nothing is sent.
+        // Remove this early return to turn the notifications back on.
+        if (!TelegramMessagesEnabled)
+        {
+            return Guid.Empty;
+        }
+
         ValidateChannel(channel);
 
         text = NormalizeRequiredText(

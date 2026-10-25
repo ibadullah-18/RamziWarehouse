@@ -5,7 +5,6 @@ namespace GrandWall.Domain.Entities;
 
 public sealed class CustomerAccountEntry : BaseEntity
 {
-    public bool IsFinalized { get; set; }
     public Guid? SourceReturnId { get; set; }
     public Guid? SettlementId { get; set; }
 

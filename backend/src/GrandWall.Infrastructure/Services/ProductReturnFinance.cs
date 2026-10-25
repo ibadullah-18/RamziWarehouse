@@ -20,7 +20,7 @@ public sealed partial class ProductReturnService
             EntryType=delta>0?CustomerAccountEntryType.ReturnCredit:CustomerAccountEntryType.CreditReversal,
             BusinessDate=DateOnly.FromDateTime(_timeProvider.GetUtcNow().ToOffset(TimeSpan.FromHours(4)).DateTime),
             RecordedByUserId=_currentUserService.UserId,RecordedByFullName=_currentUserService.FullName,
-            RecordedByRole=_currentUserService.Role,IsFinalized=true,
+            RecordedByRole=_currentUserService.Role,
             Note=$"Vazvrat {record.Id}: {record.AppliedAmount:0.00} → {amount:0.00} AZN"
         });
         record.AppliedAmount=amount;record.Revision=Guid.NewGuid();

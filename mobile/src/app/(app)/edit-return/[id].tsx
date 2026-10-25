@@ -24,6 +24,7 @@ import {
   ReturnStatus,
   ProductType,
 } from "../../../features/product-returns/product-return-types";
+import { CodeInput } from "../../../components/form-inputs";
 import { colors } from "../../../theme";
 export default function EditReturnScreen() {
   const { session } = useAuth();
@@ -179,47 +180,31 @@ export default function EditReturnScreen() {
                   <Text style={styles.name}>
                     {index + 1}. məhsul · {item.quantity} ədəd
                   </Text>
-                  <Text style={styles.muted}>Məhsul kodu</Text>
-                  <TextInput
-                    returnKeyType="done"
-                    submitBehavior="blurAndSubmit"
-                    onSubmitEditing={dismissKeyboard}
-                    keyboardType="default"
-                    inputMode="text"
+                  <CodeInput
+                    label="Məhsul kodu"
                     value={item.productCode}
                     maxLength={50}
                     editable={!busy}
                     onChangeText={(v) =>
                       setItems((all) =>
-                        all.map((i) =>
-                          all.indexOf(i) === index
-                            ? { ...i, productCode: v }
-                            : i,
+                        all.map((i, n) =>
+                          n === index ? { ...i, productCode: v } : i,
                         ),
                       )
                     }
-                    style={styles.input}
                   />
-                  <Text style={styles.muted}>Partiya</Text>
-                  <TextInput
-                    returnKeyType="done"
-                    submitBehavior="blurAndSubmit"
-                    onSubmitEditing={dismissKeyboard}
-                    keyboardType="default"
-                    inputMode="text"
+                  <CodeInput
+                    label="Partiya"
                     value={item.batchNumber}
                     maxLength={50}
                     editable={!busy}
                     onChangeText={(v) =>
                       setItems((all) =>
-                        all.map((i) =>
-                          i.id === item.id
-                            ? { ...i, batchNumber: v }
-                            : i,
+                        all.map((i, n) =>
+                          n === index ? { ...i, batchNumber: v } : i,
                         ),
                       )
                     }
-                    style={styles.input}
                   />
                   <Text style={styles.muted}>Ədəd</Text>
                   <TextInput

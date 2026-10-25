@@ -1,4 +1,4 @@
-﻿namespace GrandWall.Application.Features.Customers.Dtos;
+namespace GrandWall.Application.Features.Customers.Dtos;
 
 public sealed class CustomerDto
 {
@@ -11,6 +11,8 @@ public sealed class CustomerDto
     public string? Note { get; init; }
 
     public bool IsActive { get; init; }
+
+    public bool IsAccountCustomer { get; init; }
 
     public DateTime CreatedAtUtc { get; init; }
 

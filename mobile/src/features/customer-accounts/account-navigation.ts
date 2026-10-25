@@ -1,10 +1,12 @@
-export const accountPages = ['daily', 'customers', 'detail', 'history', 'reports', 'report', 'debt', 'old', 'correct', 'payment'] as const;
+/**
+ * Every açot page owns a fixed route. Route names never use reserved navigation
+ * parameters: customer pages get only `id`, day pages only `date`.
+ */
+export const accountPages = ['daily', 'collect', 'settle', 'reports', 'report', 'detail'] as const;
 export type AccountPage = typeof accountPages[number];
-export type AccountMode = 'home' | AccountPage;
 
-export const customerAccountPages: readonly AccountPage[] = ['detail', 'history', 'debt', 'old', 'correct', 'payment'];
+export const customerAccountPages: readonly AccountPage[] = ['settle', 'detail'];
 
-/** Every page owns a fixed route; route names never use reserved navigation parameters. */
 export function accountDestination(page: AccountPage, customerId?: string, businessDate?: string): string {
   if (customerAccountPages.includes(page) && !customerId) {
     throw new Error('Müştəri seçilməlidir.');

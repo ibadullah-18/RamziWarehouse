@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createCustomer } from '../../api/customers-api';
 import { useAuth } from '../../auth/auth-context';
+import { ShopSwitch } from '../../components/shop-switch';
 import {
     colors,
     fontSize,
@@ -35,6 +36,7 @@ export default function CreateCustomerScreen() {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [note, setNote] = useState('');
+  const [isShop, setIsShop] = useState(false);
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,6 +86,7 @@ export default function CreateCustomerScreen() {
           name: normalizedName,
           phoneNumber: normalizedPhone || null,
           note: normalizedNote || null,
+          isAccountCustomer: isShop,
         },
       );
 
@@ -225,6 +228,8 @@ export default function CreateCustomerScreen() {
               />
             </View>
             <Text style={styles.counter}>{note.length}/1000</Text>
+
+            <ShopSwitch value={isShop} onChange={setIsShop} disabled={isSubmitting} />
           </View>
 
           {errorMessage ? (

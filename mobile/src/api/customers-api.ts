@@ -136,6 +136,13 @@ function createCustomerQuery(
     );
   }
 
+  if (query.isAccountCustomer !== undefined) {
+    parameters.set(
+      'isAccountCustomer',
+      String(query.isAccountCustomer),
+    );
+  }
+
   const queryString = parameters.toString();
 
   return queryString

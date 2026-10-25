@@ -1,5 +1,5 @@
-import AccountScreen from '../../../features/customer-accounts/account-screen';
+import DayReportScreen from '../../../features/customer-accounts/day-report-screen';
 
-export default function ReportAccountPage() {
-  return <AccountScreen mode="report" />;
+export default function DayReportPage() {
+  return <DayReportScreen />;
 }

@@ -8,95 +8,56 @@ namespace GrandWall.Api.Controllers;
 [ApiController]
 [Authorize(Roles = "Admin,Accountant,Driver")]
 [Route("api/customer-accounts")]
-public sealed class CustomerAccountsController : ControllerBase
+public sealed class CustomerAccountsController(ICustomerAccountService service) : ControllerBase
 {
-    private readonly ICustomerAccountService _service;
+    /// <summary>One açot day: roster of customers with old/daily debt, payments and totals.</summary>
+    [HttpGet("day")]
+    public async Task<ActionResult<AccountDayDto>> GetDay([FromQuery] DateOnly date, CancellationToken cancellationToken)
+        => Ok(await service.GetDayAsync(date, cancellationToken));
 
-    public CustomerAccountsController(ICustomerAccountService service)
-    {
-        _service = service;
-    }
+    [HttpPost("day/start")]
+    public async Task<ActionResult<AccountDayDto>> StartDay(CancellationToken cancellationToken)
+        => Ok(await service.StartDayAsync(cancellationToken));
 
-    [HttpGet("report-history")]
-    public async Task<IActionResult> ReportHistory(CancellationToken cancellationToken)
-        => Ok(await _service.GetReportHistoryAsync(cancellationToken));
+    [HttpPut("day/debts")]
+    public async Task<ActionResult<AccountDayDto>> SaveDailyDebts(SaveDailyDebtsRequestDto request, CancellationToken cancellationToken)
+        => Ok(await service.SaveDailyDebtsAsync(request, cancellationToken));
+
+    [HttpPost("day/close")]
+    public async Task<ActionResult<AccountDayDto>> CloseDay(CancellationToken cancellationToken)
+        => Ok(await service.CloseDayAsync(cancellationToken));
 
     [HttpPost("settlements")]
-    public async Task<IActionResult> CompleteSettlement(CompleteSettlementRequest request,CancellationToken ct)
-        => Ok(await _service.CompleteSettlementAsync(request,ct));
+    public async Task<ActionResult<CustomerAccountDetailsDto>> CompleteSettlement(CompleteSettlementRequest request, CancellationToken cancellationToken)
+        => Ok(await service.CompleteSettlementAsync(request, cancellationToken));
 
-    [HttpGet("report")]
-    public async Task<IActionResult> Report([FromQuery] DateOnly date, CancellationToken cancellationToken)
-        => Ok(await _service.GetReportAsync(date, cancellationToken));
+    /// <summary>Per-day totals of a month (YYYY-MM): collected, cash, card.</summary>
+    [HttpGet("history")]
+    public async Task<ActionResult<AccountHistoryMonthDto>> History([FromQuery] string month, CancellationToken cancellationToken)
+        => Ok(await service.GetHistoryAsync(month, cancellationToken));
 
-    [HttpPost("close-day")]
-    [Authorize(Roles = "Admin,Accountant,Driver")]
-    public async Task<IActionResult> CloseDay(CancellationToken cancellationToken)
-        => Ok(await _service.CloseDayAsync(cancellationToken));
-
-    [HttpPut("payments")]
-    public async Task<IActionResult> CorrectPayment(CorrectAccountPaymentRequestDto request, CancellationToken cancellationToken)
-        => Ok(await _service.CorrectPaymentAsync(request, cancellationToken));
-
-    [HttpPut("daily-debt")]
-    [Authorize(Roles = "Admin,Accountant,Driver")]
-    public async Task<IActionResult> CorrectDaily(CorrectDailyDebtRequestDto request, CancellationToken cancellationToken)
-        => Ok(await _service.CorrectDailyAsync(request, cancellationToken));
+    [HttpGet("{customerId:guid}/month")]
+    public async Task<ActionResult<CustomerMonthDto>> CustomerMonth(Guid customerId, [FromQuery] string month, CancellationToken cancellationToken)
+        => Ok(await service.GetCustomerMonthAsync(customerId, month, cancellationToken));
 
     [HttpGet]
-    public async Task<ActionResult<CustomerAccountListDto>> GetAll(
-        [FromQuery] CustomerAccountListQueryDto query,
-        CancellationToken cancellationToken)
-    {
-        return Ok(await _service.GetAllAsync(query, cancellationToken));
-    }
+    public async Task<ActionResult<CustomerAccountListDto>> GetAll([FromQuery] CustomerAccountListQueryDto query, CancellationToken cancellationToken)
+        => Ok(await service.GetAllAsync(query, cancellationToken));
 
     [HttpGet("{customerId:guid}")]
-    public async Task<ActionResult<CustomerAccountDetailsDto>> GetByCustomerId(
-        Guid customerId,
-        CancellationToken cancellationToken)
-    {
-        return Ok(await _service.GetByCustomerIdAsync(
-            customerId,
-            cancellationToken));
-    }
+    public async Task<ActionResult<CustomerAccountDetailsDto>> GetByCustomerId(Guid customerId, CancellationToken cancellationToken)
+        => Ok(await service.GetByCustomerIdAsync(customerId, cancellationToken));
 
-    [HttpPost]
-    [Authorize(Roles = "Admin,Accountant,Driver")]
-    public async Task<ActionResult<CustomerAccountDetailsDto>> CreateToday(
-        [FromBody] CreateCustomerAccountRequestDto request,
-        CancellationToken cancellationToken)
-    {
-        var result = await _service.CreateTodayAsync(
-            request,
-            cancellationToken);
+    [HttpPut("payments")]
+    public async Task<ActionResult<CustomerAccountDetailsDto>> CorrectPayment(CorrectAccountPaymentRequestDto request, CancellationToken cancellationToken)
+        => Ok(await service.CorrectPaymentAsync(request, cancellationToken));
 
-        return CreatedAtAction(
-            nameof(GetByCustomerId),
-            new { customerId = request.CustomerId },
-            result);
-    }
-
-    [HttpPost("payments")]
-    [Authorize(Roles = "Admin,Accountant,Driver")]
-    public async Task<ActionResult<CustomerAccountDetailsDto>> RecordPayment(
-        [FromBody] RecordCustomerPaymentRequestDto request,
-        CancellationToken cancellationToken)
-    {
-        return Ok(await _service.RecordPaymentAsync(
-            request,
-            cancellationToken));
-    }
+    [HttpPut("daily-debt")]
+    public async Task<ActionResult<CustomerAccountDetailsDto>> CorrectDaily(CorrectDailyDebtRequestDto request, CancellationToken cancellationToken)
+        => Ok(await service.CorrectDailyAsync(request, cancellationToken));
 
     [HttpPut("previous-debt")]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult<CustomerAccountDetailsDto>>
-        CorrectPreviousDebt(
-            [FromBody] CorrectPreviousDebtRequestDto request,
-            CancellationToken cancellationToken)
-    {
-        return Ok(await _service.CorrectPreviousDebtAsync(
-            request,
-            cancellationToken));
-    }
+    public async Task<ActionResult<CustomerAccountDetailsDto>> CorrectPreviousDebt(CorrectPreviousDebtRequestDto request, CancellationToken cancellationToken)
+        => Ok(await service.CorrectPreviousDebtAsync(request, cancellationToken));
 }

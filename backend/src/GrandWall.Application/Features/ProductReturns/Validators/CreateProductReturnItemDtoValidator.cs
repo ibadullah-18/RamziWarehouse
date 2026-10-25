@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using GrandWall.Application.Features.ProductReturns.Dtos;
 
 namespace GrandWall.Application.Features.ProductReturns.Validators;
@@ -12,14 +12,18 @@ public sealed class CreateProductReturnItemDtoValidator
             .NotEmpty()
             .WithMessage("Məhsul kodu mütləqdir.")
             .MaximumLength(50)
-            .WithMessage("Məhsul kodu 50 simvoldan çox ola bilməz.");
+            .WithMessage("Məhsul kodu 50 simvoldan çox ola bilməz.")
+            .Matches(ProductCodeRules.Pattern)
+            .WithMessage(ProductCodeRules.Message);
 
         RuleFor(item => item.BatchNumber)
             .NotEmpty()
             .WithMessage("Partiya nömrəsi mütləqdir.")
             .MaximumLength(50)
             .WithMessage(
-                "Partiya nömrəsi 50 simvoldan çox ola bilməz.");
+                "Partiya nömrəsi 50 simvoldan çox ola bilməz.")
+            .Matches(ProductCodeRules.Pattern)
+            .WithMessage(ProductCodeRules.Message);
 
         RuleFor(item => item.Quantity)
             .GreaterThan(0)

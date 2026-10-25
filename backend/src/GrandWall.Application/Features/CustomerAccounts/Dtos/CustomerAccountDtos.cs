@@ -2,6 +2,8 @@ using GrandWall.Domain.Enums;
 
 namespace GrandWall.Application.Features.CustomerAccounts.Dtos;
 
+// ---------- requests ----------
+
 public sealed class CustomerAccountListQueryDto
 {
     public string? Search { get; init; }
@@ -10,26 +12,48 @@ public sealed class CustomerAccountListQueryDto
 
     public int PageNumber { get; init; } = 1;
 
-    public int PageSize { get; init; } = 30;
+    public int PageSize { get; init; } = 50;
 }
 
-public sealed class CreateCustomerAccountRequestDto
+public sealed class SaveDailyDebtsRequestDto
+{
+    public List<DailyDebtItemDto> Items { get; init; } = [];
+}
+
+public sealed class DailyDebtItemDto
 {
     public Guid CustomerId { get; init; }
 
-    public decimal? InitialPreviousDebt { get; init; }
+    /// <summary>Today's new daily debt. Saving the same amount again changes nothing.</summary>
+    public decimal DailyDebt { get; init; }
 
-    public decimal TodayDebt { get; init; }
-
-    public string? Note { get; init; }
+    /// <summary>The customer's old debt, accepted only once, when none has been recorded yet.</summary>
+    public decimal? OldDebt { get; init; }
 }
 
-public sealed class RecordCustomerPaymentRequestDto
+public sealed class SettlementReturnDto
 {
-    public string PaymentMethod { get; init; } = "cash";
-    public Guid CustomerId { get; init; }
+    public Guid ReturnId { get; init; }
 
     public decimal Amount { get; init; }
+}
+
+public sealed class CompleteSettlementRequest
+{
+    public Guid OperationId { get; init; }
+
+    public Guid CustomerId { get; init; }
+
+    public decimal Cash { get; init; }
+
+    public decimal Card { get; init; }
+
+    public decimal Bonus { get; init; }
+
+    public List<SettlementReturnDto> Returns { get; init; } = [];
+
+    /// <summary>The unpaid daily debt stays in tomorrow's daily debt instead of becoming old debt.</summary>
+    public bool CarryToTomorrow { get; init; }
 
     public string? Note { get; init; }
 }
@@ -43,38 +67,122 @@ public sealed class CorrectPreviousDebtRequestDto
     public string Reason { get; init; } = string.Empty;
 }
 
-public sealed class CustomerAccountEntryDto
+public sealed class CorrectDailyDebtRequestDto
 {
-    public bool IsFinalized { get; init; }
-    public string? PaymentMethod { get; init; }
-    public Guid Id { get; init; }
+    public DateOnly? Date { get; init; }
 
     public Guid CustomerId { get; init; }
 
-    public CustomerAccountEntryType EntryType { get; init; }
+    public decimal Amount { get; init; }
+
+    public string Reason { get; init; } = string.Empty;
+}
+
+public sealed class CorrectAccountPaymentRequestDto
+{
+    public Guid CustomerId { get; init; }
+
+    public Guid EntryId { get; init; }
+
+    public decimal ExpectedAmount { get; init; }
+
+    public string? ExpectedPaymentMethod { get; init; }
 
     public decimal Amount { get; init; }
 
+    public string PaymentMethod { get; init; } = "cash";
+
+    public string Reason { get; init; } = string.Empty;
+}
+
+// ---------- responses ----------
+
+public sealed class AccountDayCustomerDto
+{
+    public Guid CustomerId { get; init; }
+
+    public string CustomerName { get; init; } = string.Empty;
+
+    public string? PhoneNumber { get; init; }
+
+    /// <summary>Old debt owed when the day began (plus any old debt recorded today).</summary>
+    public decimal OldDebt { get; init; }
+
+    /// <summary>Yesterday's kept daily debt plus today's new daily debt: one bucket.</summary>
+    public decimal DailyDebt { get; init; }
+
+    /// <summary>Only the new daily debt written today.</summary>
+    public decimal NewDailyDebt { get; init; }
+
+    public decimal Due => OldDebt + DailyDebt;
+
+    public decimal Cash { get; init; }
+
+    public decimal Card { get; init; }
+
+    public decimal Paid => Cash + Card;
+
+    public decimal Bonus { get; init; }
+
+    public decimal ReturnCredit { get; init; }
+
+    public decimal RemainingOld { get; init; }
+
+    public decimal RemainingDaily { get; init; }
+
+    public decimal Remaining => RemainingOld + RemainingDaily;
+
+    public decimal Advance { get; init; }
+
+    /// <summary>The customer's açot was finished for this day ("+", green).</summary>
+    public bool IsDone { get; init; }
+
+    public bool CarryToTomorrow { get; init; }
+
+    public bool HasOldDebtRecord { get; init; }
+}
+
+public sealed class AccountDayDto
+{
     public DateOnly BusinessDate { get; init; }
 
-    public string? Note { get; init; }
+    /// <summary>notStarted, open or closed.</summary>
+    public string State { get; init; } = "notStarted";
 
-    public Guid RecordedByUserId { get; init; }
+    public bool IsToday { get; init; }
 
-    public string RecordedByFullName { get; init; } = string.Empty;
+    /// <summary>A past day: only an admin may correct it.</summary>
+    public bool IsLocked { get; init; }
 
-    public UserRole RecordedByRole { get; init; }
+    public string? StartedByFullName { get; init; }
 
-    public DateTime CreatedAtUtc { get; init; }
+    public DateTime? StartedAtUtc { get; init; }
+
+    public string? ClosedByFullName { get; init; }
+
+    public DateTime? ClosedAtUtc { get; init; }
+
+    public decimal Collected { get; init; }
+
+    public decimal Cash { get; init; }
+
+    public decimal Card { get; init; }
+
+    public decimal Bonus { get; init; }
+
+    public decimal ReturnCredit { get; init; }
+
+    public decimal NewDailyDebt { get; init; }
+
+    public int CustomerCount { get; init; }
+
+    public int DoneCount { get; init; }
+
+    public IReadOnlyList<AccountDayCustomerDto> Customers { get; init; } = [];
 }
 
 public sealed class CustomerAccountSummaryDto
 {
-    public decimal Advance { get; init; }
-    public decimal Bonus { get; init; }
-    public decimal ReturnCredit { get; init; }
-    public decimal CarriedDailyDebt { get; init; }
-    public bool HasUnpaidDailyDebt { get; init; }
     public Guid CustomerId { get; init; }
 
     public string CustomerName { get; init; } = string.Empty;
@@ -83,29 +191,20 @@ public sealed class CustomerAccountSummaryDto
 
     public bool IsActive { get; init; }
 
-    public DateOnly BusinessDate { get; init; }
+    public decimal OldDebt { get; init; }
 
-    public decimal PreviousDebt { get; init; }
+    public decimal DailyDebt { get; init; }
 
-    public decimal TodayDebt { get; init; }
+    public decimal Advance { get; init; }
 
-    public decimal TodayPayment { get; init; }
+    public decimal RemainingDebt => OldDebt + DailyDebt;
 
-    public decimal PaidFromPreviousDebt { get; init; }
-
-    public decimal PaidFromTodayDebt { get; init; }
-
-    public decimal PreviousDebtRemaining { get; init; }
-
-    public decimal TodayDebtRemaining { get; init; }
-
-    public decimal RemainingDebt { get; init; }
+    public bool HasOldDebtRecord { get; init; }
 }
 
 public sealed class CustomerAccountListDto
 {
-    public IReadOnlyList<CustomerAccountSummaryDto> Items
-        { get; init; } = [];
+    public IReadOnlyList<CustomerAccountSummaryDto> Items { get; init; } = [];
 
     public DateOnly BusinessDate { get; init; }
 
@@ -116,57 +215,54 @@ public sealed class CustomerAccountListDto
     public int TotalCount { get; init; }
 }
 
+public sealed class CustomerAccountEntryDto
+{
+    public Guid Id { get; init; }
+
+    public Guid CustomerId { get; init; }
+
+    public CustomerAccountEntryType EntryType { get; init; }
+
+    public string? PaymentMethod { get; init; }
+
+    public decimal Amount { get; init; }
+
+    public DateOnly BusinessDate { get; init; }
+
+    public string? Note { get; init; }
+
+    public string RecordedByFullName { get; init; } = string.Empty;
+
+    public DateTime CreatedAtUtc { get; init; }
+}
+
 public sealed class CustomerAccountDayDto
 {
+    public DateOnly BusinessDate { get; init; }
+
+    public decimal OldDebt { get; init; }
+
+    public decimal DailyDebt { get; init; }
+
     public decimal Cash { get; init; }
+
     public decimal Card { get; init; }
+
     public decimal Bonus { get; init; }
+
     public decimal ReturnCredit { get; init; }
-    public decimal Advance { get; init; }
-    public decimal OpeningOldDebt { get; init; }
-    public decimal OpeningCarriedDailyDebt { get; init; }
-    public decimal PaidFromCarriedDailyDebt { get; init; }
-    public decimal CarriedDailyTransferredToOld { get; init; }
-    public decimal OldDebtRemaining { get; init; }
-    public decimal CarriedDailyDebt { get; init; }
-    public decimal TodayDebtRemaining { get; init; }
-    public DateOnly BusinessDate { get; init; }
 
-    public decimal OpeningDebt { get; init; }
+    public decimal RemainingDebt { get; init; }
 
-    public decimal AdjustmentAmount { get; init; }
+    public bool IsLocked { get; init; }
 
-    public decimal AddedDebt { get; init; }
-
-    public decimal PaidAmount { get; init; }
-
-    public decimal ClosingDebt { get; init; }
-
-    public IReadOnlyList<CustomerAccountEntryDto> Entries
-        { get; init; } = [];
+    public IReadOnlyList<CustomerAccountEntryDto> Entries { get; init; } = [];
 }
 
-public sealed class CustomerDeferredDebtDto
-{
-    public DateOnly BusinessDate { get; init; }
+public sealed record AccountAuditDto(Guid EntryId, string UserName, string Description, DateTime CreatedAtUtc);
 
-    public decimal OriginalAmount { get; init; }
-
-    public decimal PaidAmount { get; init; }
-
-    public decimal RemainingAmount { get; init; }
-
-    public bool IsOpeningBalance { get; init; }
-}
 public sealed class CustomerAccountDetailsDto
 {
-    public decimal Bonus { get; init; }
-    public decimal ReturnCredit { get; init; }
-    public decimal Advance { get; init; }
-    public IReadOnlyList<AccountAuditDto> Audit { get; init; } = [];
-    public decimal OldDebtRemaining { get; init; }
-    public decimal CarriedDailyDebt { get; init; }
-    public decimal TodayDebtRemaining { get; init; }
     public Guid CustomerId { get; init; }
 
     public string CustomerName { get; init; } = string.Empty;
@@ -175,57 +271,71 @@ public sealed class CustomerAccountDetailsDto
 
     public bool IsActive { get; init; }
 
-    public decimal PreviousDebt { get; init; }
+    public decimal OldDebt { get; init; }
 
-    public decimal TotalNewDebt { get; init; }
+    public decimal DailyDebt { get; init; }
 
-    public decimal TotalDebt { get; init; }
+    public decimal Advance { get; init; }
 
-    public decimal TotalPaid { get; init; }
+    public decimal RemainingDebt => OldDebt + DailyDebt;
 
-    public decimal RemainingDebt { get; init; }
-    public IReadOnlyList<CustomerDeferredDebtDto> DeferredDebts
-        { get; init; } = [];
+    public bool HasOldDebtRecord { get; init; }
 
-    public IReadOnlyList<CustomerAccountDayDto> Days
-        { get; init; } = [];
+    public IReadOnlyList<AccountAuditDto> Audit { get; init; } = [];
+
+    public IReadOnlyList<CustomerAccountDayDto> Days { get; init; } = [];
 }
 
+public sealed record AccountHistoryDayDto(
+    DateOnly BusinessDate,
+    decimal Collected,
+    decimal Cash,
+    decimal Card,
+    int CustomerCount,
+    bool Closed);
 
-
-
-
-
-public sealed class CorrectDailyDebtRequestDto
+public sealed class AccountHistoryMonthDto
 {
-    public DateOnly? Date { get; init; }
-    public Guid CustomerId { get; init; }
-    public decimal Amount { get; init; }
-    public string Reason { get; init; } = string.Empty;
-}
-public sealed class AccountDayReportDto
-{
-    public DateOnly BusinessDate { get; init; }
+    public string Month { get; init; } = string.Empty;
+
+    public decimal Collected { get; init; }
+
     public decimal Cash { get; init; }
+
     public decimal Card { get; init; }
-    public decimal Unspecified { get; init; }
-    public decimal Total => Cash + Card + Unspecified;
-    public bool HasOpenEntries { get; init; }
-    public AccountDayClosureDto? Closure { get; init; }
-    public IReadOnlyList<CustomerAccountSummaryDto> Customers { get; init; } = [];
+
+    public IReadOnlyList<AccountHistoryDayDto> Days { get; init; } = [];
 }
-public sealed record AccountDayClosureDto(string RecordedByFullName, DateTime ClosedAtUtc);
 
-public sealed record AccountReportHistoryDto(DateOnly BusinessDate, decimal PaidAmount, bool Closed);
+public sealed record CustomerMonthDayDto(
+    DateOnly BusinessDate,
+    decimal OldDebt,
+    decimal DailyDebt,
+    decimal Cash,
+    decimal Card,
+    decimal Bonus,
+    decimal ReturnCredit,
+    decimal Remaining);
 
-public sealed class CorrectAccountPaymentRequestDto
+public sealed class CustomerMonthDto
 {
     public Guid CustomerId { get; init; }
-    public Guid EntryId { get; init; }
-    public decimal ExpectedAmount { get; init; }
-    public string? ExpectedPaymentMethod { get; init; }
-    public decimal Amount { get; init; }
-    public string PaymentMethod { get; init; } = "cash";
-    public string Reason { get; init; } = string.Empty;
+
+    public string CustomerName { get; init; } = string.Empty;
+
+    public string Month { get; init; } = string.Empty;
+
+    public decimal Collected { get; init; }
+
+    public decimal Cash { get; init; }
+
+    public decimal Card { get; init; }
+
+    public decimal Bonus { get; init; }
+
+    public decimal ReturnCredit { get; init; }
+
+    public decimal Remaining { get; init; }
+
+    public IReadOnlyList<CustomerMonthDayDto> Days { get; init; } = [];
 }
-public sealed record AccountAuditDto(Guid EntryId, string UserName, string Description, DateTime CreatedAtUtc);

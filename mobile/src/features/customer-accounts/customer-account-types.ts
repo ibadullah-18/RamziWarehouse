@@ -1,5 +1,3 @@
-import { UserRole } from "../../auth/auth-types";
-
 export enum CustomerAccountEntryType {
   OpeningBalance = 1,
   Debt = 2,
@@ -8,69 +6,69 @@ export enum CustomerAccountEntryType {
   AdjustmentDecrease = 5,
   DailyIncrease = 6,
   DailyDecrease = 7,
+  ReturnCredit = 8,
+  Bonus = 9,
+  CreditReversal = 10,
+  DailyToOld = 11,
 }
 
-export type CustomerAccountQuery = {
-  search?: string;
-  date?: string;
-  pageNumber?: number;
-  pageSize?: number;
+export type AccountDayState = 'notStarted' | 'open' | 'closed';
+
+/** One customer on one açot day. */
+export type AccountDayCustomer = {
+  customerId: string;
+  customerName: string;
+  phoneNumber: string | null;
+  /** Köhnə borc owed when the day began. */
+  oldDebt: number;
+  /** Günlük borc: the balance kept from yesterday plus the new debt of the day. */
+  dailyDebt: number;
+  newDailyDebt: number;
+  due: number;
+  cash: number;
+  card: number;
+  paid: number;
+  bonus: number;
+  returnCredit: number;
+  remainingOld: number;
+  remainingDaily: number;
+  remaining: number;
+  advance: number;
+  isDone: boolean;
+  carryToTomorrow: boolean;
+  hasOldDebtRecord: boolean;
 };
 
-export type CreateCustomerAccountRequest = {
-  customerId: string;
-  initialPreviousDebt: number | null;
-  todayDebt: number;
-  note: string | null;
-};
-
-export type RecordCustomerPaymentRequest = {
-  paymentMethod: "cash" | "card";
-  customerId: string;
-  amount: number;
-  note: string | null;
-};
-
-export type CorrectPreviousDebtRequest = {
-  customerId: string;
-  correctedPreviousDebt: number;
-  reason: string;
-};
-
-export type CustomerAccountEntry = {
-  isFinalized: boolean;
-  paymentMethod: "cash" | "card" | null;
-  id: string;
-  customerId: string;
-  entryType: CustomerAccountEntryType;
-  amount: number;
+export type AccountDay = {
   businessDate: string;
-  note: string | null;
-  recordedByUserId: string;
-  recordedByFullName: string;
-  recordedByRole: UserRole;
-  createdAtUtc: string;
+  state: AccountDayState;
+  isToday: boolean;
+  isLocked: boolean;
+  startedByFullName: string | null;
+  startedAtUtc: string | null;
+  closedByFullName: string | null;
+  closedAtUtc: string | null;
+  collected: number;
+  cash: number;
+  card: number;
+  bonus: number;
+  returnCredit: number;
+  newDailyDebt: number;
+  customerCount: number;
+  doneCount: number;
+  customers: AccountDayCustomer[];
 };
 
 export type CustomerAccountSummary = {
-  advance: number;
-  bonus: number;
-  returnCredit: number;
-  carriedDailyDebt: number;
-  hasUnpaidDailyDebt: boolean;
   customerId: string;
   customerName: string;
   phoneNumber: string | null;
   isActive: boolean;
-  businessDate: string;
-  previousDebt: number;
-  todayDebt: number;
-  todayPayment: number;
-  paidFromPreviousDebt: number;
-  paidFromTodayDebt: number;
-  previousDebtRemaining: number;
-  todayDebtRemaining: number;
+  oldDebt: number;
+  dailyDebt: number;
+  advance: number;
   remainingDebt: number;
+  hasOldDebtRecord: boolean;
 };
 
 export type CustomerAccountList = {
@@ -81,74 +79,111 @@ export type CustomerAccountList = {
   totalCount: number;
 };
 
+export type CustomerAccountQuery = {
+  search?: string;
+  date?: string;
+  pageNumber?: number;
+  pageSize?: number;
+};
+
+export type CustomerAccountEntry = {
+  id: string;
+  customerId: string;
+  entryType: CustomerAccountEntryType;
+  paymentMethod: 'cash' | 'card' | null;
+  amount: number;
+  businessDate: string;
+  note: string | null;
+  recordedByFullName: string;
+  createdAtUtc: string;
+};
+
 export type CustomerAccountDay = {
+  businessDate: string;
+  oldDebt: number;
+  dailyDebt: number;
   cash: number;
   card: number;
   bonus: number;
   returnCredit: number;
-  advance: number;
-  openingOldDebt: number;
-  openingCarriedDailyDebt: number;
-  paidFromCarriedDailyDebt: number;
-  carriedDailyTransferredToOld: number;
-  oldDebtRemaining: number;
-  carriedDailyDebt: number;
-  todayDebtRemaining: number;
-  businessDate: string;
-  openingDebt: number;
-  adjustmentAmount: number;
-  addedDebt: number;
-  paidAmount: number;
-  closingDebt: number;
+  remainingDebt: number;
+  isLocked: boolean;
   entries: CustomerAccountEntry[];
 };
 
-export type CustomerDeferredDebt = {
-  businessDate: string;
-  originalAmount: number;
-  paidAmount: number;
-  remainingAmount: number;
-  isOpeningBalance: boolean;
-};
 export type CustomerAccountDetails = {
+  customerId: string;
+  customerName: string;
+  phoneNumber: string | null;
+  isActive: boolean;
+  oldDebt: number;
+  dailyDebt: number;
   advance: number;
-  bonus: number;
-  returnCredit: number;
+  remainingDebt: number;
+  hasOldDebtRecord: boolean;
   audit: {
     entryId: string;
     userName: string;
     description: string;
     createdAtUtc: string;
   }[];
-  oldDebtRemaining: number;
-  carriedDailyDebt: number;
-  todayDebtRemaining: number;
-  customerId: string;
-  customerName: string;
-  phoneNumber: string | null;
-  isActive: boolean;
-  previousDebt: number;
-  totalNewDebt: number;
-  totalDebt: number;
-  totalPaid: number;
-  remainingDebt: number;
-  deferredDebts: CustomerDeferredDebt[];
   days: CustomerAccountDay[];
 };
 
-export type AccountDayReport = {
-  hasOpenEntries: boolean;
+export type AccountHistoryDay = {
   businessDate: string;
+  collected: number;
   cash: number;
   card: number;
-  unspecified: number;
-  total: number;
-  closure: { recordedByFullName: string; closedAtUtc: string } | null;
-  customers: CustomerAccountSummary[];
+  customerCount: number;
+  closed: boolean;
 };
 
-export type AccountReportHistory = {
+export type AccountHistoryMonth = {
+  month: string;
+  collected: number;
+  cash: number;
+  card: number;
+  days: AccountHistoryDay[];
+};
+
+export type CustomerMonthDay = {
   businessDate: string;
-  paidAmount: number;
-  closed: boolean;
+  oldDebt: number;
+  dailyDebt: number;
+  cash: number;
+  card: number;
+  bonus: number;
+  returnCredit: number;
+  remaining: number;
+};
+
+export type CustomerMonth = {
+  customerId: string;
+  customerName: string;
+  month: string;
+  collected: number;
+  cash: number;
+  card: number;
+  bonus: number;
+  returnCredit: number;
+  remaining: number;
+  days: CustomerMonthDay[];
+};
+
+export type DailyDebtItem = {
+  customerId: string;
+  dailyDebt: number;
+  oldDebt?: number | null;
+};
+
+export type SettlementRequest = {
+  operationId: string;
+  customerId: string;
+  cash: number;
+  card: number;
+  bonus: number;
+  returns: { returnId: string; amount: number }[];
+  carryToTomorrow: boolean;
+  note: string | null;
 };

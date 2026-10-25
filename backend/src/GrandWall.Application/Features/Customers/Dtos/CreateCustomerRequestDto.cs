@@ -1,4 +1,4 @@
-﻿namespace GrandWall.Application.Features.Customers.Dtos;
+namespace GrandWall.Application.Features.Customers.Dtos;
 
 public sealed class CreateCustomerRequestDto
 {
@@ -7,4 +7,6 @@ public sealed class CreateCustomerRequestDto
     public string? PhoneNumber { get; init; }
 
     public string? Note { get; init; }
+
+    public bool IsAccountCustomer { get; init; }
 }

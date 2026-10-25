@@ -1,1471 +1,456 @@
-import { dismissKeyboard } from "../../../components/keyboard-form";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { Ionicons } from "@expo/vector-icons";
-import type { Href } from "expo-router";
-import { router, useFocusEffect } from "expo-router";
-import { useEffect, useCallback, useRef, useState } from "react";
+import { Ionicons } from '@expo/vector-icons';
+import { type Href, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Image, Pressable, Text, TextInput, View } from 'react-native';
+
+import { getActiveWarehouses } from '../../../api/create-order-api';
+import { createProductReturn } from '../../../api/product-return-api';
+import { ReturnPerson, returnPersonRequest } from '../../../api/return-person-api';
+import { useAuth } from '../../../auth/auth-context';
+import { CustomerPickerModal } from '../../../components/customer-picker-modal';
+import { dismissKeyboard } from '../../../components/keyboard-form';
+import { CodeInput, MoneyInput, TextField } from '../../../components/form-inputs';
 import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { AppUpdateBanner } from "../../../components/app-update-banner";
+  AccountPageShell,
+  Btn,
+  Card,
+  Chip,
+  Notice,
+  SectionTitle,
+} from '../../../features/customer-accounts/account-ui';
+import { parseMoney } from '../../../features/customer-accounts/settlement-math';
+import type { Customer, Warehouse } from '../../../features/orders/create-order-types';
 import {
-  ReturnPerson,
-  returnPersonRequest,
-} from "../../../api/return-person-api";
+  CameraPermissionError,
+  CapturedPhoto,
+  captureReturnPhoto,
+} from '../../../features/product-returns/photo-capture';
+import { enqueuePhoto } from '../../../features/product-returns/photo-upload-queue';
+import { DraftProductReturnItem, ProductType } from '../../../features/product-returns/product-return-types';
+import { colors } from '../../../theme';
 
-import { getActiveWarehouses } from "../../../api/create-order-api";
-import { createProductReturn } from "../../../api/product-return-api";
-import { useAuth } from "../../../auth/auth-context";
-import { CustomerPickerModal } from "../../../components/customer-picker-modal";
-import type {
-  Customer,
-  Warehouse,
-} from "../../../features/orders/create-order-types";
-import {
-  DraftProductReturnItem,
-  ProductType,
-} from "../../../features/product-returns/product-return-types";
-import { colors, fontSize, radius, spacing } from "../../../theme";
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Vazvrad yaradılmadı.');
+const localId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const same = (a: string, b: string) => a.trim().toLocaleUpperCase('az-AZ') === b.trim().toLocaleUpperCase('az-AZ');
 
-type DraftValidationResult = {
-  item: DraftProductReturnItem | null;
-  error: string | null;
-};
-
-function createLocalId() {
-  return `${Date.now()}-` + Math.random().toString(36).slice(2);
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Vazvrad yaradılmadı.";
-}
-
-function getProductTypeLabel(productType: ProductType) {
-  return productType === ProductType.Showcase ? "Vitrin" : "Vazvrad";
-}
-
-function normalizeValue(value: string) {
-  return value.trim().toLocaleUpperCase("az-AZ");
-}
-
+/**
+ * New return / showcase. Order of the form follows the work: who is creating it, which
+ * customer, the codes (digits and "-" only, e.g. 340-1), an optional amount, proof photos
+ * (sent in the background after saving) and a note.
+ */
 export default function CreateReturnScreen() {
   const { session } = useAuth();
+  const token = session?.accessToken;
+  const params = useLocalSearchParams<{ customerId?: string; customerName?: string }>();
 
-  const accessToken = session?.accessToken;
-
-  const productCodeInputRef = useRef<TextInput>(null);
-
-  const batchNumberInputRef = useRef<TextInput>(null);
-
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null,
+  const [customer, setCustomer] = useState<Customer | null>(
+    params.customerId
+      ? {
+          id: params.customerId,
+          name: params.customerName ?? '',
+          phoneNumber: null,
+          note: null,
+          isActive: true,
+          createdAtUtc: '',
+          updatedAtUtc: null,
+        }
+      : null,
   );
-
-  const [isCustomerPickerVisible, setIsCustomerPickerVisible] = useState(false);
-
+  const [picker, setPicker] = useState(false);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
-
-  const [isWarehousesLoading, setIsWarehousesLoading] = useState(true);
-
-  const [warehouseError, setWarehouseError] = useState<string | null>(null);
-
-  const [warehouseReloadNumber, setWarehouseReloadNumber] = useState(0);
+  const [warehouseId, setWarehouseId] = useState('');
+  const [warehouseError, setWarehouseError] = useState('');
+  const [people, setPeople] = useState<ReturnPerson[]>([]);
+  const [personId, setPersonId] = useState<string | null>(null);
+  const [peopleError, setPeopleError] = useState('');
 
   const [items, setItems] = useState<DraftProductReturnItem[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [batch, setBatch] = useState('');
+  const [productType, setProductType] = useState<ProductType>(ProductType.Product);
+  const [quantityText, setQuantityText] = useState('1');
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
+  const [capturing, setCapturing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const saveLock = useRef(false);
+  const codeRef = useRef<TextInput>(null);
 
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+    getActiveWarehouses(token)
+      .then((result) => {
+        if (!active) return;
+        setWarehouses(result);
+        const main = result.find((w) => w.name.trim().toLocaleLowerCase('az-AZ').includes('əsas')) ?? result[0];
+        if (main) setWarehouseId((current) => current || main.id);
+      })
+      .catch((e) => active && setWarehouseError(errorMessage(e)));
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
-  const [productCode, setProductCode] = useState("");
-
-  const [batchNumber, setBatchNumber] = useState("");
-
-  const [productType, setProductType] = useState<ProductType>(
-    ProductType.Product,
-  );
-
-  const [quantityText, setQuantityText] = useState("1");
-  const [returnAmount, setReturnAmount] = useState("");
-  const [people, setPeople] = useState<ReturnPerson[]>([]);
-  const [returnPersonId, setReturnPersonId] = useState<string | null>(null);
-  const [peopleError, setPeopleError] = useState("");
-  const peopleRequest = useRef(0);
   const loadPeople = useCallback(async () => {
-    if (!accessToken) return;
-    const serial = ++peopleRequest.current;
+    if (!token) return;
     try {
-      const p = await returnPersonRequest<ReturnPerson[]>(accessToken);
-      if (serial === peopleRequest.current) {
-        const available = p.filter((x) => x.isActive);
-        setPeople(available);
-        setPeopleError("");
-        setReturnPersonId((id) =>
-          available.some((x) => x.id === id) ? id : null,
-        );
-      }
+      const all = await returnPersonRequest<ReturnPerson[]>(token);
+      const active = all.filter((person) => person.isActive);
+      setPeople(active);
+      setPeopleError('');
+      setPersonId((current) => (active.some((p) => p.id === current) ? current : null));
     } catch (e) {
-      if (serial === peopleRequest.current)
-        setPeopleError(
-          e instanceof Error ? e.message : "Şəxslərin siyahısı alınmadı.",
-        );
+      setPeopleError(errorMessage(e));
     }
-  }, [accessToken]);
+  }, [token]);
+
   useFocusEffect(
     useCallback(() => {
       void loadPeople();
-      return () => {
-        peopleRequest.current++;
-      };
     }, [loadPeople]),
   );
+
   const quantity = Number(quantityText);
-  const setQuantity = (value: number) => setQuantityText(String(value));
+  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  const [additionalNote, setAdditionalNote] = useState("");
-
-  const [isSaving, setIsSaving] = useState(false);
-
-  const todayLabel = new Date().toLocaleDateString("az-AZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "Asia/Baku",
-  });
-
-  const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
-
-  useEffect(() => {
-    if (!accessToken) {
-      return;
-    }
-
-    let isActive = true;
-
-    const currentAccessToken = accessToken;
-
-    async function loadWarehouses() {
-      try {
-        const result = await getActiveWarehouses(currentAccessToken);
-
-        if (!isActive) {
-          return;
-        }
-
-        setWarehouses(result);
-        setWarehouseError(null);
-
-        const mainWarehouse =
-          result.find((warehouse) =>
-            warehouse.name.trim().toLocaleLowerCase("az-AZ").includes("əsas"),
-          ) ?? result[0];
-
-        if (mainWarehouse) {
-          setSelectedWarehouseId(
-            (currentValue) => currentValue || mainWarehouse.id,
-          );
-        }
-      } catch (error) {
-        if (isActive) {
-          setWarehouseError(getErrorMessage(error));
-        }
-      } finally {
-        if (isActive) {
-          setIsWarehousesLoading(false);
-        }
-      }
-    }
-
-    void loadWarehouses();
-
-    return () => {
-      isActive = false;
-    };
-  }, [accessToken, warehouseReloadNumber]);
-
-  function changeProductCode(value: string) {
-    setProductCode(value);
-  }
-
-  function changeBatchNumber(value: string) {
-    setBatchNumber(value);
-  }
-
-  function changeQuantity(nextQuantity: number) {
-    setQuantity(Math.min(Math.max(nextQuantity, 1), 100000));
-  }
-
-  function validateDraftItem(localId: string): DraftValidationResult {
-    const normalizedProductCode = productCode.trim();
-
-    const normalizedBatchNumber = batchNumber.trim();
-
-    if (!normalizedProductCode) {
-      return {
-        item: null,
-        error: "Məhsul kodunu yazın.",
-      };
-    }
-
-    if (!normalizedBatchNumber) {
-      return {
-        item: null,
-        error: "Partiya nömrəsini yazın.",
-      };
-    }
-
-    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 100000) {
-      return {
-        item: null,
-        error: "Məhsul sayı sıfırdan böyük olmalıdır.",
-      };
-    }
-
-    const duplicateExists = items.some((item) => {
-      if (editingItemId && item.localId === editingItemId) {
-        return false;
-      }
-
-      return (
-        normalizeValue(item.productCode) ===
-          normalizeValue(normalizedProductCode) &&
-        normalizeValue(item.batchNumber) ===
-          normalizeValue(normalizedBatchNumber) &&
-        item.productType === productType
-      );
-    });
-
-    if (duplicateExists) {
-      return {
-        item: null,
-        error: "Bu kod, partiya və növ artıq siyahıda mövcuddur.",
-      };
-    }
-
-    return {
-      item: {
-        localId,
-        productCode: normalizedProductCode,
-        batchNumber: normalizedBatchNumber,
-        quantity,
-        productType,
-      },
-      error: null,
-    };
-  }
-
-  function resetDraftItem() {
-    setEditingItemId(null);
-    setProductCode("");
-    setBatchNumber("");
-
+  function resetDraft() {
+    setEditingId(null);
+    setCode('');
+    setBatch('');
     setProductType(ProductType.Product);
-
-    setQuantity(1);
-
-    setTimeout(() => {
-      productCodeInputRef.current?.focus();
-    }, 80);
+    setQuantityText('1');
+    setTimeout(() => codeRef.current?.focus(), 80);
   }
 
-  function saveDraftItem() {
-    const localId = editingItemId ?? createLocalId();
+  function validateDraft(id: string): DraftProductReturnItem | string {
+    if (!/^[0-9][0-9-]*$/.test(code.trim())) return 'Məhsul kodunu yazın (yalnız rəqəm və -).';
+    if (!/^[0-9][0-9-]*$/.test(batch.trim())) return 'Partiyanı yazın (yalnız rəqəm və -, məsələn 340-1).';
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 100000) return 'Say sıfırdan böyük olmalıdır.';
+    const duplicate = items.some(
+      (item) =>
+        item.localId !== editingId && same(item.productCode, code) && same(item.batchNumber, batch) && item.productType === productType,
+    );
+    if (duplicate) return 'Bu kod, partiya və növ artıq siyahıdadır.';
+    return { localId: id, productCode: code.trim(), batchNumber: batch.trim(), quantity, productType };
+  }
 
-    const result = validateDraftItem(localId);
-
-    if (!result.item) {
-      Alert.alert(
-        "Məhsulu yoxlayın",
-        result.error ?? "Məhsul məlumatları düzgün deyil.",
-      );
-
+  function saveDraft() {
+    const result = validateDraft(editingId ?? localId());
+    if (typeof result === 'string') {
+      Alert.alert('Məhsulu yoxlayın', result);
       return;
     }
-
-    const validatedItem = result.item;
-
-    if (editingItemId) {
-      setItems((currentItems) =>
-        currentItems.map((item) =>
-          item.localId === editingItemId ? validatedItem : item,
-        ),
-      );
-    } else {
-      setItems((currentItems) => [...currentItems, validatedItem]);
-    }
-
-    resetDraftItem();
+    setItems((current) =>
+      editingId ? current.map((item) => (item.localId === editingId ? result : item)) : [...current, result],
+    );
+    resetDraft();
   }
 
   function editItem(item: DraftProductReturnItem) {
-    setEditingItemId(item.localId);
-    setProductCode(item.productCode);
-    setBatchNumber(item.batchNumber);
+    setEditingId(item.localId);
+    setCode(item.productCode);
+    setBatch(item.batchNumber);
     setProductType(item.productType);
-    setQuantity(item.quantity);
-
-    setTimeout(() => {
-      productCodeInputRef.current?.focus();
-    }, 80);
+    setQuantityText(String(item.quantity));
+    setTimeout(() => codeRef.current?.focus(), 80);
   }
 
-  function removeItem(localId: string) {
-    setItems((currentItems) =>
-      currentItems.filter((item) => item.localId !== localId),
-    );
-
-    if (editingItemId === localId) {
-      resetDraftItem();
+  async function takePhoto() {
+    if (capturing) return;
+    setCapturing(true);
+    try {
+      const photo = await captureReturnPhoto();
+      if (photo) setPhotos((current) => [...current, photo]);
+    } catch (e) {
+      Alert.alert(e instanceof CameraPermissionError ? 'Kamera icazəsi lazımdır' : 'Şəkil çəkilmədi', errorMessage(e));
+    } finally {
+      setCapturing(false);
     }
   }
 
-  const saveLock = useRef(false);
-  async function submitReturn() {
-    if (!accessToken || isSaving || saveLock.current) {
+  async function submit() {
+    if (!token || saving || saveLock.current) return;
+    if (people.length > 0 && !personId) {
+      Alert.alert('İşçi seçilməyib', 'Vazvratı yaradan işçinin adını seçin.');
       return;
     }
-
-    if (!selectedCustomer) {
-      Alert.alert("Müştəri seçilməyib", "Vazvrad üçün müştəri seçin.");
-
+    if (!customer) {
+      Alert.alert('Müştəri seçilməyib', 'Vazvrad üçün müştəri seçin.');
       return;
     }
-
-    if (!selectedWarehouseId) {
-      Alert.alert("Anbar seçilməyib", "Məhsulların qaytarıldığı anbarı seçin.");
-
+    if (!warehouseId) {
+      Alert.alert('Anbar seçilməyib', 'Məhsulların qaytarıldığı anbarı seçin.');
       return;
     }
-
     let finalItems = [...items];
-
-    const hasDraftInformation =
-      Boolean(productCode.trim()) || Boolean(batchNumber.trim());
-
-    if (hasDraftInformation) {
-      const draftLocalId = editingItemId ?? createLocalId();
-
-      const result = validateDraftItem(draftLocalId);
-
-      if (!result.item) {
-        Alert.alert(
-          "Məhsulu yoxlayın",
-          result.error ?? "Məhsul məlumatları düzgün deyil.",
-        );
-
+    if (code.trim() || batch.trim()) {
+      const draft = validateDraft(editingId ?? localId());
+      if (typeof draft === 'string') {
+        Alert.alert('Məhsulu yoxlayın', draft);
         return;
       }
-
-      const validatedItem = result.item;
-
-      if (editingItemId) {
-        finalItems = finalItems.map((item) =>
-          item.localId === editingItemId ? validatedItem : item,
-        );
-      } else {
-        finalItems.push(validatedItem);
-      }
+      finalItems = editingId ? finalItems.map((item) => (item.localId === editingId ? draft : item)) : [...finalItems, draft];
     }
-
     if (finalItems.length === 0) {
-      Alert.alert("Məhsul yoxdur", "Ən azı bir məhsul əlavə edin.");
-
+      Alert.alert('Məhsul yoxdur', 'Ən azı bir məhsul əlavə edin.');
+      return;
+    }
+    const value = parseMoney(amount);
+    if (value === null) {
+      Alert.alert('Məbləği yoxlayın', 'Məbləği düzgün yazın (məsələn 150,50) və ya boş buraxın.');
       return;
     }
 
-    const normalizedAmount = returnAmount.trim().replace(",", ".");
-    if (
-      (normalizedAmount && !/^\d+(\.\d{1,2})?$/.test(normalizedAmount)) ||
-      !returnPersonId
-    ) {
-      Alert.alert(
-        "Məlumatı yoxlayın",
-        "Vazvrat məbləğini və yaradan şəxsi seçin.",
-      );
-      return;
-    }
+    saveLock.current = true;
+    setSaving(true);
     try {
-      saveLock.current = true;
-      setIsSaving(true);
-
-      const createdReturn = await createProductReturn(accessToken, {
-        customerId: selectedCustomer.id,
-        amount: Number(normalizedAmount || 0),
-        returnPersonId,
-
-        warehouseId: selectedWarehouseId,
-
-        additionalNote: additionalNote.trim() || null,
-
-        items: finalItems.map((item) => ({
-          productCode: item.productCode,
-
-          batchNumber: item.batchNumber,
-
-          quantity: item.quantity,
-
-          productType: item.productType,
+      const created = await createProductReturn(token, {
+        customerId: customer.id,
+        amount: value,
+        returnPersonId: personId,
+        warehouseId,
+        additionalNote: note.trim() || null,
+        items: finalItems.map(({ productCode, batchNumber, quantity: count, productType: type }) => ({
+          productCode,
+          batchNumber,
+          quantity: count,
+          productType: type,
         })),
       });
-
-      router.replace(`/return-detail/${createdReturn.id}` as Href);
-    } catch (error) {
-      Alert.alert("Vazvrad yaradılmadı", getErrorMessage(error));
+      // The photos go up in the background: nobody waits for the network here.
+      photos.forEach((photo) => enqueuePhoto(created.id, photo));
+      router.replace(`/return-detail/${created.id}` as Href);
+    } catch (e) {
+      Alert.alert('Vazvrad yaradılmadı', errorMessage(e));
     } finally {
       saveLock.current = false;
-      setIsSaving(false);
+      setSaving(false);
     }
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <AppUpdateBanner />
-      <View style={styles.keyboardView}>
-        <View style={styles.header}>
-          <Pressable
-            disabled={isSaving}
-            onPress={() => {
-              if (router.canGoBack()) router.back();
-              else router.replace("/(app)/(tabs)/returns");
-            }}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons name="arrow-back" size={22} color={colors.text} />
+    <AccountPageShell
+      title="Yeni vazvrad / vitrin"
+      onBack={() => (router.canGoBack() ? router.back() : router.replace('/(app)/(tabs)/returns' as Href))}
+      footer={
+        <Btn
+          icon="checkmark-circle-outline"
+          title={photos.length > 0 ? `Yarat və ${photos.length} şəkli göndər` : 'Vazvradı yarat'}
+          onPress={() => void submit()}
+          busy={saving}
+        />
+      }
+    >
+      <Card>
+        <SectionTitle>1. Vazvratı kim yaradır?</SectionTitle>
+        {peopleError ? (
+          <Pressable onPress={() => void loadPeople()}>
+            <Text style={{ color: colors.danger }}>{peopleError} · Yenidən sına</Text>
           </Pressable>
-
-          <View style={styles.headerText}>
-            <Text style={styles.headerCaption}>VAZVRAD / VİTRİN</Text>
-
-            <Text style={styles.headerTitle}>Yeni geri qaytarma</Text>
-          </View>
-
-          <View style={styles.headerPlaceholder} />
-        </View>
-
-        <KeyboardAwareScrollView
-          bottomOffset={62}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <Text style={styles.dateLabel}>{todayLabel}</Text>
-          <Text style={styles.sectionCaption}>Vazvrat məbləği (AZN)</Text>
-          <TextInput
-            value={returnAmount}
-            onChangeText={setReturnAmount}
-            keyboardType="decimal-pad"
-            inputMode="decimal"
-            returnKeyType="done"
-            submitBehavior="blurAndSubmit"
-            onSubmitEditing={dismissKeyboard}
-            placeholder="0,00"
-            placeholderTextColor={colors.textLight}
-            style={{
-              color: colors.text,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: colors.border,
-              borderRadius: 12,
-            }}
-          />
-          <Text style={styles.sectionCaption}>Vazvratı yaradan şəxs</Text>
-          {!!peopleError && (
-            <Pressable onPress={() => void loadPeople()}>
-              <Text style={{ color: colors.danger }}>
-                {peopleError} · Yenidən sına
-              </Text>
-            </Pressable>
-          )}
-          {people.length === 0 && (
-            <Text style={{ color: colors.textSecondary }}>
-              Admin “Vazvrat yaradanlar” bölməsində aktiv ad əlavə etməlidir.
-              Səhifəyə yenidən daxil olduqda siyahı yenilənəcək.
-            </Text>
-          )}
-          {people.map((person) => (
-            <Pressable
-              key={person.id}
-              onPress={() => setReturnPersonId(person.id)}
-              style={{
-                padding: 14,
-                marginBottom: 6,
-                borderRadius: 10,
-                backgroundColor:
-                  returnPersonId === person.id
-                    ? colors.primarySoft
-                    : colors.surface,
-              }}
-            >
-              <Text style={{ color: colors.text }}>
-                {returnPersonId === person.id ? "✓ " : ""}
-                {person.name}
-              </Text>
-            </Pressable>
-          ))}
-
-          <Text style={styles.sectionCaption}>1. MÜŞTƏRİ VƏ ANBAR</Text>
-
-          <Pressable
-            onPress={() => {
-              setIsCustomerPickerVisible(true);
-            }}
-            style={({ pressed }) => [
-              styles.selectionCard,
-              selectedCustomer && styles.selectionCardSelected,
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={styles.selectionIcon}>
-              <Ionicons
-                name="storefront-outline"
-                size={22}
-                color={colors.primary}
-              />
-            </View>
-
-            <View style={styles.selectionInformation}>
-              <Text style={styles.selectionLabel}>Müştəri</Text>
-
-              <Text
-                style={[
-                  styles.selectionValue,
-
-                  !selectedCustomer && styles.selectionPlaceholder,
-                ]}
-                numberOfLines={1}
-              >
-                {selectedCustomer ? selectedCustomer.name : "Müştəri seçin"}
-              </Text>
-
-              {selectedCustomer ? (
-                <Text style={styles.selectionMeta} numberOfLines={1}>
-                  {selectedCustomer.phoneNumber ??
-                    selectedCustomer.note ??
-                    "Əlavə məlumat yoxdur"}
-                </Text>
-              ) : null}
-            </View>
-
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={colors.textLight}
-            />
-          </Pressable>
-
-          <Text style={styles.fieldLabel}>Qaytarıldığı anbar</Text>
-
-          {isWarehousesLoading ? (
-            <View style={styles.loadingCard}>
-              <ActivityIndicator size="small" color={colors.primary} />
-
-              <Text style={styles.loadingText}>Anbarlar alınır...</Text>
-            </View>
-          ) : warehouseError ? (
-            <Pressable
-              onPress={() => {
-                setIsWarehousesLoading(true);
-
-                setWarehouseReloadNumber((currentValue) => currentValue + 1);
-              }}
-              style={styles.errorCard}
-            >
-              <Ionicons
-                name="warning-outline"
-                size={21}
-                color={colors.danger}
-              />
-
-              <View style={styles.errorContent}>
-                <Text style={styles.errorTitle}>Anbarlar açılmadı</Text>
-
-                <Text style={styles.errorText}>{warehouseError}</Text>
-              </View>
-
-              <Ionicons name="refresh" size={20} color={colors.danger} />
-            </Pressable>
-          ) : (
-            <View style={styles.warehouseList}>
-              {warehouses.map((warehouse) => {
-                const isSelected = selectedWarehouseId === warehouse.id;
-
-                return (
-                  <Pressable
-                    key={warehouse.id}
-                    onPress={() => {
-                      setSelectedWarehouseId(warehouse.id);
-                    }}
-                    style={[
-                      styles.warehouseChip,
-
-                      isSelected && styles.warehouseChipSelected,
-                    ]}
-                  >
-                    <Ionicons
-                      name={
-                        isSelected ? "checkmark-circle" : "business-outline"
-                      }
-                      size={18}
-                      color={isSelected ? colors.white : colors.primary}
-                    />
-
-                    <Text
-                      style={[
-                        styles.warehouseText,
-
-                        isSelected && styles.warehouseTextSelected,
-                      ]}
-                    >
-                      {warehouse.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-
-          <Text style={styles.sectionCaption}>2. MƏHSULLAR</Text>
-
-          <View style={styles.editorCard}>
-            <View style={styles.typeSelector}>
-              <Pressable
-                onPress={() => {
-                  setProductType(ProductType.Product);
-                }}
-                style={[
-                  styles.typeButton,
-
-                  productType === ProductType.Product &&
-                    styles.typeButtonSelected,
-                ]}
-              >
-                <Ionicons
-                  name="arrow-undo-outline"
-                  size={19}
-                  color={
-                    productType === ProductType.Product
-                      ? colors.white
-                      : colors.primary
-                  }
-                />
-
-                <Text
-                  style={[
-                    styles.typeButtonText,
-
-                    productType === ProductType.Product &&
-                      styles.typeButtonTextSelected,
-                  ]}
-                >
-                  Vazvrad
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => {
-                  setProductType(ProductType.Showcase);
-                }}
-                style={[
-                  styles.typeButton,
-
-                  productType === ProductType.Showcase &&
-                    styles.typeButtonSelected,
-                ]}
-              >
-                <Ionicons
-                  name="albums-outline"
-                  size={19}
-                  color={
-                    productType === ProductType.Showcase
-                      ? colors.white
-                      : colors.primary
-                  }
-                />
-
-                <Text
-                  style={[
-                    styles.typeButtonText,
-
-                    productType === ProductType.Showcase &&
-                      styles.typeButtonTextSelected,
-                  ]}
-                >
-                  Vitrin
-                </Text>
-              </Pressable>
-            </View>
-
-            <Text style={styles.fieldLabel}>Məhsul kodu</Text>
-
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="barcode-outline"
-                size={20}
-                color={colors.textLight}
-              />
-
-              <TextInput
-                keyboardType="default"
-                inputMode="text"
-                ref={productCodeInputRef}
-                value={productCode}
-                onChangeText={changeProductCode}
-                placeholder="Rəqəmləri yazın"
-                placeholderTextColor={colors.textLight}
-                maxLength={50}
-                autoCorrect={false}
-                returnKeyType="next"
-                onSubmitEditing={() => {
-                  batchNumberInputRef.current?.focus();
-                }}
-                style={styles.input}
-              />
-            </View>
-
-            <Text style={styles.fieldLabel}>Partiya nömrəsi</Text>
-
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="layers-outline"
-                size={20}
-                color={colors.textLight}
-              />
-
-              <TextInput
-                returnKeyType="done"
-                submitBehavior="blurAndSubmit"
-                onSubmitEditing={dismissKeyboard}
-                keyboardType="default"
-                inputMode="text"
-                ref={batchNumberInputRef}
-                value={batchNumber}
-                onChangeText={changeBatchNumber}
-                placeholder="Rəqəmləri yazın"
-                placeholderTextColor={colors.textLight}
-                maxLength={50}
-                autoCorrect={false}
-                style={styles.input}
-              />
-            </View>
-
-            <Text style={styles.fieldLabel}>Ədəd</Text>
-
-            <View style={styles.quantityContainer}>
-              <Pressable
-                onPress={() => {
-                  changeQuantity(quantity - 1);
-                }}
-                style={({ pressed }) => [
-                  styles.quantityButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Ionicons name="remove" size={22} color={colors.primary} />
-              </Pressable>
-
-              <TextInput
-                returnKeyType="done"
-                submitBehavior="blurAndSubmit"
-                onSubmitEditing={dismissKeyboard}
-                inputMode="numeric"
-                value={quantityText}
-                onChangeText={(value) =>
-                  setQuantityText(value.replace(/\D/g, "").slice(0, 6))
-                }
-                keyboardType="number-pad"
-                selectTextOnFocus
-                style={styles.quantityInput}
-              />
-
-              <Pressable
-                onPress={() => {
-                  changeQuantity(quantity + 1);
-                }}
-                style={({ pressed }) => [
-                  styles.quantityButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Ionicons name="add" size={22} color={colors.primary} />
-              </Pressable>
-            </View>
-
-            <Pressable
-              onPress={saveDraftItem}
-              style={({ pressed }) => [
-                styles.addItemButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons
-                name={editingItemId ? "checkmark" : "add"}
-                size={21}
-                color={colors.white}
-              />
-
-              <Text style={styles.addItemButtonText}>
-                {editingItemId
-                  ? "Dəyişikliyi yadda saxla"
-                  : "Məhsulu siyahıya əlavə et"}
-              </Text>
-            </Pressable>
-          </View>
-
-          {items.length > 0 ? (
-            <View style={styles.itemsSection}>
-              <View style={styles.itemsHeader}>
-                <Text style={styles.itemsTitle}>Əlavə edilən məhsullar</Text>
-
-                <Text style={styles.itemsCount}>{items.length} sətir</Text>
-              </View>
-
-              {items.map((item) => (
-                <View
-                  key={item.localId}
-                  style={[
-                    styles.itemCard,
-
-                    editingItemId === item.localId && styles.itemCardEditing,
-                  ]}
-                >
-                  <View style={styles.itemTypeIcon}>
-                    <Ionicons
-                      name={
-                        item.productType === ProductType.Showcase
-                          ? "albums-outline"
-                          : "arrow-undo-outline"
-                      }
-                      size={20}
-                      color={colors.primary}
-                    />
-                  </View>
-
-                  <View style={styles.itemInformation}>
-                    <Text style={styles.itemCode}>{item.productCode}</Text>
-
-                    <Text style={styles.itemMeta}>
-                      Partiya {item.batchNumber} ·{" "}
-                      {getProductTypeLabel(item.productType)}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.itemQuantity}>{item.quantity}</Text>
-
-                  <Pressable
-                    onPress={() => {
-                      editItem(item);
-                    }}
-                    style={styles.itemAction}
-                  >
-                    <Ionicons
-                      name="create-outline"
-                      size={19}
-                      color={colors.primary}
-                    />
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => {
-                      removeItem(item.localId);
-                    }}
-                    style={styles.itemAction}
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={19}
-                      color={colors.danger}
-                    />
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          <Text style={styles.sectionCaption}>3. ƏLAVƏ QEYD</Text>
-
-          <View style={styles.noteContainer}>
-            <TextInput
-              returnKeyType="done"
-              keyboardType="default"
-              inputMode="text"
-              value={additionalNote}
-              onChangeText={setAdditionalNote}
-              placeholder="Geri qaytarma haqqında əlavə məlumat..."
-              placeholderTextColor={colors.textLight}
-              multiline
-              maxLength={1000}
-              textAlignVertical="top"
-              style={styles.noteInput}
-            />
-
-            <Text style={styles.noteCounter}>{additionalNote.length}/1000</Text>
-          </View>
-        </KeyboardAwareScrollView>
-
-        <View style={styles.footer}>
-          <View>
-            <Text style={styles.footerLabel}>Ümumi məhsul</Text>
-
-            <Text style={styles.footerValue}>{totalQuantity} ədəd</Text>
-          </View>
-
-          <Pressable
-            disabled={isSaving}
-            onPress={() => {
-              void submitReturn();
-            }}
-            style={({ pressed }) => [
-              styles.submitButton,
-
-              pressed && styles.pressed,
-
-              isSaving && styles.disabled,
-            ]}
-          >
-            {isSaving ? (
-              <ActivityIndicator size="small" color={colors.white} />
-            ) : (
-              <Ionicons name="camera-outline" size={21} color={colors.white} />
-            )}
-
-            <Text style={styles.submitButtonText}>
-              {isSaving ? "Yaradılır..." : "Yarat və şəkil çək"}
-            </Text>
-          </Pressable>
-        </View>
-
-        {accessToken ? (
-          <CustomerPickerModal
-            visible={isCustomerPickerVisible}
-            accessToken={accessToken}
-            selectedCustomerId={selectedCustomer?.id}
-            onClose={() => {
-              setIsCustomerPickerVisible(false);
-            }}
-            onSelect={(customer) => {
-              setSelectedCustomer(customer);
-            }}
-          />
         ) : null}
-      </View>
-    </SafeAreaView>
+        {people.length === 0 && !peopleError ? (
+          <Text style={{ color: colors.textSecondary }}>
+            Admin “Vazvrat yaradanlar” bölməsində işçi adlarını əlavə edə bilər. Ad olmadan da davam etmək olar.
+          </Text>
+        ) : (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {people.map((person) => (
+              <Chip
+                key={person.id}
+                label={`${personId === person.id ? '✓ ' : ''}${person.name}`}
+                selected={personId === person.id}
+                onPress={() => setPersonId(person.id)}
+              />
+            ))}
+          </View>
+        )}
+      </Card>
+
+      <Card>
+        <SectionTitle>2. Müştəri</SectionTitle>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setPicker(true)}
+          style={{
+            minHeight: 56,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: customer ? colors.primary : colors.inputBorder,
+            backgroundColor: colors.surfaceSecondary,
+            paddingHorizontal: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+          }}
+        >
+          <Text style={{ color: customer ? colors.text : colors.textSecondary, fontSize: 17, flex: 1 }} numberOfLines={2}>
+            {customer?.name || 'Müştəri seçin'}
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+        </Pressable>
+        {warehouses.length > 1 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {warehouses.map((warehouse) => (
+              <Chip
+                key={warehouse.id}
+                label={warehouse.name}
+                selected={warehouseId === warehouse.id}
+                onPress={() => setWarehouseId(warehouse.id)}
+              />
+            ))}
+          </View>
+        ) : null}
+        {warehouseError ? <Notice tone="error">{warehouseError}</Notice> : null}
+      </Card>
+
+      <Card>
+        <SectionTitle>{editingId ? '3. Məhsulu düzəlt' : '3. Məhsullar'}</SectionTitle>
+        <CodeInput
+          ref={codeRef}
+          label="Məhsul kodu"
+          hint="Yalnız rəqəm və - (məsələn 1019)"
+          value={code}
+          onChangeText={setCode}
+          maxLength={50}
+        />
+        <CodeInput
+          label="Partiya"
+          hint="Yalnız rəqəm və - (məsələn 340-1)"
+          value={batch}
+          onChangeText={setBatch}
+          maxLength={50}
+        />
+        <View style={{ gap: 6 }}>
+          <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: '600' }}>Say</Text>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'stretch' }}>
+            <Chip label="−" onPress={() => setQuantityText(String(Math.max(1, (quantity || 1) - 1)))} />
+            <TextInput
+              value={quantityText}
+              onChangeText={(text) => setQuantityText(text.replace(/\D/g, '').slice(0, 6))}
+              keyboardType="number-pad"
+              inputMode="numeric"
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
+              onSubmitEditing={dismissKeyboard}
+              selectTextOnFocus
+              style={{
+                flex: 1,
+                minHeight: 46,
+                color: colors.text,
+                backgroundColor: colors.surface,
+                borderColor: colors.inputBorder,
+                borderWidth: 1,
+                borderRadius: 12,
+                textAlign: 'center',
+                fontSize: 18,
+              }}
+            />
+            <Chip label="+" onPress={() => setQuantityText(String(Math.min(100000, (quantity || 0) + 1)))} />
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Chip label="Vazvrad" selected={productType === ProductType.Product} onPress={() => setProductType(ProductType.Product)} />
+          <Chip label="Vitrin" selected={productType === ProductType.Showcase} onPress={() => setProductType(ProductType.Showcase)} />
+        </View>
+        <Btn
+          icon={editingId ? 'checkmark' : 'add'}
+          variant="secondary"
+          title={editingId ? 'Dəyişikliyi saxla' : 'Siyahıya əlavə et'}
+          onPress={saveDraft}
+        />
+        {items.map((item, index) => (
+          <View
+            key={item.localId}
+            style={{
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              paddingTop: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <Text style={{ flex: 1, color: colors.text, fontSize: 16 }}>
+              {index + 1}. Kod {item.productCode} · Partiya {item.batchNumber} · {item.quantity} ədəd ·{' '}
+              {item.productType === ProductType.Showcase ? 'Vitrin' : 'Vazvrad'}
+            </Text>
+            <Pressable accessibilityLabel="Düzəlt" hitSlop={8} onPress={() => editItem(item)}>
+              <Ionicons name="create-outline" size={22} color={colors.primary} />
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Çıxar"
+              hitSlop={8}
+              onPress={() => {
+                setItems((current) => current.filter((i) => i.localId !== item.localId));
+                if (editingId === item.localId) resetDraft();
+              }}
+            >
+              <Ionicons name="trash-outline" size={22} color={colors.danger} />
+            </Pressable>
+          </View>
+        ))}
+        {items.length > 0 ? (
+          <Text style={{ color: colors.textSecondary }}>
+            {items.length} sətir · {totalQuantity} ədəd
+          </Text>
+        ) : null}
+      </Card>
+
+      <Card>
+        <SectionTitle>4. Məbləğ (istəyə görə)</SectionTitle>
+        <MoneyInput
+          value={amount}
+          onChangeText={setAmount}
+          hint="Açotda müştəri ilə hesablaşanda da yazıla bilər."
+        />
+      </Card>
+
+      <Card>
+        <SectionTitle>5. Şəkillər (istəyə görə)</SectionTitle>
+        <Btn
+          icon="camera"
+          variant="secondary"
+          title={capturing ? 'Kamera açılır…' : 'Kamera ilə şəkil çək'}
+          onPress={() => void takePhoto()}
+          disabled={capturing}
+        />
+        {photos.length > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {photos.map((photo) => (
+              <View key={photo.operationId}>
+                <Image source={{ uri: photo.uri }} style={{ width: 96, height: 96, borderRadius: 10 }} />
+                <Pressable
+                  accessibilityLabel="Şəkli çıxar"
+                  onPress={() => setPhotos((current) => current.filter((p) => p.operationId !== photo.operationId))}
+                  style={{ position: 'absolute', top: 4, right: 4, backgroundColor: colors.black, borderRadius: 12, padding: 2 }}
+                >
+                  <Ionicons name="close" size={18} color={colors.white} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+          Şəkillər yaratdıqdan sonra arxa planda göndərilir, gözləmək lazım deyil.
+        </Text>
+      </Card>
+
+      <TextField label="Əlavə qeyd (istəyə görə)" value={note} onChangeText={setNote} maxLength={1000} />
+
+      <CustomerPickerModal
+        visible={picker}
+        accessToken={token ?? ''}
+        selectedCustomerId={customer?.id}
+        onClose={() => setPicker(false)}
+        onSelect={(selected) => {
+          setCustomer(selected);
+          setPicker(false);
+        }}
+      />
+    </AccountPageShell>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  keyboardView: {
-    flex: 1,
-  },
-
-  header: {
-    minHeight: 62,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-
-  backButton: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceSecondary,
-  },
-
-  headerText: {
-    flex: 1,
-    alignItems: "center",
-  },
-
-  headerCaption: {
-    color: colors.primary,
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-  },
-
-  headerTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: "800",
-    marginTop: 2,
-  },
-
-  headerPlaceholder: {
-    width: 42,
-  },
-
-  scrollContent: {
-    width: "100%",
-    maxWidth: 720,
-    alignSelf: "center",
-    padding: spacing.lg,
-    paddingBottom: 40,
-  },
-
-  dateCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    marginBottom: spacing.xl,
-  },
-
-  dateIcon: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
-  },
-
-  dateLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-  },
-
-  dateValue: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: "800",
-    marginTop: 3,
-  },
-
-  sectionCaption: {
-    color: colors.primary,
-    fontSize: fontSize.xs,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-  },
-
-  selectionCard: {
-    minHeight: 78,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    marginBottom: spacing.lg,
-  },
-
-  selectionCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-  },
-
-  selectionIcon: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
-  },
-
-  selectionInformation: {
-    flex: 1,
-  },
-
-  selectionLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-  },
-
-  selectionValue: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: "800",
-    marginTop: 3,
-  },
-
-  selectionPlaceholder: {
-    color: colors.textLight,
-    fontWeight: "600",
-  },
-
-  selectionMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    marginTop: 3,
-  },
-
-  fieldLabel: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-    marginBottom: spacing.sm,
-  },
-
-  loadingCard: {
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    marginBottom: spacing.xl,
-  },
-
-  loadingText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-  },
-
-  warehouseList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    paddingBottom: spacing.xl,
-  },
-
-  warehouseChip: {
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    backgroundColor: colors.surface,
-  },
-
-  warehouseChipSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-
-  warehouseText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-  },
-
-  warehouseTextSelected: {
-    color: colors.white,
-  },
-
-  errorCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: "#F4C5C9",
-    borderRadius: radius.lg,
-    backgroundColor: colors.dangerSoft,
-    marginBottom: spacing.xl,
-  },
-
-  errorContent: {
-    flex: 1,
-  },
-
-  errorTitle: {
-    color: colors.danger,
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-  },
-
-  errorText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    marginTop: 3,
-  },
-
-  editorCard: {
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-  },
-
-  typeSelector: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-
-  typeButton: {
-    flex: 1,
-    minHeight: 46,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
-  },
-
-  typeButtonSelected: {
-    backgroundColor: colors.primary,
-  },
-
-  typeButtonText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: "800",
-  },
-
-  typeButtonTextSelected: {
-    color: colors.white,
-  },
-
-  inputContainer: {
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    marginBottom: spacing.md,
-  },
-
-  input: {
-    flex: 1,
-    color: colors.text,
-    fontSize: fontSize.sm,
-    paddingVertical: spacing.md,
-  },
-
-  noSuggestionText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    textAlign: "center",
-    padding: spacing.md,
-  },
-
-  quantityContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-
-  quantityButton: {
-    width: 48,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
-  },
-
-  quantityInput: {
-    flex: 1,
-    height: 48,
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: "800",
-    textAlign: "center",
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-
-  addItemButton: {
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-  },
-
-  addItemButtonText: {
-    color: colors.white,
-    fontSize: fontSize.sm,
-    fontWeight: "800",
-  },
-
-  itemsSection: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.lg,
-  },
-
-  itemsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.md,
-  },
-
-  itemsTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: "800",
-  },
-
-  itemsCount: {
-    color: colors.primary,
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-  },
-
-  itemCard: {
-    minHeight: 72,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    marginBottom: spacing.sm,
-  },
-
-  itemCardEditing: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-  },
-
-  itemTypeIcon: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
-  },
-
-  itemInformation: {
-    flex: 1,
-  },
-
-  itemCode: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: "800",
-  },
-
-  itemMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    marginTop: 3,
-  },
-
-  itemQuantity: {
-    minWidth: 28,
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: "800",
-    textAlign: "center",
-  },
-
-  itemAction: {
-    width: 34,
-    height: 34,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  noteContainer: {
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-  },
-
-  noteInput: {
-    minHeight: 100,
-    color: colors.text,
-    fontSize: fontSize.sm,
-  },
-
-  noteCounter: {
-    color: colors.textLight,
-    fontSize: fontSize.xs,
-    textAlign: "right",
-  },
-
-  footer: {
-    minHeight: 76,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-
-  footerLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-  },
-
-  footerValue: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: "800",
-    marginTop: 2,
-  },
-
-  submitButton: {
-    minHeight: 50,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-  },
-
-  submitButtonText: {
-    color: colors.white,
-    fontSize: fontSize.sm,
-    fontWeight: "800",
-  },
-
-  disabled: {
-    opacity: 0.55,
-  },
-
-  pressed: {
-    opacity: 0.65,
-  },
-});

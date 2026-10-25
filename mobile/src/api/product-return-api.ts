@@ -129,6 +129,7 @@ export async function getProductReturns(
 
   if (query.acceptedDate) parameters.set("acceptedDate", query.acceptedDate);
   if (query.customerId) parameters.set("customerId", query.customerId);
+  if (query.unapplied) parameters.set("unapplied", "true");
 
   if (query.status !== undefined) {
     parameters.set("status", String(query.status));

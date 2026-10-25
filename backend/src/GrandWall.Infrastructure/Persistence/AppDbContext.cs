@@ -15,7 +15,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<AccountEntryAudit> AccountEntryAudits => Set<AccountEntryAudit>();
     public DbSet<ReturnPerson> ReturnPersons => Set<ReturnPerson>();
     public DbSet<AccountSettlement> AccountSettlements => Set<AccountSettlement>();
-    public DbSet<AccountDayClosure> AccountDayClosures => Set<AccountDayClosure>();
+    public DbSet<AccountDay> AccountDays => Set<AccountDay>();
 
     public DbSet<PushDevice> PushDevices => Set<PushDevice>();
     public DbSet<PushDelivery> PushDeliveries => Set<PushDelivery>();
@@ -80,8 +80,11 @@ public sealed class AppDbContext : DbContext
         modelBuilder.Entity<AccountEntryAudit>().Property(x=>x.UserName).HasMaxLength(150);
         modelBuilder.Entity<AccountEntryAudit>().Property(x=>x.Description).HasMaxLength(1000);
         modelBuilder.Entity<AccountEntryAudit>().HasIndex(x=>x.CustomerId);
-        modelBuilder.Entity<AccountDayClosure>().HasKey(x => x.BusinessDate);
-        modelBuilder.Entity<AccountDayClosure>().Property(x => x.RecordedByFullName).HasMaxLength(150);
+        modelBuilder.Entity<AccountDay>().HasKey(x => x.BusinessDate);
+        modelBuilder.Entity<AccountDay>().Property(x => x.BusinessDate).HasColumnType("date");
+        modelBuilder.Entity<AccountDay>().Property(x => x.StartedByFullName).HasMaxLength(150);
+        modelBuilder.Entity<AccountDay>().Property(x => x.ClosedByFullName).HasMaxLength(150);
+        modelBuilder.Entity<AccountSettlement>().Property(x => x.ReturnsKey).HasMaxLength(2500);
 
         modelBuilder.Entity<PushDevice>().HasKey(x=>x.Token);
         modelBuilder.Entity<PushDevice>().Property(x=>x.Token).HasMaxLength(200);

@@ -21,6 +21,7 @@ import {
     updateCustomer,
 } from '../../../api/customers-api';
 import { useAuth } from '../../../auth/auth-context';
+import { ShopSwitch } from '../../../components/shop-switch';
 import { canManageOperations } from '../../../auth/permissions';
 import type {
     Customer,
@@ -56,6 +57,7 @@ export default function EditCustomerScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [note, setNote] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [isShop, setIsShop] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] =
@@ -79,6 +81,7 @@ export default function EditCustomerScreen() {
         setPhoneNumber(result.phoneNumber ?? '');
         setNote(result.note ?? '');
         setIsActive(result.isActive);
+        setIsShop(result.isAccountCustomer);
         setErrorMessage(null);
       })
       .catch((error: unknown) => {
@@ -149,6 +152,7 @@ export default function EditCustomerScreen() {
           phoneNumber: normalizedPhone || null,
           note: normalizedNote || null,
           isActive: nextIsActive,
+          isAccountCustomer: isShop,
         },
       );
 
@@ -359,6 +363,8 @@ export default function EditCustomerScreen() {
               />
             </View>
             <Text style={styles.counter}>{note.length}/1000</Text>
+
+            <ShopSwitch value={isShop} onChange={setIsShop} disabled={isSubmitting} />
           </View>
 
           {errorMessage ? (

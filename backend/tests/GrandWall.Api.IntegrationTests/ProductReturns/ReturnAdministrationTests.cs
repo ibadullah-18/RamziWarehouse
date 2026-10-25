@@ -41,7 +41,7 @@ public sealed class ReturnAdministrationTests
   var customer=await Customer(client,"Qəbul tarixi");var warehouses=await client.GetFromJsonAsync<JsonElement>("/api/warehouses");var warehouse=warehouses[0].GetProperty("id").GetGuid();
   var times=new[]{new DateTime(2026,9,29,19,59,59,DateTimeKind.Utc),new DateTime(2026,9,29,20,0,0,DateTimeKind.Utc),new DateTime(2026,9,30,19,59,59,DateTimeKind.Utc),new DateTime(2026,9,30,20,0,0,DateTimeKind.Utc)};
   foreach(var time in times){var r=await Create(client,customer,warehouse,1,time.Hour.ToString());using var scope=factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();var entity=await db.ProductReturns.FindAsync(r.GetProperty("id").GetGuid());entity!.Submit();entity.Complete(entity.CreatedByUserId,time);entity.ReturnDateUtc=time.AddDays(-5);await db.SaveChangesAsync();}
-  await Create(client,customer,warehouse,1,"Pending");
+  await Create(client,customer,warehouse,1,"9999");
   var list=await client.GetFromJsonAsync<JsonElement>("/api/product-returns?acceptedDate=2026-09-30");Assert.Equal(2,list.GetProperty("totalCount").GetInt32());
   foreach(var r in list.GetProperty("items").EnumerateArray())Assert.Equal(2,r.GetProperty("status").GetInt32());
  }

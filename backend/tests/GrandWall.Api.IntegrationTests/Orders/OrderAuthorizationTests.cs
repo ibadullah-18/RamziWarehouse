@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
@@ -67,7 +67,7 @@ public sealed class OrderAuthorizationTests
     }
 
     [Fact]
-    public async Task Create_ShouldCreateOrderAndTelegramOutbox_ForManager()
+    public async Task Create_ShouldCreateOrderWithoutTelegramOutbox_ForManager()
     {
         using var factory =
             new GrandWallApiFactory();
@@ -162,22 +162,10 @@ public sealed class OrderAuthorizationTests
             4,
             savedItem.Quantity);
 
-        var outboxMessage =
+        // Telegram messages are switched off, so nothing is queued.
+        Assert.False(
             await dbContext.TelegramOutboxMessages
-                .AsNoTracking()
-                .SingleAsync(message =>
-                    message.RelatedEntityType ==
-                        TelegramRelatedEntityTypes.Order &&
-                    message.RelatedEntityId == orderId);
-
-        Assert.Equal(
-            TelegramChannel.Orders,
-            outboxMessage.Channel);
-
-        Assert.Contains(
-            orderNumber,
-            outboxMessage.Text,
-            StringComparison.Ordinal);
+                .AnyAsync(message => message.RelatedEntityId == orderId));
     }
 
     private static async Task<OrderTestData>

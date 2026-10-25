@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using GrandWall.Domain.Entities;
 
@@ -25,6 +25,9 @@ public sealed class CustomerConfiguration
 
         builder.Property(customer => customer.IsActive)
             .HasDefaultValue(true);
+
+        builder.Property(customer => customer.IsAccountCustomer)
+            .HasDefaultValue(false);
 
         builder.HasIndex(customer => customer.Name);
     }

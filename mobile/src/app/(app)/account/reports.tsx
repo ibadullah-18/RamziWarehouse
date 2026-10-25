@@ -1,5 +1,5 @@
-import AccountScreen from '../../../features/customer-accounts/account-screen';
+import ReportsScreen from '../../../features/customer-accounts/reports-screen';
 
-export default function ReportsAccountPage() {
-  return <AccountScreen mode="reports" />;
+export default function ReportsPage() {
+  return <ReportsScreen />;
 }

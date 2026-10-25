@@ -40,6 +40,8 @@ export type ProductReturnStatusHistory = {
 
 export type ProductReturn = {
   amount: number;
+  /** The part already credited to the customer's debt (0 = not used yet). */
+  appliedAmount: number;
   returnPersonName: string | null;
   isDeleted: boolean;
   revision: string;
@@ -81,6 +83,8 @@ export type ProductReturnList = {
 
 export type ProductReturnQuery = {
   acceptedDate?:string;
+  /** Only returns that are not cancelled and not yet credited to a debt. */
+  unapplied?: boolean;
   customerId?: string;
   search?: string;
   status?: ReturnStatus;

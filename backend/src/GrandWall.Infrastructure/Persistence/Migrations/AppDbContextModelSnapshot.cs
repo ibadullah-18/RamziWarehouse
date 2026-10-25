@@ -22,25 +22,35 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("GrandWall.Domain.Entities.AccountDayClosure", b =>
+            modelBuilder.Entity("GrandWall.Domain.Entities.AccountDay", b =>
                 {
                     b.Property<DateOnly>("BusinessDate")
                         .HasColumnType("date");
 
-                    b.Property<DateTime>("ClosedAtUtc")
+                    b.Property<DateTime?>("ClosedAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("RecordedByFullName")
+                    b.Property<string>("ClosedByFullName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid?>("ClosedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StartedByFullName")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
-                    b.Property<Guid>("RecordedByUserId")
+                    b.Property<Guid>("StartedByUserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("BusinessDate");
 
-                    b.ToTable("AccountDayClosures");
+                    b.ToTable("AccountDays");
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.AccountEntryAudit", b =>
@@ -98,9 +108,15 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<bool>("CarryToTomorrow")
+                        .HasColumnType("bit");
+
                     b.Property<decimal>("Cash")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
@@ -109,11 +125,12 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<Guid?>("ProductReturnId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid>("RecordedByUserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReturnsKey")
+                        .HasMaxLength(2500)
+                        .HasColumnType("nvarchar(2500)");
 
                     b.HasKey("Id");
 
@@ -174,6 +191,11 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("IsAccountCustomer")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -227,9 +249,6 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.Property<int>("EntryType")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsFinalized")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Note")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -274,7 +293,7 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_CustomerAccountEntries_Amount_Positive", "[Amount] > 0");
 
-                            t.HasCheckConstraint("CK_CustomerAccountEntries_EntryType_Valid", "[EntryType] IN (1, 2, 3, 4, 5, 6, 7)");
+                            t.HasCheckConstraint("CK_CustomerAccountEntries_EntryType_Valid", "[EntryType] IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)");
                         });
                 });
 

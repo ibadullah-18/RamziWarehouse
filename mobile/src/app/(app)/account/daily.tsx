@@ -1,5 +1,5 @@
-import AccountScreen from '../../../features/customer-accounts/account-screen';
+import DailyDebtsScreen from '../../../features/customer-accounts/daily-debts-screen';
 
-export default function DailyAccountPage() {
-  return <AccountScreen mode="daily" />;
+export default function DailyDebtsPage() {
+  return <DailyDebtsScreen />;
 }

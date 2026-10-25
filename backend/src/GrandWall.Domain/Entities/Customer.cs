@@ -1,4 +1,4 @@
-﻿using GrandWall.Domain.Common;
+using GrandWall.Domain.Common;
 
 namespace GrandWall.Domain.Entities;
 
@@ -13,4 +13,7 @@ public sealed class Customer : BaseEntity
     public bool IsDeleted { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Sədərək dükanı: only these customers are listed and chosen in the açot.</summary>
+    public bool IsAccountCustomer { get; set; }
 }
