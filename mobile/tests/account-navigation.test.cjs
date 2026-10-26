@@ -83,25 +83,29 @@ test('product codes and batches keep only digits and hyphens', () => {
   assert.equal(math.cleanCodeInput('ab 1019--2'), '1019-2');
 });
 
-test('payment preview pays daily first, then old, and keeps the surplus as advance', () => {
-  const row = { remainingOld: 300, remainingDaily: 250 };
+test('payment preview pays today first, then the kept debt, then the old debt', () => {
+  const row = { remainingOld: 300, remainingCarried: 60, remainingToday: 250 };
+
   let preview = math.previewSettlement(row, 350, false);
-  assert.equal(preview.paidFromDaily, 250);
-  assert.equal(preview.paidFromOld, 100);
-  assert.equal(preview.finalOld, 200);
-  assert.equal(preview.finalDaily, 0);
+  assert.equal(preview.paidFromToday, 250);
+  assert.equal(preview.paidFromCarried, 60);
+  assert.equal(preview.paidFromOld, 40);
+  assert.equal(preview.finalOld, 260);
+  assert.equal(preview.finalCarried, 0);
 
+  // Today's unpaid rest is kept for tomorrow; yesterday's kept debt joins the old debt.
   preview = math.previewSettlement(row, 100, true);
-  assert.equal(preview.remainingDaily, 150);
-  assert.equal(preview.finalDaily, 150, 'kept for tomorrow');
-  assert.equal(preview.finalOld, 300);
+  assert.equal(preview.remainingToday, 150);
+  assert.equal(preview.finalCarried, 150);
+  assert.equal(preview.finalOld, 360);
 
+  // Not kept: everything unpaid joins the old debt.
   preview = math.previewSettlement(row, 100, false);
-  assert.equal(preview.finalOld, 450, 'unpaid daily joins the old debt');
-  assert.equal(preview.finalDaily, 0);
+  assert.equal(preview.finalOld, 510);
+  assert.equal(preview.finalCarried, 0);
 
-  preview = math.previewSettlement(row, 600, false);
-  assert.equal(preview.advance, 50);
+  preview = math.previewSettlement(row, 700, false);
+  assert.equal(preview.advance, 90);
   assert.equal(preview.finalOld, 0);
 });
 
@@ -171,4 +175,26 @@ test('the shared form inputs fix their keyboards: decimal for money, numeric for
   assert.match(code, /keyboardType="number-pad"[\s\S]*inputMode="numeric"/);
   assert.ok(code.includes('Defis əlavə et'), 'codes need an on-screen hyphen key');
   assert.match(plain, /keyboardType="default"[\s\S]*inputMode="text"/);
+});
+
+test('the Sədərək section lists the shops and the daily screen only writes the daily debt', () => {
+  const shops = fs.readFileSync(path.join(sourceRoot, 'features/customer-accounts/shops-screen.tsx'), 'utf8');
+  assert.ok(shops.includes('Sədərək müştəriləri') && shops.includes('Yeni Sədərək müştərisi'));
+  const daily = fs.readFileSync(path.join(sourceRoot, 'features/customer-accounts/daily-debts-screen.tsx'), 'utf8');
+  assert.equal(daily.includes('İlkin köhnə borc'), false, 'old debt belongs to the Sədərək page');
+  const detail = fs.readFileSync(path.join(sourceRoot, 'features/customer-accounts/customer-detail-screen.tsx'), 'utf8');
+  for (const needle of ['Köhnə borca əlavə et', 'Köhnə borcu düzəlt', 'Günlük borca əlavə et', 'Günlük borcu düzəlt']) {
+    assert.ok(detail.includes(needle), needle);
+  }
+});
+
+test('the save footer stays above the Android system buttons', () => {
+  const ui = fs.readFileSync(path.join(sourceRoot, 'features/customer-accounts/account-ui.tsx'), 'utf8');
+  assert.ok(ui.includes('useSafeAreaInsets') && ui.includes('insets.bottom'));
+});
+
+test('the day report puts non-payers last, in red and in one column', () => {
+  const report = fs.readFileSync(path.join(sourceRoot, 'features/customer-accounts/day-report-screen.tsx'), 'utf8');
+  assert.ok(report.includes("tone={unpaid ? 'bad'") && report.includes('Pul ödəməyənlər'));
+  assert.equal(report.includes('<Grid>'), false);
 });

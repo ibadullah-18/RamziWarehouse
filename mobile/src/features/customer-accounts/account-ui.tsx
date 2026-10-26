@@ -12,7 +12,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useResponsiveLayout } from '../../hooks/use-responsive-layout';
 import { colors } from '../../theme';
@@ -52,6 +52,8 @@ export function AccountPageShell({
   onRefresh?: () => void;
 }) {
   const layout = useResponsiveLayout();
+  // Android draws the system back/home buttons over the bottom edge: keep the footer above them.
+  const insets = useSafeAreaInsets();
   const width = layout.isTablet ? Math.min(layout.contentMaxWidth, 1040) : layout.contentMaxWidth;
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -99,7 +101,12 @@ export function AccountPageShell({
         {children}
       </KeyboardAwareScrollView>
       {footer ? (
-        <View style={[styles.footer, { paddingHorizontal: layout.horizontalPadding }]}>
+        <View
+          style={[
+            styles.footer,
+            { paddingHorizontal: layout.horizontalPadding, paddingBottom: Math.max(insets.bottom, 12) + 4 },
+          ]}
+        >
           <View style={[styles.footerInner, { maxWidth: width }]}>{footer}</View>
         </View>
       ) : null}
@@ -172,7 +179,7 @@ export function Card({
   style,
 }: {
   children: ReactNode;
-  tone?: 'default' | 'done' | 'warning';
+  tone?: 'default' | 'done' | 'warning' | 'bad';
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
@@ -180,6 +187,7 @@ export function Card({
     styles.card,
     tone === 'done' && styles.cardDone,
     tone === 'warning' && styles.cardWarning,
+    tone === 'bad' && styles.cardBad,
     style,
   ];
   if (!onPress) return <View style={content}>{children}</View>;
@@ -364,7 +372,6 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.75 },
   footer: {
     paddingTop: 10,
-    paddingBottom: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.background,
@@ -392,6 +399,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardDone: { borderColor: colors.success, backgroundColor: colors.successSoft },
+  cardBad: { borderColor: colors.danger, backgroundColor: colors.dangerSoft },
   cardWarning: { borderColor: colors.warning, backgroundColor: colors.warningSoft },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tileRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
@@ -407,7 +415,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tileLabel: { color: colors.textSecondary, fontSize: 13 },
-  tileValue: { color: colors.text, fontSize: 20, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  tileValue: { color: colors.text, fontSize: 17, fontWeight: '700', fontVariant: ['tabular-nums'] },
   line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 },
   lineLabel: { color: colors.textSecondary, fontSize: 16, flexShrink: 1 },
   lineValue: { color: colors.text, fontSize: 16, fontWeight: '600', fontVariant: ['tabular-nums'] },

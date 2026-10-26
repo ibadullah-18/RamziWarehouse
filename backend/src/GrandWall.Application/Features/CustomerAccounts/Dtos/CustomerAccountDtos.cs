@@ -67,6 +67,25 @@ public sealed class CorrectPreviousDebtRequestDto
     public string Reason { get; init; } = string.Empty;
 }
 
+/// <summary>
+/// A detailed debt change for the Sədərək customer page: add to or set the old debt, or add to
+/// or set today's daily debt. A reason is always required and is kept in the audit.
+/// </summary>
+public sealed class AdjustDebtRequestDto
+{
+    public Guid CustomerId { get; init; }
+
+    /// <summary>"old" or "daily".</summary>
+    public string Target { get; init; } = "old";
+
+    /// <summary>"add" (increase by Amount) or "set" (make the debt equal to Amount).</summary>
+    public string Mode { get; init; } = "add";
+
+    public decimal Amount { get; init; }
+
+    public string Reason { get; init; } = string.Empty;
+}
+
 public sealed class CorrectDailyDebtRequestDto
 {
     public DateOnly? Date { get; init; }
@@ -105,16 +124,16 @@ public sealed class AccountDayCustomerDto
 
     public string? PhoneNumber { get; init; }
 
-    /// <summary>Old debt owed when the day began (plus any old debt recorded today).</summary>
+    /// <summary>Köhnə borc owed when the day began (plus any old debt added today).</summary>
     public decimal OldDebt { get; init; }
 
-    /// <summary>Yesterday's kept daily debt plus today's new daily debt: one bucket.</summary>
-    public decimal DailyDebt { get; init; }
+    /// <summary>"Günlük köhnə": yesterday's daily debt that was kept for tomorrow. Zero unless it was kept.</summary>
+    public decimal CarriedDebt { get; init; }
 
-    /// <summary>Only the new daily debt written today.</summary>
-    public decimal NewDailyDebt { get; init; }
+    /// <summary>The new daily debt written today.</summary>
+    public decimal TodayDebt { get; init; }
 
-    public decimal Due => OldDebt + DailyDebt;
+    public decimal Due => OldDebt + CarriedDebt + TodayDebt;
 
     public decimal Cash { get; init; }
 
@@ -128,9 +147,11 @@ public sealed class AccountDayCustomerDto
 
     public decimal RemainingOld { get; init; }
 
-    public decimal RemainingDaily { get; init; }
+    public decimal RemainingCarried { get; init; }
 
-    public decimal Remaining => RemainingOld + RemainingDaily;
+    public decimal RemainingToday { get; init; }
+
+    public decimal Remaining => RemainingOld + RemainingCarried + RemainingToday;
 
     public decimal Advance { get; init; }
 
@@ -191,13 +212,17 @@ public sealed class CustomerAccountSummaryDto
 
     public bool IsActive { get; init; }
 
+    public bool IsAccountCustomer { get; init; }
+
     public decimal OldDebt { get; init; }
 
-    public decimal DailyDebt { get; init; }
+    public decimal CarriedDebt { get; init; }
+
+    public decimal TodayDebt { get; init; }
 
     public decimal Advance { get; init; }
 
-    public decimal RemainingDebt => OldDebt + DailyDebt;
+    public decimal RemainingDebt => OldDebt + CarriedDebt + TodayDebt;
 
     public bool HasOldDebtRecord { get; init; }
 }
@@ -242,7 +267,9 @@ public sealed class CustomerAccountDayDto
 
     public decimal OldDebt { get; init; }
 
-    public decimal DailyDebt { get; init; }
+    public decimal CarriedDebt { get; init; }
+
+    public decimal TodayDebt { get; init; }
 
     public decimal Cash { get; init; }
 
@@ -273,11 +300,13 @@ public sealed class CustomerAccountDetailsDto
 
     public decimal OldDebt { get; init; }
 
-    public decimal DailyDebt { get; init; }
+    public decimal CarriedDebt { get; init; }
+
+    public decimal TodayDebt { get; init; }
 
     public decimal Advance { get; init; }
 
-    public decimal RemainingDebt => OldDebt + DailyDebt;
+    public decimal RemainingDebt => OldDebt + CarriedDebt + TodayDebt;
 
     public bool HasOldDebtRecord { get; init; }
 
@@ -310,7 +339,8 @@ public sealed class AccountHistoryMonthDto
 public sealed record CustomerMonthDayDto(
     DateOnly BusinessDate,
     decimal OldDebt,
-    decimal DailyDebt,
+    decimal CarriedDebt,
+    decimal TodayDebt,
     decimal Cash,
     decimal Card,
     decimal Bonus,

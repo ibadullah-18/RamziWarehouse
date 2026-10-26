@@ -2,7 +2,7 @@
  * Every açot page owns a fixed route. Route names never use reserved navigation
  * parameters: customer pages get only `id`, day pages only `date`.
  */
-export const accountPages = ['daily', 'collect', 'settle', 'reports', 'report', 'detail'] as const;
+export const accountPages = ['daily', 'collect', 'settle', 'reports', 'report', 'detail', 'shops'] as const;
 export type AccountPage = typeof accountPages[number];
 
 export const customerAccountPages: readonly AccountPage[] = ['settle', 'detail'];

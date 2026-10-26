@@ -25,16 +25,15 @@ import { cleanMoneyInput, parseMoney } from './settlement-math';
 import { errorText, useAccountSession } from './use-account-session';
 
 /**
- * Step one of the day: write each customer's daily debt and press save. The old debt is
- * asked only once, for a customer who has none recorded yet. Saving again with the same
- * numbers changes nothing, and a changed number posts only the difference.
+ * Step one of the day: write each customer's daily debt and press save. Only the daily debt
+ * lives here; the old debt is written and corrected on the Sədərək customer page. Saving again
+ * with the same numbers changes nothing, and a changed number posts only the difference.
  */
 export default function DailyDebtsScreen() {
-  const { token, canUse, canWriteOldDebt } = useAccountSession();
+  const { token, canUse } = useAccountSession();
   const [customers, setCustomers] = useState<CustomerAccountSummary[]>([]);
   const [initial, setInitial] = useState<Record<string, string>>({});
   const [daily, setDaily] = useState<Record<string, string>>({});
-  const [old, setOld] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -56,7 +55,7 @@ export default function DailyDebtsScreen() {
       if (serial !== request.current) return;
       const written: Record<string, string> = {};
       for (const row of day.customers) {
-        if (row.newDailyDebt > 0) written[row.customerId] = String(row.newDailyDebt);
+        if (row.todayDebt > 0) written[row.customerId] = String(row.todayDebt);
       }
       setCustomers(list.filter((customer) => customer.isActive));
       setInitial(written);
@@ -87,27 +86,17 @@ export default function DailyDebtsScreen() {
     let invalid: string | null = null;
     for (const customer of customers) {
       const id = customer.customerId;
-      const typedDaily = daily[id];
-      const typedOld = old[id];
-      const dailyValue = typedDaily === undefined ? parseMoney(initial[id] ?? '') : parseMoney(typedDaily);
-      const oldValue = typedOld ? parseMoney(typedOld) : 0;
-      if (dailyValue === null || oldValue === null) {
+      const typed = daily[id];
+      if (typed === undefined) continue;
+      const value = parseMoney(typed);
+      if (value === null) {
         invalid = customer.customerName;
         continue;
       }
-      const before = parseMoney(initial[id] ?? '') ?? 0;
-      const dailyChanged = typedDaily !== undefined && dailyValue !== before;
-      const oldWritten = oldValue > 0 && !customer.hasOldDebtRecord;
-      if (dailyChanged || oldWritten) {
-        items.push({
-          customerId: id,
-          dailyDebt: dailyValue,
-          oldDebt: oldWritten ? oldValue : null,
-        });
-      }
+      if (value !== (parseMoney(initial[id] ?? '') ?? 0)) items.push({ customerId: id, dailyDebt: value });
     }
     return { items, invalid };
-  }, [customers, daily, old, initial]);
+  }, [customers, daily, initial]);
 
   async function save() {
     if (busyLock.current || changes.items.length === 0) return;
@@ -121,7 +110,6 @@ export default function DailyDebtsScreen() {
     setSaved('');
     try {
       await saveDailyDebts(token, changes.items);
-      setOld({});
       setSaved(`${changes.items.length} müştərinin borcu yadda saxlanıldı.`);
       await load();
     } catch (e) {
@@ -188,7 +176,7 @@ export default function DailyDebtsScreen() {
                     {customer.customerName}
                   </Text>
                   <Line label="Köhnə borc" value={money(customer.oldDebt)} />
-                  <Line label="Saxlanılan günlük" value={money(customer.dailyDebt)} />
+                  {customer.carriedDebt > 0 ? <Line label="Dünənki (sabaha saxlanılan)" value={money(customer.carriedDebt)} tone="warn" /> : null}
                 </View>
                 <MoneyInput
                   label={initial[id] ? 'Bugünkü günlük borc (yazılıb)' : 'Bugünkü günlük borc'}
@@ -199,16 +187,6 @@ export default function DailyDebtsScreen() {
                   }}
                   hint={changed ? 'Dəyişdi — yadda saxlayın' : undefined}
                 />
-                {!customer.hasOldDebtRecord && canWriteOldDebt ? (
-                  <MoneyInput
-                    label="İlkin köhnə borc (yalnız bir dəfə)"
-                    value={old[id] ?? ''}
-                    onChangeText={(value) => {
-                      setSaved('');
-                      setOld((current) => ({ ...current, [id]: value }));
-                    }}
-                  />
-                ) : null}
               </Card>
             );
           })}

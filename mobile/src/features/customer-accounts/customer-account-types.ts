@@ -21,9 +21,10 @@ export type AccountDayCustomer = {
   phoneNumber: string | null;
   /** Köhnə borc owed when the day began. */
   oldDebt: number;
-  /** Günlük borc: the balance kept from yesterday plus the new debt of the day. */
-  dailyDebt: number;
-  newDailyDebt: number;
+  /** "Günlük köhnə": yesterday's daily debt that was kept for tomorrow (zero otherwise). */
+  carriedDebt: number;
+  /** Bu günkü günlük borc: the new debt written today. */
+  todayDebt: number;
   due: number;
   cash: number;
   card: number;
@@ -31,7 +32,8 @@ export type AccountDayCustomer = {
   bonus: number;
   returnCredit: number;
   remainingOld: number;
-  remainingDaily: number;
+  remainingCarried: number;
+  remainingToday: number;
   remaining: number;
   advance: number;
   isDone: boolean;
@@ -64,8 +66,10 @@ export type CustomerAccountSummary = {
   customerName: string;
   phoneNumber: string | null;
   isActive: boolean;
+  isAccountCustomer: boolean;
   oldDebt: number;
-  dailyDebt: number;
+  carriedDebt: number;
+  todayDebt: number;
   advance: number;
   remainingDebt: number;
   hasOldDebtRecord: boolean;
@@ -101,7 +105,8 @@ export type CustomerAccountEntry = {
 export type CustomerAccountDay = {
   businessDate: string;
   oldDebt: number;
-  dailyDebt: number;
+  carriedDebt: number;
+  todayDebt: number;
   cash: number;
   card: number;
   bonus: number;
@@ -117,7 +122,8 @@ export type CustomerAccountDetails = {
   phoneNumber: string | null;
   isActive: boolean;
   oldDebt: number;
-  dailyDebt: number;
+  carriedDebt: number;
+  todayDebt: number;
   advance: number;
   remainingDebt: number;
   hasOldDebtRecord: boolean;
@@ -150,7 +156,8 @@ export type AccountHistoryMonth = {
 export type CustomerMonthDay = {
   businessDate: string;
   oldDebt: number;
-  dailyDebt: number;
+  carriedDebt: number;
+  todayDebt: number;
   cash: number;
   card: number;
   bonus: number;
@@ -169,6 +176,14 @@ export type CustomerMonth = {
   returnCredit: number;
   remaining: number;
   days: CustomerMonthDay[];
+};
+
+export type AdjustDebtRequest = {
+  customerId: string;
+  target: 'old' | 'daily';
+  mode: 'add' | 'set';
+  amount: number;
+  reason: string;
 };
 
 export type DailyDebtItem = {

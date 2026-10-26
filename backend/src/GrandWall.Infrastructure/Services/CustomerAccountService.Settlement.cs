@@ -87,7 +87,8 @@ public sealed partial class CustomerAccountService
 
             // The customer stays "−" only while daily debt is left; unless it is kept for
             // tomorrow, the unpaid rest becomes old debt right now.
-            var remainingDaily = AccountLedger.Closing(Items(entries), today).Daily;
+            var closingNow = AccountLedger.Closing(Items(entries), today);
+            var remainingDaily = closingNow.Carried + closingNow.Today;
             if (!r.CarryToTomorrow && remainingDaily > 0)
                 Add(remainingDaily, CustomerAccountEntryType.DailyToOld, null, null, "Günlük qalıq köhnə borca keçdi");
 
@@ -102,7 +103,7 @@ public sealed partial class CustomerAccountService
 
     public async Task<CustomerAccountDetailsDto> CorrectPreviousDebtAsync(CorrectPreviousDebtRequestDto r, CancellationToken cancellationToken = default)
     {
-        Allow(UserRole.Admin);
+        Allow(UserRole.Admin, UserRole.Accountant);
         Money(r.CorrectedPreviousDebt);
         EnsureReason(r.Reason);
         await Mutate(r.CustomerId, async (_, entries) =>
@@ -170,6 +171,56 @@ public sealed partial class CustomerAccountService
                 CustomerId = r.CustomerId, EntryId = entry.Id, UserId = user.UserId, UserName = user.FullName, Description = description
             });
             await Task.CompletedTask;
+        }, cancellationToken);
+        return await GetByCustomerIdAsync(r.CustomerId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sədərək customer page: add to or set the old debt, or add to or set today's daily debt.
+    /// Every change keeps its reason and author in the audit.
+    /// </summary>
+    public async Task<CustomerAccountDetailsDto> AdjustDebtAsync(AdjustDebtRequestDto r, CancellationToken cancellationToken = default)
+    {
+        Allow(AccountRoles);
+        Money(r.Amount);
+        EnsureReason(r.Reason);
+        if (r.Target == "old") Allow(UserRole.Admin, UserRole.Accountant);
+        if (r.Target is not ("old" or "daily") || r.Mode is not ("add" or "set"))
+            throw new ConflictException("Əməliyyat düzgün deyil.");
+        if (r.Mode == "add" && r.Amount <= 0)
+            throw new ConflictException("Əlavə ediləcək məbləği yazın.");
+
+        await Mutate(r.CustomerId, async (customer, entries) =>
+        {
+            var today = Today;
+            var reason = r.Reason.Trim();
+            if (r.Target == "old")
+            {
+                var current = AccountLedger.Closing(Items(entries), today).Old;
+                var target = r.Mode == "add" ? current + r.Amount : r.Amount;
+                var delta = target - current;
+                if (delta == 0) throw new ConflictException("Məbləğ dəyişməyib.");
+                if (delta > 0) EnsureUsable(customer);
+                AddCorrection(r.CustomerId, entries,
+                    delta > 0 ? CustomerAccountEntryType.AdjustmentIncrease : CustomerAccountEntryType.AdjustmentDecrease,
+                    Math.Abs(delta), today,
+                    $"Köhnə borc: {current:0.00} → {target:0.00} AZN. Səbəb: {reason}");
+            }
+            else
+            {
+                var day = entries.Where(e => e.BusinessDate == today).ToList();
+                var current = Sum(day, CustomerAccountEntryType.Debt, CustomerAccountEntryType.DailyIncrease) - Sum(day, CustomerAccountEntryType.DailyDecrease);
+                var target = r.Mode == "add" ? current + r.Amount : r.Amount;
+                var delta = target - current;
+                if (delta == 0) throw new ConflictException("Məbləğ dəyişməyib.");
+                if (delta > 0) EnsureUsable(customer);
+                var hasDebt = day.Any(e => e.EntryType == CustomerAccountEntryType.Debt);
+                var type = delta < 0 ? CustomerAccountEntryType.DailyDecrease
+                    : hasDebt ? CustomerAccountEntryType.DailyIncrease : CustomerAccountEntryType.Debt;
+                AddCorrection(r.CustomerId, entries, type, Math.Abs(delta), today,
+                    $"Bugünkü günlük borc: {current:0.00} → {target:0.00} AZN. Səbəb: {reason}");
+            }
+            await TouchTodayAsync(cancellationToken);
         }, cancellationToken);
         return await GetByCustomerIdAsync(r.CustomerId, cancellationToken);
     }

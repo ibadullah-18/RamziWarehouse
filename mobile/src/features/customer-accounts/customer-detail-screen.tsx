@@ -4,9 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
 import {
+  adjustDebt,
   correctAccountPayment,
   correctDailyDebt,
-  correctPreviousDebt,
   getCustomerAccountDetails,
   getCustomerMonth,
 } from '../../api/customer-account-api';
@@ -38,8 +38,9 @@ import {
 import { parseMoney } from './settlement-math';
 import { errorText, useAccountSession } from './use-account-session';
 
+type Adjustment = { target: 'old' | 'daily'; mode: 'add' | 'set' };
+
 type Correction =
-  | { kind: 'old' }
   | { kind: 'daily'; date: string; current: number }
   | { kind: 'payment'; entry: CustomerAccountEntry };
 
@@ -59,11 +60,12 @@ const entryLabels: Partial<Record<CustomerAccountEntryType, string>> = {
 
 /** One customer: balances, the month's payments and the history with corrections. */
 export default function CustomerDetailScreen({ customerId }: { customerId: string }) {
-  const { token, canUse, isAdmin } = useAccountSession();
+  const { token, canUse, isAdmin, canWriteOldDebt } = useAccountSession();
   const [details, setDetails] = useState<CustomerAccountDetails | null>(null);
   const [month, setMonth] = useState(monthKey(todayKey()));
   const [monthData, setMonthData] = useState<CustomerMonth | null>(null);
   const [correction, setCorrection] = useState<Correction | null>(null);
+  const [adjustment, setAdjustment] = useState<Adjustment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const request = useRef(0);
@@ -114,13 +116,28 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
         <>
           <TileRow>
             <Tile label="Köhnə borc" value={money(details.oldDebt)} tone={details.oldDebt > 0 ? 'warn' : undefined} />
-            <Tile label="Günlük borc" value={money(details.dailyDebt)} tone={details.dailyDebt > 0 ? 'warn' : undefined} />
+            {details.carriedDebt > 0 ? <Tile label="Dünənki (saxlanılan)" value={money(details.carriedDebt)} tone="warn" /> : null}
+            <Tile label="Bu günkü günlük" value={money(details.todayDebt)} tone={details.todayDebt > 0 ? 'warn' : undefined} />
             <Tile label="Cəmi borc" value={money(details.remainingDebt)} tone={details.remainingDebt > 0 ? 'warn' : 'good'} />
             {details.advance > 0 ? <Tile label="Avans" value={money(details.advance)} tone="good" /> : null}
           </TileRow>
-          {isAdmin ? (
-            <Btn icon="create-outline" variant="secondary" title="Köhnə borcu düzəlt" onPress={() => setCorrection({ kind: 'old' })} />
-          ) : null}
+
+          <Card>
+            <SectionTitle>Borc əməliyyatları</SectionTitle>
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+              Kritik anda borcu dəqiq düzəldin. Hər dəyişiklik səbəbi və adınızla tarixçədə saxlanılır.
+            </Text>
+            <Grid>
+              {canWriteOldDebt ? (
+                <Btn icon="add-circle-outline" variant="secondary" title="Köhnə borca əlavə et" onPress={() => setAdjustment({ target: 'old', mode: 'add' })} />
+              ) : null}
+              {canWriteOldDebt ? (
+                <Btn icon="create-outline" variant="secondary" title="Köhnə borcu düzəlt" onPress={() => setAdjustment({ target: 'old', mode: 'set' })} />
+              ) : null}
+              <Btn icon="add-circle-outline" variant="secondary" title="Günlük borca əlavə et" onPress={() => setAdjustment({ target: 'daily', mode: 'add' })} />
+              <Btn icon="create-outline" variant="secondary" title="Günlük borcu düzəlt" onPress={() => setAdjustment({ target: 'daily', mode: 'set' })} />
+            </Grid>
+          </Card>
 
           <SectionTitle>{monthLabel(month)} ödənişləri</SectionTitle>
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -143,7 +160,8 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
                     <Card key={day.businessDate}>
                       <Text style={{ color: colors.text, fontSize: 17, fontWeight: '700' }}>{dateLabel(day.businessDate)}</Text>
                       <Line label="Köhnə" value={money(day.oldDebt)} />
-                      <Line label="Günlük" value={money(day.dailyDebt)} />
+                      {day.carriedDebt > 0 ? <Line label="Dünənki" value={money(day.carriedDebt)} /> : null}
+                      <Line label="Bu günkü" value={money(day.todayDebt)} />
                       <Line label="Ödədi" value={money(day.cash + day.card)} tone={day.cash + day.card > 0 ? 'good' : undefined} />
                       {day.returnCredit > 0 ? <Line label="Vazvrat" value={money(day.returnCredit)} /> : null}
                       {day.bonus > 0 ? <Line label="Bonus" value={money(day.bonus)} /> : null}
@@ -212,12 +230,26 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
         </>
       ) : null}
 
+      {adjustment && details ? (
+        <AdjustSheet
+          adjustment={adjustment}
+          customerId={details.customerId}
+          token={token}
+          current={adjustment.target === 'old' ? details.oldDebt : details.todayDebt}
+          onClose={() => setAdjustment(null)}
+          onSaved={(updated) => {
+            setDetails(updated);
+            setAdjustment(null);
+            void load();
+          }}
+        />
+      ) : null}
+
       {correction && details ? (
         <CorrectionSheet
           correction={correction}
           customerId={details.customerId}
           token={token}
-          oldDebt={details.oldDebt}
           onClose={() => setCorrection(null)}
           onSaved={(updated) => {
             setDetails(updated);
@@ -234,19 +266,16 @@ function CorrectionSheet({
   correction,
   customerId,
   token,
-  oldDebt,
   onClose,
   onSaved,
 }: {
   correction: Correction;
   customerId: string;
   token: string;
-  oldDebt: number;
   onClose: () => void;
   onSaved: (details: CustomerAccountDetails) => void;
 }) {
-  const start =
-    correction.kind === 'old' ? oldDebt : correction.kind === 'daily' ? correction.current : correction.entry.amount;
+  const start = correction.kind === 'daily' ? correction.current : correction.entry.amount;
   const [amount, setAmount] = useState(String(start));
   const [method, setMethod] = useState<'cash' | 'card'>(
     correction.kind === 'payment' && correction.entry.paymentMethod === 'card' ? 'card' : 'cash',
@@ -255,8 +284,7 @@ function CorrectionSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const title =
-    correction.kind === 'old' ? 'Köhnə borcu düzəlt' : correction.kind === 'daily' ? `${dateLabel(correction.date)} günlük borcu düzəlt` : 'Ödənişi düzəlt';
+  const title = correction.kind === 'daily' ? `${dateLabel(correction.date)} günlük borcu düzəlt` : 'Ödənişi düzəlt';
 
   async function save() {
     const value = parseMoney(amount);
@@ -272,19 +300,17 @@ function CorrectionSheet({
     setError('');
     try {
       const result =
-        correction.kind === 'old'
-          ? await correctPreviousDebt(token, { customerId, correctedPreviousDebt: value, reason: reason.trim() })
-          : correction.kind === 'daily'
-            ? await correctDailyDebt(token, { customerId, amount: value, reason: reason.trim(), date: correction.date })
-            : await correctAccountPayment(token, {
-                customerId,
-                entryId: correction.entry.id,
-                expectedAmount: correction.entry.amount,
-                expectedPaymentMethod: correction.entry.paymentMethod,
-                amount: value,
-                paymentMethod: method,
-                reason: reason.trim(),
-              });
+        correction.kind === 'daily'
+          ? await correctDailyDebt(token, { customerId, amount: value, reason: reason.trim(), date: correction.date })
+          : await correctAccountPayment(token, {
+              customerId,
+              entryId: correction.entry.id,
+              expectedAmount: correction.entry.amount,
+              expectedPaymentMethod: correction.entry.paymentMethod,
+              amount: value,
+              paymentMethod: method,
+              reason: reason.trim(),
+            });
       onSaved(result);
     } catch (e) {
       setError(errorText(e, 'Düzəliş saxlanmadı.'));
@@ -312,6 +338,95 @@ function CorrectionSheet({
           <TextField label="Düzəlişin səbəbi" value={reason} onChangeText={setReason} maxLength={400} />
           {error ? <Notice tone="error">{error}</Notice> : null}
           <Btn title="Düzəlişi saxla" onPress={() => void save()} busy={busy} />
+          <Btn title="Ləğv et" variant="secondary" onPress={onClose} disabled={busy} />
+        </KeyboardAwareScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+const adjustTitles: Record<string, string> = {
+  'old-add': 'Köhnə borca əlavə et',
+  'old-set': 'Köhnə borcu düzəlt',
+  'daily-add': 'Bu günkü günlük borca əlavə et',
+  'daily-set': 'Bu günkü günlük borcu düzəlt',
+};
+
+/** Add to or set the old debt or the daily debt of today; shows the result before saving. */
+function AdjustSheet({
+  adjustment,
+  customerId,
+  token,
+  current,
+  onClose,
+  onSaved,
+}: {
+  adjustment: Adjustment;
+  customerId: string;
+  token: string;
+  current: number;
+  onClose: () => void;
+  onSaved: (details: CustomerAccountDetails) => void;
+}) {
+  const [amount, setAmount] = useState(adjustment.mode === 'set' ? String(current) : '');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const value = parseMoney(amount);
+  const result = value === null ? null : adjustment.mode === 'add' ? current + value : value;
+  const label = adjustment.target === 'old' ? 'köhnə borc' : 'bu günkü günlük borc';
+
+  async function save() {
+    if (value === null || (adjustment.mode === 'add' && value <= 0)) {
+      setError('Məbləği düzgün yazın.');
+      return;
+    }
+    if (reason.trim().length < 3) {
+      setError('Səbəbi yazın (ən azı 3 hərf).');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      onSaved(
+        await adjustDebt(token, {
+          customerId,
+          target: adjustment.target,
+          mode: adjustment.mode,
+          amount: value,
+          reason: reason.trim(),
+        }),
+      );
+    } catch (e) {
+      setError(errorText(e, 'Dəyişiklik saxlanmadı.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <KeyboardAwareScrollView
+          bottomOffset={62}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ padding: 16, gap: 14, width: '100%', maxWidth: 640, alignSelf: 'center' }}
+        >
+          <Text style={{ color: colors.text, fontSize: 22, fontWeight: '700' }}>
+            {adjustTitles[`${adjustment.target}-${adjustment.mode}`]}
+          </Text>
+          <Card>
+            <Line label={`Hazırkı ${label}`} value={money(current)} />
+            {result !== null ? <Line label={`Yeni ${label}`} value={money(result)} strong tone="warn" /> : null}
+          </Card>
+          <MoneyInput
+            label={adjustment.mode === 'add' ? 'Əlavə ediləcək məbləğ' : `Düzgün ${label}`}
+            value={amount}
+            onChangeText={setAmount}
+          />
+          <TextField label="Səbəb (məcburi)" value={reason} onChangeText={setReason} maxLength={400} placeholder="Məsələn: axşam sifarişi" />
+          {error ? <Notice tone="error">{error}</Notice> : null}
+          <Btn title="Saxla" onPress={() => void save()} busy={busy} />
           <Btn title="Ləğv et" variant="secondary" onPress={onClose} disabled={busy} />
         </KeyboardAwareScrollView>
       </SafeAreaView>

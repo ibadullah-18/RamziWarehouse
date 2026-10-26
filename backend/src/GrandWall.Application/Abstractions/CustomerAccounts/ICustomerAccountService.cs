@@ -22,6 +22,8 @@ public interface ICustomerAccountService
 
     Task<CustomerAccountDetailsDto> GetByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default);
 
+    Task<CustomerAccountDetailsDto> AdjustDebtAsync(AdjustDebtRequestDto request, CancellationToken cancellationToken = default);
+
     Task<CustomerAccountDetailsDto> CorrectPaymentAsync(CorrectAccountPaymentRequestDto request, CancellationToken cancellationToken = default);
 
     Task<CustomerAccountDetailsDto> CorrectDailyAsync(CorrectDailyDebtRequestDto request, CancellationToken cancellationToken = default);

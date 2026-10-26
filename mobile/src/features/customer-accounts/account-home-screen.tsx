@@ -192,11 +192,17 @@ export default function AccountHomeScreen() {
               title="Tarixçə"
               onPress={() => open(accountDestination('reports') as Href)}
             />
+            <Btn
+              icon="storefront-outline"
+              variant="secondary"
+              title="Sədərək müştəriləri"
+              onPress={() => open(accountDestination('shops') as Href)}
+            />
             {isAdmin ? (
               <Btn
-                icon="storefront-outline"
+                icon="people-outline"
                 variant="secondary"
-                title="Müştərilər"
+                title="Bütün müştərilər"
                 onPress={() => open('/customers' as Href)}
               />
             ) : null}

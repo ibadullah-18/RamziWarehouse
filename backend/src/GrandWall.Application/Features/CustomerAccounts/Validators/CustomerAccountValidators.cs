@@ -91,3 +91,20 @@ public sealed class CorrectPreviousDebtRequestValidator
             .WithMessage("Düzəliş səbəbi 400 simvoldan çox ola bilməz.");
     }
 }
+
+public sealed class AdjustDebtRequestValidator
+    : AbstractValidator<AdjustDebtRequestDto>
+{
+    public AdjustDebtRequestValidator()
+    {
+        RuleFor(request => request.CustomerId).NotEmpty().WithMessage("Müştəri seçilməlidir.");
+        RuleFor(request => request.Target).Must(target => target is "old" or "daily").WithMessage("Borc növü düzgün deyil.");
+        RuleFor(request => request.Mode).Must(mode => mode is "add" or "set").WithMessage("Əməliyyat növü düzgün deyil.");
+        RuleFor(request => request.Amount).GreaterThanOrEqualTo(0).WithMessage("Məbləğ mənfi ola bilməz.");
+        RuleFor(request => request.Amount).GreaterThan(0).When(request => request.Mode == "add").WithMessage("Əlavə ediləcək məbləğ sıfırdan böyük olmalıdır.");
+        RuleFor(request => request.Reason)
+            .NotEmpty().WithMessage("Səbəb yazılmalıdır.")
+            .MinimumLength(3).WithMessage("Səbəb ən azı 3 simvol olmalıdır.")
+            .MaximumLength(400).WithMessage("Səbəb 400 simvoldan çox ola bilməz.");
+    }
+}

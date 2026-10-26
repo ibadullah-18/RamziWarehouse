@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import { ApiProblemDetails } from "../auth/auth-types";
 import {
   AccountDay,
+  AdjustDebtRequest,
   AccountHistoryMonth,
   CustomerAccountDetails,
   CustomerAccountList,
@@ -231,6 +232,15 @@ export function getCustomerMonth(
   return sendAccountRequest<CustomerMonth>(
     `/api/customer-accounts/${encodeURIComponent(customerId)}/month?month=${encodeURIComponent(month)}`,
     accessToken,
+  );
+}
+
+/** Sədərək customer page: add to or set the old debt or today's daily debt. */
+export function adjustDebt(accessToken: string, body: AdjustDebtRequest) {
+  return sendAccountRequest<CustomerAccountDetails>(
+    "/api/customer-accounts/adjust",
+    accessToken,
+    { method: "POST", body },
   );
 }
 

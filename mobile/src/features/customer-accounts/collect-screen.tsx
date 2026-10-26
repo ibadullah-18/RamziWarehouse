@@ -177,7 +177,10 @@ function CustomerCard({ customer, onPress }: { customer: AccountDayCustomer; onP
         </Text>
       </View>
       <Line label="Köhnə borc" value={money(customer.oldDebt)} />
-      <Line label="Günlük borc" value={money(customer.dailyDebt)} />
+      {customer.carriedDebt > 0 ? (
+        <Line label="Dünənki (sabaha saxlanılan)" value={money(customer.carriedDebt)} tone="warn" />
+      ) : null}
+      <Line label="Bu günkü günlük" value={money(customer.todayDebt)} />
       <Line label="Cəmi" value={money(customer.due)} strong />
       {customer.isDone || customer.paid > 0 || customer.bonus > 0 || customer.returnCredit > 0 ? (
         <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
@@ -192,7 +195,7 @@ function CustomerCard({ customer, onPress }: { customer: AccountDayCustomer; onP
           {customer.bonus > 0 ? <Line label="Bonus" value={money(customer.bonus)} /> : null}
           <Line label="Qalan borc" value={money(customer.remaining)} strong tone={customer.remaining > 0 ? 'warn' : 'good'} />
           {customer.carryToTomorrow ? (
-            <Text style={{ color: colors.warning, fontSize: 14 }}>Günlük borc sabaha saxlanılıb</Text>
+            <Text style={{ color: colors.warning, fontSize: 14 }}>Bu günkü borc sabaha saxlanılıb</Text>
           ) : null}
         </View>
       ) : null}

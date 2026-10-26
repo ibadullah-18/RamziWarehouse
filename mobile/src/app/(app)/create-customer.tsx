@@ -3,6 +3,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import {
     router,
+    useLocalSearchParams,
     type Href,
 } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -36,7 +37,8 @@ export default function CreateCustomerScreen() {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [note, setNote] = useState('');
-  const [isShop, setIsShop] = useState(false);
+  const params = useLocalSearchParams<{ shop?: string }>();
+  const [isShop, setIsShop] = useState(params.shop === '1');
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,7 +99,7 @@ export default function CreateCustomerScreen() {
           {
             text: 'Tamam',
             onPress: () => {
-              router.replace('/customers' as Href);
+              router.replace((params.shop === '1' ? '/account/shops' : '/customers') as Href);
             },
           },
         ],

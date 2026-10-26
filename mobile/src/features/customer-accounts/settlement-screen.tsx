@@ -103,7 +103,9 @@ export default function SettlementScreen({ customerId }: { customerId: string })
     };
   }, [cash, card, bonus, showBonus, chosen]);
 
-  const balances = details ? { remainingOld: details.oldDebt, remainingDaily: details.dailyDebt } : null;
+  const balances = details
+    ? { remainingOld: details.oldDebt, remainingCarried: details.carriedDebt, remainingToday: details.todayDebt }
+    : null;
   const preview = balances && amounts ? previewSettlement(balances, amounts.credit, carry) : null;
 
   function edit(update: () => void) {
@@ -218,11 +220,12 @@ export default function SettlementScreen({ customerId }: { customerId: string })
           ) : null}
           {receipt.bonus > 0 ? <Line label="Bonus" value={money(receipt.bonus)} /> : null}
           <Line label="Köhnə borc" value={money(details.oldDebt)} />
-          <Line label="Günlük borc" value={money(details.dailyDebt)} />
+          {details.carriedDebt > 0 ? <Line label="Dünənki (sabaha saxlanılan)" value={money(details.carriedDebt)} /> : null}
+          <Line label="Bu günkü günlük" value={money(details.todayDebt)} />
           {details.advance > 0 ? <Line label="Avans" value={money(details.advance)} tone="good" /> : null}
           <Line label="Qalan borc" value={money(details.remainingDebt)} strong tone={details.remainingDebt > 0 ? 'warn' : 'good'} />
-          {receipt.carryToTomorrow && details.dailyDebt > 0 ? (
-            <Text style={{ color: colors.warning }}>Günlük borc sabaha saxlanıldı.</Text>
+          {receipt.carryToTomorrow && details.todayDebt > 0 ? (
+            <Text style={{ color: colors.warning }}>Bu günkü borc sabaha saxlanıldı.</Text>
           ) : null}
         </Card>
         <Btn title="Siyahıya qayıt" onPress={() => goBack('/account/collect')} />
@@ -254,7 +257,10 @@ export default function SettlementScreen({ customerId }: { customerId: string })
       <Card>
         <SectionTitle>Borc</SectionTitle>
         <Line label="Köhnə borc" value={money(details.oldDebt)} />
-        <Line label="Günlük borc" value={money(details.dailyDebt)} />
+        {details.carriedDebt > 0 ? (
+          <Line label="Dünənki (sabaha saxlanılan)" value={money(details.carriedDebt)} />
+        ) : null}
+        <Line label="Bu günkü günlük" value={money(details.todayDebt)} />
         <Line label="Cəmi ödənməli" value={money(details.remainingDebt)} strong tone={details.remainingDebt > 0 ? 'warn' : 'good'} />
         {details.advance > 0 ? <Line label="Avans (artıq verilib)" value={money(details.advance)} tone="good" /> : null}
       </Card>
@@ -317,7 +323,7 @@ export default function SettlementScreen({ customerId }: { customerId: string })
             <Text style={{ color: colors.text, fontSize: 17, fontWeight: '700' }}>Günlük borcu sabaha saxla</Text>
             <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
               {carry
-                ? 'Ödənilməyən günlük borc sabah avtomatik günlükdə görünəcək.'
+                ? 'Bu günkü ödənilməyən borc sabah siyahıda “dünənki” kimi görünəcək. Dünənki saxlanılan borc isə köhnəyə qatılır.'
                 : 'Ödənilməyən günlük borc köhnə borca keçəcək.'}
             </Text>
           </View>
@@ -336,22 +342,27 @@ export default function SettlementScreen({ customerId }: { customerId: string })
         <Card>
           <SectionTitle>Nəticə</SectionTitle>
           <Line label="Borcdan çıxılır" value={money(preview.credit)} />
-          {preview.paidFromDaily > 0 ? <Line label="· günlük borcdan" value={money(preview.paidFromDaily)} /> : null}
+          {preview.paidFromToday > 0 ? <Line label="· bu günkü borcdan" value={money(preview.paidFromToday)} /> : null}
+          {preview.paidFromCarried > 0 ? <Line label="· dünənki borcdan" value={money(preview.paidFromCarried)} /> : null}
           {preview.paidFromOld > 0 ? <Line label="· köhnə borcdan" value={money(preview.paidFromOld)} /> : null}
           {preview.advance > 0 ? <Line label="Avans kimi qalır" value={money(preview.advance)} tone="good" /> : null}
-          {preview.remainingDaily > 0 ? (
+          {preview.remainingToday > 0 ? (
             <Line
-              label={carry ? 'Sabaha günlükdə qalır' : 'Köhnə borca keçir'}
-              value={money(preview.remainingDaily)}
+              label={carry ? 'Sabaha “dünənki” kimi qalır' : 'Köhnə borca keçir'}
+              value={money(preview.remainingToday)}
               tone="warn"
             />
           ) : null}
+          {preview.remainingCarried > 0 ? (
+            <Line label="Dünənki ödənilməyən köhnəyə qatılır" value={money(preview.remainingCarried)} tone="warn" />
+          ) : null}
           <Line label="Qalan köhnə borc" value={money(preview.finalOld)} />
+          {preview.finalCarried > 0 ? <Line label="Sabaha saxlanılan" value={money(preview.finalCarried)} /> : null}
           <Line
             label="Qalan borc cəmi"
-            value={money(preview.finalOld + preview.finalDaily)}
+            value={money(preview.finalOld + preview.finalCarried)}
             strong
-            tone={preview.finalOld + preview.finalDaily > 0 ? 'warn' : 'good'}
+            tone={preview.finalOld + preview.finalCarried > 0 ? 'warn' : 'good'}
           />
         </Card>
       ) : null}

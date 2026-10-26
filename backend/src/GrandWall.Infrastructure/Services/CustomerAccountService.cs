@@ -56,7 +56,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
         foreach (var date in items.Select(i => i.Date).Distinct())
         {
             var closing = AccountLedger.Closing(items, date);
-            if (closing.Old < 0 || closing.Daily < 0)
+            if (closing.Old < 0 || closing.Carried < 0 || closing.Today < 0)
                 throw new ConflictException("Düzəliş borcu mənfiyə salır və ya sonrakı ödənişlərlə uyğun gəlmir.");
         }
     }
@@ -123,7 +123,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
         var roster = new HashSet<Guid>(entries.Where(e => e.BusinessDate == date).Select(e => e.CustomerId));
         roster.UnionWith(settlements.Select(s => s.CustomerId));
         foreach (var (id, list) in byCustomer)
-            if (AccountLedger.Opening(Items(list), date).Daily > 0) roster.Add(id);
+            if (AccountLedger.Opening(Items(list), date).Carried > 0) roster.Add(id);
 
         var customers = await db.Customers.AsNoTracking().Where(c => roster.Contains(c.Id)).ToListAsync(cancellationToken);
         var rows = customers
@@ -149,7 +149,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             Collected = rows.Sum(r => r.Paid),
             Bonus = rows.Sum(r => r.Bonus),
             ReturnCredit = rows.Sum(r => r.ReturnCredit),
-            NewDailyDebt = rows.Sum(r => r.NewDailyDebt),
+            NewDailyDebt = rows.Sum(r => r.TodayDebt),
             CustomerCount = rows.Count,
             DoneCount = rows.Count(r => r.IsDone),
             Customers = rows
@@ -176,17 +176,18 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             CustomerName = customer.Name,
             PhoneNumber = customer.PhoneNumber,
             OldDebt = opening.Old + oldToday,
-            DailyDebt = opening.Daily + newDaily,
-            NewDailyDebt = newDaily,
+            CarriedDebt = opening.Carried,
+            TodayDebt = newDaily,
             Cash = Method(day, "cash"),
             Card = Method(day, "card"),
             Bonus = Sum(day, CustomerAccountEntryType.Bonus),
             ReturnCredit = Sum(day, CustomerAccountEntryType.ReturnCredit) - Sum(day, CustomerAccountEntryType.CreditReversal),
             RemainingOld = closing.Old,
-            RemainingDaily = closing.Daily,
+            RemainingCarried = closing.Carried,
+            RemainingToday = closing.Today,
             Advance = closing.Advance,
             IsDone = settlement is not null && !reopened,
-            CarryToTomorrow = settlement is { CarryToTomorrow: true } && closing.Daily > 0,
+            CarryToTomorrow = settlement is { CarryToTomorrow: true } && closing.Today > 0,
             HasOldDebtRecord = entries.Any(e => e.EntryType == CustomerAccountEntryType.OpeningBalance)
         };
     }
@@ -317,7 +318,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
         var summaries = customers
             .Select(c => Summary(c, byCustomer.GetValueOrDefault(c.Id) ?? [], date))
             // Only Sədərək customers are offered; anyone who still owes money (or has credit) stays visible.
-            .Where(s => (s.IsAccountCustomer && !s.IsDeleted) || s.OldDebt != 0 || s.DailyDebt != 0 || s.Advance != 0)
+            .Where(s => (s.IsAccountCustomer && !s.IsDeleted) || s.OldDebt != 0 || s.CarriedDebt != 0 || s.TodayDebt != 0 || s.Advance != 0)
             .OrderBy(s => s.Dto.CustomerName, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
@@ -334,7 +335,8 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
     private sealed record SummaryRow(CustomerAccountSummaryDto Dto, bool IsAccountCustomer, bool IsDeleted)
     {
         public decimal OldDebt => Dto.OldDebt;
-        public decimal DailyDebt => Dto.DailyDebt;
+        public decimal CarriedDebt => Dto.CarriedDebt;
+        public decimal TodayDebt => Dto.TodayDebt;
         public decimal Advance => Dto.Advance;
     }
 
@@ -347,8 +349,10 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             CustomerName = customer.Name,
             PhoneNumber = customer.PhoneNumber,
             IsActive = customer.IsActive,
+            IsAccountCustomer = customer.IsAccountCustomer,
             OldDebt = closing.Old,
-            DailyDebt = closing.Daily,
+            CarriedDebt = closing.Carried,
+            TodayDebt = closing.Today,
             Advance = closing.Advance,
             HasOldDebtRecord = entries.Any(e => e.EntryType == CustomerAccountEntryType.OpeningBalance)
         };
@@ -378,7 +382,8 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             {
                 BusinessDate = g.Key,
                 OldDebt = opening.Old + oldToday,
-                DailyDebt = opening.Daily + newDaily,
+                CarriedDebt = opening.Carried,
+                TodayDebt = newDaily,
                 Cash = Method(g, "cash"),
                 Card = Method(g, "card"),
                 Bonus = Sum(g, CustomerAccountEntryType.Bonus),
@@ -396,7 +401,8 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             PhoneNumber = customer.PhoneNumber,
             IsActive = customer.IsActive,
             OldDebt = closing.Old,
-            DailyDebt = closing.Daily,
+            CarriedDebt = closing.Carried,
+            TodayDebt = closing.Today,
             Advance = closing.Advance,
             HasOldDebtRecord = entries.Any(e => e.EntryType == CustomerAccountEntryType.OpeningBalance),
             Audit = audits.Select(a => new AccountAuditDto(a.EntryId, a.UserName, a.Description, a.CreatedAtUtc)).ToList(),
@@ -462,7 +468,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             var closing = AccountLedger.Closing(items, g.Key);
             var oldToday = Sum(g, CustomerAccountEntryType.OpeningBalance, CustomerAccountEntryType.AdjustmentIncrease) - Sum(g, CustomerAccountEntryType.AdjustmentDecrease);
             var newDaily = Sum(g, CustomerAccountEntryType.Debt, CustomerAccountEntryType.DailyIncrease) - Sum(g, CustomerAccountEntryType.DailyDecrease);
-            return new CustomerMonthDayDto(g.Key, opening.Old + oldToday, opening.Daily + newDaily, Method(g, "cash"), Method(g, "card"),
+            return new CustomerMonthDayDto(g.Key, opening.Old + oldToday, opening.Carried, newDaily, Method(g, "cash"), Method(g, "card"),
                 Sum(g, CustomerAccountEntryType.Bonus),
                 Sum(g, CustomerAccountEntryType.ReturnCredit) - Sum(g, CustomerAccountEntryType.CreditReversal), closing.Total);
         }).ToList();

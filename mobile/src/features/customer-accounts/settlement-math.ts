@@ -3,44 +3,53 @@ import type { AccountDayCustomer } from './customer-account-types';
 export type SettlementPreview = {
   /** Everything credited to the debt: cash, card, bonus and returns. */
   credit: number;
-  paidFromDaily: number;
+  paidFromToday: number;
+  paidFromCarried: number;
   paidFromOld: number;
   /** Money beyond all debt, kept as an advance. */
   advance: number;
-  /** What is left of the daily debt after the credit. */
-  remainingDaily: number;
+  /** What is left of each debt after the credit. */
   remainingOld: number;
-  /** Balances after the unpaid daily rest was moved to the old debt (or kept for tomorrow). */
+  remainingCarried: number;
+  remainingToday: number;
+  /** Balances after finishing, as they will be at the start of tomorrow. */
   finalOld: number;
-  finalDaily: number;
+  finalCarried: number;
 };
+
+type Balances = Pick<AccountDayCustomer, 'remainingOld' | 'remainingCarried' | 'remainingToday'>;
 
 const round = (value: number) => Math.round(value * 100) / 100;
 
 /**
- * Mirrors the server: the credit pays the daily debt first, then the old debt, and
- * whatever is left over becomes an advance. The unpaid daily rest either stays for
- * tomorrow or joins the old debt.
+ * Mirrors the server: the credit pays today's debt first, then yesterday's kept debt, then the
+ * old debt, and what is left over becomes an advance. Finishing moves the unpaid rest:
+ * yesterday's kept debt always joins the old debt; today's unpaid debt either stays for
+ * tomorrow (as the carried "günlük köhnə") or joins the old debt too.
  */
 export function previewSettlement(
-  row: Pick<AccountDayCustomer, 'remainingOld' | 'remainingDaily'>,
+  row: Balances,
   credit: number,
   carryToTomorrow: boolean,
 ): SettlementPreview {
-  const paidFromDaily = Math.min(credit, row.remainingDaily);
-  const paidFromOld = Math.min(round(credit - paidFromDaily), row.remainingOld);
-  const advance = Math.max(0, round(credit - paidFromDaily - paidFromOld));
-  const remainingDaily = round(row.remainingDaily - paidFromDaily);
+  const paidFromToday = Math.min(credit, row.remainingToday);
+  const paidFromCarried = Math.min(round(credit - paidFromToday), row.remainingCarried);
+  const paidFromOld = Math.min(round(credit - paidFromToday - paidFromCarried), row.remainingOld);
+  const advance = Math.max(0, round(credit - paidFromToday - paidFromCarried - paidFromOld));
+  const remainingToday = round(row.remainingToday - paidFromToday);
+  const remainingCarried = round(row.remainingCarried - paidFromCarried);
   const remainingOld = round(row.remainingOld - paidFromOld);
   return {
     credit,
-    paidFromDaily,
+    paidFromToday,
+    paidFromCarried,
     paidFromOld,
     advance,
-    remainingDaily,
     remainingOld,
-    finalOld: carryToTomorrow ? remainingOld : round(remainingOld + remainingDaily),
-    finalDaily: carryToTomorrow ? remainingDaily : 0,
+    remainingCarried,
+    remainingToday,
+    finalOld: round(remainingOld + remainingCarried + (carryToTomorrow ? 0 : remainingToday)),
+    finalCarried: carryToTomorrow ? remainingToday : 0,
   };
 }
 

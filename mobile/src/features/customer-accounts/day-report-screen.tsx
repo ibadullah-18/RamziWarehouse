@@ -10,7 +10,7 @@ import {
   AccountPageShell,
   Btn,
   Card,
-  Grid,
+  SectionTitle,
   Line,
   Loading,
   Notice,
@@ -19,7 +19,7 @@ import {
   TileRow,
   money,
 } from './account-ui';
-import { AccountDay } from './customer-account-types';
+import { AccountDay, AccountDayCustomer } from './customer-account-types';
 import { errorText, useAccountSession } from './use-account-session';
 
 /**
@@ -34,6 +34,9 @@ export default function DayReportScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const request = useRef(0);
+  // Everyone who paid stays on top as before; those who paid nothing go to the bottom, in red.
+  const payers = (day?.customers ?? []).filter((customer) => customer.paid > 0);
+  const nonPayers = (day?.customers ?? []).filter((customer) => customer.paid === 0);
 
   const load = useCallback(async () => {
     if (!token || !canUse) return;
@@ -98,31 +101,19 @@ export default function DayReportScreen() {
           {day.customers.length === 0 ? (
             <Notice>Bu gün üçün müştəri qeydi yoxdur.</Notice>
           ) : (
-            <Grid>
-              {day.customers.map((customer) => (
-                <Card key={customer.customerId} tone={customer.isDone ? 'done' : 'default'}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <StatusMark done={customer.isDone} />
-                    <Text style={{ flex: 1, color: colors.text, fontSize: 18, fontWeight: '700' }} numberOfLines={2}>
-                      {customer.customerName}
-                    </Text>
-                  </View>
-                  <Line label="Köhnə" value={money(customer.oldDebt)} />
-                  <Line label="Günlük" value={money(customer.dailyDebt)} />
-                  <Line
-                    label={`Ödədi${customer.cash > 0 && customer.card > 0 ? ' (nağd + kart)' : customer.card > 0 ? ' (kart)' : ''}`}
-                    value={money(customer.paid)}
-                    tone={customer.paid > 0 ? 'good' : undefined}
-                  />
-                  {customer.returnCredit > 0 ? <Line label="Vazvrat" value={money(customer.returnCredit)} /> : null}
-                  {customer.bonus > 0 ? <Line label="Bonus" value={money(customer.bonus)} /> : null}
-                  <Line label="Qalan borc" value={money(customer.remaining)} strong tone={customer.remaining > 0 ? 'warn' : 'good'} />
-                  {customer.carryToTomorrow ? (
-                    <Text style={{ color: colors.warning, fontSize: 14 }}>Günlük borc sabaha saxlanılıb</Text>
-                  ) : null}
-                </Card>
+            <View style={{ gap: 12 }}>
+              {payers.map((customer) => (
+                <ReportCard key={customer.customerId} customer={customer} />
               ))}
-            </Grid>
+              {nonPayers.length > 0 ? (
+                <>
+                  <SectionTitle>Pul ödəməyənlər ({nonPayers.length})</SectionTitle>
+                  {nonPayers.map((customer) => (
+                    <ReportCard key={customer.customerId} customer={customer} />
+                  ))}
+                </>
+              ) : null}
+            </View>
           )}
 
           {day.isToday ? (
@@ -136,5 +127,34 @@ export default function DayReportScreen() {
         </>
       ) : null}
     </AccountPageShell>
+  );
+}
+
+function ReportCard({ customer }: { customer: AccountDayCustomer }) {
+  const unpaid = customer.paid === 0;
+  return (
+    <Card tone={unpaid ? 'bad' : customer.isDone ? 'done' : 'default'}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <StatusMark done={customer.isDone} />
+        <Text style={{ flex: 1, color: colors.text, fontSize: 18, fontWeight: '700' }} numberOfLines={2}>
+          {customer.customerName}
+        </Text>
+        {unpaid ? <Text style={{ color: colors.danger, fontSize: 13, fontWeight: '700' }}>Ödəməyib</Text> : null}
+      </View>
+      <Line label="Köhnə" value={money(customer.oldDebt)} />
+      {customer.carriedDebt > 0 ? <Line label="Dünənki" value={money(customer.carriedDebt)} /> : null}
+      <Line label="Bu günkü" value={money(customer.todayDebt)} />
+      <Line
+        label={`Ödədi${customer.cash > 0 && customer.card > 0 ? ' (nağd + kart)' : customer.card > 0 ? ' (kart)' : ''}`}
+        value={money(customer.paid)}
+        tone={customer.paid > 0 ? 'good' : 'bad'}
+      />
+      {customer.returnCredit > 0 ? <Line label="Vazvrat" value={money(customer.returnCredit)} /> : null}
+      {customer.bonus > 0 ? <Line label="Bonus" value={money(customer.bonus)} /> : null}
+      <Line label="Qalan borc" value={money(customer.remaining)} strong tone={customer.remaining > 0 ? (unpaid ? 'bad' : 'warn') : 'good'} />
+      {customer.carryToTomorrow ? (
+        <Text style={{ color: colors.warning, fontSize: 14 }}>Bu günkü borc sabaha saxlanılıb</Text>
+      ) : null}
+    </Card>
   );
 }

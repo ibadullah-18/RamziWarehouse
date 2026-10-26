@@ -56,8 +56,13 @@ public sealed class CustomerAccountsController(ICustomerAccountService service) 
     public async Task<ActionResult<CustomerAccountDetailsDto>> CorrectDaily(CorrectDailyDebtRequestDto request, CancellationToken cancellationToken)
         => Ok(await service.CorrectDailyAsync(request, cancellationToken));
 
+    /// <summary>Add to or set the old debt or today's daily debt (Sədərək customer page).</summary>
+    [HttpPost("adjust")]
+    public async Task<ActionResult<CustomerAccountDetailsDto>> AdjustDebt(AdjustDebtRequestDto request, CancellationToken cancellationToken)
+        => Ok(await service.AdjustDebtAsync(request, cancellationToken));
+
     [HttpPut("previous-debt")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Accountant")]
     public async Task<ActionResult<CustomerAccountDetailsDto>> CorrectPreviousDebt(CorrectPreviousDebtRequestDto request, CancellationToken cancellationToken)
         => Ok(await service.CorrectPreviousDebtAsync(request, cancellationToken));
 }

@@ -77,7 +77,7 @@ public sealed class AccountDayServiceTests
 
         var row = Assert.Single(day.Customers);
         Assert.Equal(300, row.OldDebt);
-        Assert.Equal(250, row.DailyDebt);
+        Assert.Equal(250, row.TodayDebt);
         Assert.Equal(550, row.Due);
         Assert.False(row.IsDone);
         Assert.Equal(2, await f.Db.CustomerAccountEntries.CountAsync());
@@ -93,7 +93,7 @@ public sealed class AccountDayServiceTests
         await f.Debts(f.Filman, 300);
         var day = await f.Debts(f.Filman, 280);
 
-        Assert.Equal(280, day.Customers.Single().DailyDebt);
+        Assert.Equal(280, day.Customers.Single().TodayDebt);
         Assert.Equal(280, day.NewDailyDebt);
     }
 
@@ -132,7 +132,8 @@ public sealed class AccountDayServiceTests
         Assert.Equal(150, row.Card);
         Assert.Equal(200, row.Remaining);
         Assert.Equal(200, row.RemainingOld);
-        Assert.Equal(0, row.RemainingDaily);
+        Assert.Equal(0, row.RemainingToday);
+        Assert.Equal(0, row.RemainingCarried);
     }
 
     [Fact]
@@ -153,16 +154,18 @@ public sealed class AccountDayServiceTests
 
         var rafil = Assert.Single(tomorrow.Customers);
         Assert.Equal(f.Rafil.Id, rafil.CustomerId);
-        Assert.Equal(60, rafil.DailyDebt);                    // carried balance appears in the daily bucket
+        Assert.Equal(60, rafil.CarriedDebt);                  // kept yesterday: shown as its own line
+        Assert.Equal(0, rafil.TodayDebt);
         Assert.False(rafil.IsDone);
 
         var details = await f.Service.GetByCustomerIdAsync(f.Filman.Id);
         Assert.Equal(150, details.OldDebt);
-        Assert.Equal(0, details.DailyDebt);
+        Assert.Equal(0, details.CarriedDebt);
+        Assert.Equal(0, details.TodayDebt);
     }
 
     [Fact]
-    public async Task KeptBalanceAndNewDebtShareTheSameDailyBucket()
+    public async Task KeptBalanceStaysSeparateFromTodaysDebt()
     {
         using var f = new Fixture();
         await f.Debts(f.Rafil, 100);
@@ -172,8 +175,64 @@ public sealed class AccountDayServiceTests
         var day = await f.Debts(f.Rafil, 70);
 
         var row = Assert.Single(day.Customers);
-        Assert.Equal(130, row.DailyDebt);
-        Assert.Equal(70, row.NewDailyDebt);
+        Assert.Equal(60, row.CarriedDebt);
+        Assert.Equal(70, row.TodayDebt);
+        Assert.Equal(130, row.Due);
+    }
+
+    [Fact]
+    public async Task KeptDebtShowsOnTheNextDayAndJoinsTheOldDebtIfStillUnpaid()
+    {
+        using var f = new Fixture();
+        await f.Debts(f.Rafil, 100);
+        await f.Settle(f.Rafil, cash: 40, carry: true);                 // 60 kept for tomorrow
+
+        f.Clock.Now = f.Clock.Now.AddDays(1);
+        var secondDay = Assert.Single((await f.Service.GetDayAsync(f.Today)).Customers);
+        Assert.Equal(60, secondDay.CarriedDebt);
+        Assert.Equal(0, secondDay.OldDebt);
+
+        await f.Debts(f.Rafil, 50);                                      // new debt today
+        await f.Settle(f.Rafil, cash: 10, carry: true);                  // keep today's rest again
+
+        f.Clock.Now = f.Clock.Now.AddDays(1);
+        var thirdDay = Assert.Single((await f.Service.GetDayAsync(f.Today)).Customers);
+        Assert.Equal(60, thirdDay.OldDebt);                              // yesterday's carried 60 joined the old debt
+        Assert.Equal(40, thirdDay.CarriedDebt);                          // only today's 40 was kept
+    }
+
+    [Fact]
+    public async Task OldAndDailyDebtCanBeAddedAndSetWithAReason()
+    {
+        using var f = new Fixture();
+
+        var added = await f.Service.AdjustDebtAsync(new AdjustDebtRequestDto { CustomerId = f.Filman.Id, Target = "old", Mode = "add", Amount = 300, Reason = "İlkin köhnə borc" });
+        Assert.Equal(300, added.OldDebt);
+        added = await f.Service.AdjustDebtAsync(new AdjustDebtRequestDto { CustomerId = f.Filman.Id, Target = "old", Mode = "add", Amount = 50, Reason = "Əlavə köhnə borc" });
+        Assert.Equal(350, added.OldDebt);
+        added = await f.Service.AdjustDebtAsync(new AdjustDebtRequestDto { CustomerId = f.Filman.Id, Target = "old", Mode = "set", Amount = 320, Reason = "Düzəliş" });
+        Assert.Equal(320, added.OldDebt);
+
+        added = await f.Service.AdjustDebtAsync(new AdjustDebtRequestDto { CustomerId = f.Filman.Id, Target = "daily", Mode = "add", Amount = 100, Reason = "Axşam sifarişi" });
+        added = await f.Service.AdjustDebtAsync(new AdjustDebtRequestDto { CustomerId = f.Filman.Id, Target = "daily", Mode = "add", Amount = 40, Reason = "Əlavə mal" });
+        Assert.Equal(140, added.TodayDebt);
+        added = await f.Service.AdjustDebtAsync(new AdjustDebtRequestDto { CustomerId = f.Filman.Id, Target = "daily", Mode = "set", Amount = 120, Reason = "Düzəliş" });
+        Assert.Equal(120, added.TodayDebt);
+        Assert.Equal(440, added.RemainingDebt);
+        Assert.Equal(6, added.Audit.Count);
+        await Assert.ThrowsAsync<ConflictException>(() => f.Service.AdjustDebtAsync(new AdjustDebtRequestDto { CustomerId = f.Filman.Id, Target = "old", Mode = "add", Amount = 10, Reason = "" }));
+    }
+
+    [Fact]
+    public async Task OnlyAdminAndAccountantMayTouchTheOldDebt()
+    {
+        using var f = new Fixture();
+        f.User.Role = UserRole.Driver;
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => f.Service.AdjustDebtAsync(new AdjustDebtRequestDto { CustomerId = f.Filman.Id, Target = "old", Mode = "add", Amount = 10, Reason = "Sınaq" }));
+        var details = await f.Service.AdjustDebtAsync(new AdjustDebtRequestDto { CustomerId = f.Filman.Id, Target = "daily", Mode = "add", Amount = 10, Reason = "Sürücü əlavəsi" });
+
+        Assert.Equal(10, details.TodayDebt);
     }
 
     [Fact]
@@ -255,7 +314,7 @@ public sealed class AccountDayServiceTests
         Assert.Equal("open", day.State);
         var row = Assert.Single(day.Customers);
         Assert.False(row.IsDone);
-        Assert.Equal(60, row.RemainingDaily);
+        Assert.Equal(60, row.RemainingToday);
         Assert.Equal(100, row.Paid);
     }
 
@@ -304,10 +363,11 @@ public sealed class AccountDayServiceTests
     }
 
     [Fact]
-    public async Task OldDebtCorrectionIsAdminOnlyAndAudited()
+    public async Task OldDebtCorrectionIsClosedToDriversAndAudited()
     {
         using var f = new Fixture();
         await f.Debts(f.Filman, 100, old: 300);
+        f.User.Role = UserRole.Driver;
 
         await Assert.ThrowsAsync<ForbiddenException>(() => f.Service.CorrectPreviousDebtAsync(new CorrectPreviousDebtRequestDto
         {
