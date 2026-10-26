@@ -1,5 +1,6 @@
 import { forwardRef, useRef } from 'react';
 import {
+  Platform,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -76,8 +77,10 @@ export function MoneyInput({
 }
 
 /**
- * Wallpaper codes and batches: only digits and "-" (1019, 340-1). The numeric
- * keyboard has no hyphen on many devices, so a dedicated "-" key sits beside it.
+ * Wallpaper codes and batches: digits and "-" (1019, 340-1). The device's own keyboard opens:
+ * the number pad with symbols on iOS and the phone pad on Android, both of which accept "-"
+ * after a digit (the plain numeric pad refuses it). A small "-" key sits beside the field in
+ * case a keyboard hides the symbol. Anything but digits and "-" is dropped as it is typed.
  */
 export const CodeInput = forwardRef<TextInput, FieldProps>(function CodeInput(
   { label, hint, value, onChangeText, inputStyle, ...rest },
@@ -103,13 +106,13 @@ export const CodeInput = forwardRef<TextInput, FieldProps>(function CodeInput(
           ref={setRef}
           value={value}
           onChangeText={(text) => onChangeText(cleanCodeInput(text))}
-          keyboardType="number-pad"
-          inputMode="numeric"
+          keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'phone-pad'}
+          inputMode="tel"
           style={[styles.input, styles.codeInput, inputStyle]}
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Defis əlavə et"
+          accessibilityLabel="Defis"
           onPress={() => {
             if (value && !value.endsWith('-')) onChangeText(`${value}-`);
             localRef.current?.focus();

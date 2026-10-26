@@ -1,18 +1,19 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { Href, router, useFocusEffect } from 'expo-router';
 
 import { getAllCustomerAccounts } from '../../api/customer-account-api';
 import { TextField } from '../../components/form-inputs';
-import { colors } from '../../theme';
 import { accountDestination } from './account-navigation';
 import {
   AccountPageShell,
   Btn,
   Card,
   Chip,
-  Grid,
-  Line,
+  CompactHead,
+  Pairs,
+  compactCardStyle,
+  moneyShort,
   Loading,
   Notice,
   Tile,
@@ -111,32 +112,31 @@ export default function ShopsScreen() {
             : 'Axtarışa uyğun müştəri yoxdur.'}
         </Notice>
       ) : (
-        <Grid>
+        <View style={{ gap: 8 }}>
           {visible.map((customer) => (
             <Card
               key={customer.customerId}
               tone={customer.remainingDebt > 0 ? 'default' : 'done'}
+              style={compactCardStyle}
               onPress={() => open(accountDestination('detail', customer.customerId))}
             >
-              <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }} numberOfLines={2}>
-                {customer.customerName}
-              </Text>
-              {!customer.isAccountCustomer ? (
-                <Text style={{ color: colors.textLight, fontSize: 13 }}>Sədərək dükanı deyil · borcu qalıb</Text>
-              ) : null}
-              <Line label="Köhnə borc" value={money(customer.oldDebt)} />
-              {customer.carriedDebt > 0 ? <Line label="Dünənki" value={money(customer.carriedDebt)} /> : null}
-              {customer.todayDebt > 0 ? <Line label="Bu günkü" value={money(customer.todayDebt)} /> : null}
-              {customer.advance > 0 ? <Line label="Avans" value={money(customer.advance)} tone="good" /> : null}
-              <Line
-                label="Cəmi borc"
-                value={money(customer.remainingDebt)}
-                strong
-                tone={customer.remainingDebt > 0 ? 'warn' : 'good'}
+              <CompactHead
+                title={customer.customerName}
+                amount={moneyShort(customer.remainingDebt)}
+                amountTone={customer.remainingDebt > 0 ? 'warn' : 'good'}
+              />
+              <Pairs
+                items={[
+                  { label: 'Köhnə', value: moneyShort(customer.oldDebt) },
+                  customer.carriedDebt > 0 && { label: 'Dünənki', value: moneyShort(customer.carriedDebt), tone: 'warn' },
+                  customer.todayDebt > 0 && { label: 'Bu günkü', value: moneyShort(customer.todayDebt) },
+                  customer.advance > 0 && { label: 'Avans', value: moneyShort(customer.advance), tone: 'good' },
+                  !customer.isAccountCustomer && { label: 'Sədərək deyil', value: '' },
+                ]}
               />
             </Card>
           ))}
-        </Grid>
+        </View>
       )}
     </AccountPageShell>
   );

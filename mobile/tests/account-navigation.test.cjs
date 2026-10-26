@@ -166,14 +166,15 @@ test('all text, money, quantity and phone fields declare the correct keyboard mo
   assert.ok(inputs >= 30);
 });
 
-test('the shared form inputs fix their keyboards: decimal for money, numeric for codes', () => {
+test('the shared form inputs fix their keyboards: decimal for money, device keyboard that accepts a hyphen for codes', () => {
   const text = fs.readFileSync(path.join(sourceRoot, 'components/form-inputs.tsx'), 'utf8');
   const money = text.slice(text.indexOf('export function MoneyInput'), text.indexOf('export const CodeInput'));
   const code = text.slice(text.indexOf('export const CodeInput'), text.indexOf('export function TextField'));
   const plain = text.slice(text.indexOf('export function TextField'));
   assert.match(money, /keyboardType="decimal-pad"[\s\S]*inputMode="decimal"/);
-  assert.match(code, /keyboardType="number-pad"[\s\S]*inputMode="numeric"/);
-  assert.ok(code.includes('Defis əlavə et'), 'codes need an on-screen hyphen key');
+  assert.equal(code.includes('showSoftInputOnFocus'), false, 'the device keyboard must open for codes');
+  assert.ok(code.includes("'numbers-and-punctuation'") && code.includes("'phone-pad'"), 'keyboards that accept "-" after a digit');
+  assert.ok(code.includes('Defis'), 'a small hyphen key as a fallback');
   assert.match(plain, /keyboardType="default"[\s\S]*inputMode="text"/);
 });
 

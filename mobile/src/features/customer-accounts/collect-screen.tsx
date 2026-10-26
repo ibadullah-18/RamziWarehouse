@@ -1,9 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert } from 'react-native';
 import { Href, router, useFocusEffect } from 'expo-router';
 
 import { closeAccountDay, getAccountDay } from '../../api/customer-account-api';
-import { colors } from '../../theme';
 import AccountCustomerPicker from './account-customer-picker';
 import { dateLabel, todayKey } from './account-dates';
 import { accountDestination } from './account-navigation';
@@ -12,7 +11,10 @@ import {
   Btn,
   Card,
   Grid,
-  Line,
+  CompactHead,
+  Pairs,
+  compactCardStyle,
+  moneyShort,
   Loading,
   Notice,
   StatusMark,
@@ -168,36 +170,32 @@ export default function CollectScreen() {
 }
 
 function CustomerCard({ customer, onPress }: { customer: AccountDayCustomer; onPress: () => void }) {
+  const method = customer.cash > 0 && customer.card > 0 ? ' (nağd+kart)' : customer.card > 0 ? ' (kart)' : '';
   return (
-    <Card tone={customer.isDone ? 'done' : 'default'} onPress={onPress}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <StatusMark done={customer.isDone} />
-        <Text style={{ flex: 1, color: colors.text, fontSize: 18, fontWeight: '700' }} numberOfLines={2}>
-          {customer.customerName}
-        </Text>
-      </View>
-      <Line label="Köhnə borc" value={money(customer.oldDebt)} />
-      {customer.carriedDebt > 0 ? (
-        <Line label="Dünənki (sabaha saxlanılan)" value={money(customer.carriedDebt)} tone="warn" />
-      ) : null}
-      <Line label="Bu günkü günlük" value={money(customer.todayDebt)} />
-      <Line label="Cəmi" value={money(customer.due)} strong />
+    <Card tone={customer.isDone ? 'done' : 'default'} onPress={onPress} style={compactCardStyle}>
+      <CompactHead
+        leading={<StatusMark done={customer.isDone} small />}
+        title={customer.customerName}
+        amount={moneyShort(customer.due)}
+        amountTone={customer.due > 0 ? 'warn' : 'good'}
+      />
+      <Pairs
+        items={[
+          { label: 'Köhnə', value: moneyShort(customer.oldDebt) },
+          customer.carriedDebt > 0 && { label: 'Dünənki', value: moneyShort(customer.carriedDebt), tone: 'warn' },
+          { label: 'Bu günkü', value: moneyShort(customer.todayDebt) },
+        ]}
+      />
       {customer.isDone || customer.paid > 0 || customer.bonus > 0 || customer.returnCredit > 0 ? (
-        <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
-          {customer.paid > 0 ? (
-            <Line
-              label={`Ödədi${customer.cash > 0 && customer.card > 0 ? ' (nağd + kart)' : customer.card > 0 ? ' (kart)' : ' (nağd)'}`}
-              value={money(customer.paid)}
-              tone="good"
-            />
-          ) : null}
-          {customer.returnCredit > 0 ? <Line label="Vazvrat" value={money(customer.returnCredit)} /> : null}
-          {customer.bonus > 0 ? <Line label="Bonus" value={money(customer.bonus)} /> : null}
-          <Line label="Qalan borc" value={money(customer.remaining)} strong tone={customer.remaining > 0 ? 'warn' : 'good'} />
-          {customer.carryToTomorrow ? (
-            <Text style={{ color: colors.warning, fontSize: 14 }}>Bu günkü borc sabaha saxlanılıb</Text>
-          ) : null}
-        </View>
+        <Pairs
+          items={[
+            customer.paid > 0 && { label: `Ödədi${method}`, value: moneyShort(customer.paid), tone: 'good' },
+            customer.returnCredit > 0 && { label: 'Vazvrat', value: moneyShort(customer.returnCredit) },
+            customer.bonus > 0 && { label: 'Bonus', value: moneyShort(customer.bonus) },
+            { label: 'Qalan', value: moneyShort(customer.remaining), tone: customer.remaining > 0 ? 'warn' : 'good' },
+            customer.carryToTomorrow && { label: 'Sabaha saxlanılıb', value: '✓', tone: 'warn' },
+          ]}
+        />
       ) : null}
     </Card>
   );

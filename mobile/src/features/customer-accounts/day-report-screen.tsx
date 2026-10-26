@@ -1,17 +1,19 @@
 import { useCallback, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { Href, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 
 import { getAccountDay } from '../../api/customer-account-api';
-import { colors } from '../../theme';
 import { dateLabel, todayKey } from './account-dates';
 import { accountDestination, isBusinessDate, singleAccountParam } from './account-navigation';
 import {
   AccountPageShell,
   Btn,
   Card,
+  CompactHead,
+  Pairs,
   SectionTitle,
-  Line,
+  compactCardStyle,
+  moneyShort,
   Loading,
   Notice,
   StatusMark,
@@ -101,7 +103,7 @@ export default function DayReportScreen() {
           {day.customers.length === 0 ? (
             <Notice>Bu gün üçün müştəri qeydi yoxdur.</Notice>
           ) : (
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: 8 }}>
               {payers.map((customer) => (
                 <ReportCard key={customer.customerId} customer={customer} />
               ))}
@@ -132,29 +134,27 @@ export default function DayReportScreen() {
 
 function ReportCard({ customer }: { customer: AccountDayCustomer }) {
   const unpaid = customer.paid === 0;
+  const method = customer.cash > 0 && customer.card > 0 ? ' (nağd+kart)' : customer.card > 0 ? ' (kart)' : '';
   return (
-    <Card tone={unpaid ? 'bad' : customer.isDone ? 'done' : 'default'}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <StatusMark done={customer.isDone} />
-        <Text style={{ flex: 1, color: colors.text, fontSize: 18, fontWeight: '700' }} numberOfLines={2}>
-          {customer.customerName}
-        </Text>
-        {unpaid ? <Text style={{ color: colors.danger, fontSize: 13, fontWeight: '700' }}>Ödəməyib</Text> : null}
-      </View>
-      <Line label="Köhnə" value={money(customer.oldDebt)} />
-      {customer.carriedDebt > 0 ? <Line label="Dünənki" value={money(customer.carriedDebt)} /> : null}
-      <Line label="Bu günkü" value={money(customer.todayDebt)} />
-      <Line
-        label={`Ödədi${customer.cash > 0 && customer.card > 0 ? ' (nağd + kart)' : customer.card > 0 ? ' (kart)' : ''}`}
-        value={money(customer.paid)}
-        tone={customer.paid > 0 ? 'good' : 'bad'}
+    <Card tone={unpaid ? 'bad' : customer.isDone ? 'done' : 'default'} style={compactCardStyle}>
+      <CompactHead
+        leading={<StatusMark done={customer.isDone} small />}
+        title={customer.customerName}
+        badge={unpaid ? 'Ödəməyib' : undefined}
+        amount={moneyShort(customer.remaining)}
+        amountTone={customer.remaining > 0 ? (unpaid ? 'bad' : 'warn') : 'good'}
       />
-      {customer.returnCredit > 0 ? <Line label="Vazvrat" value={money(customer.returnCredit)} /> : null}
-      {customer.bonus > 0 ? <Line label="Bonus" value={money(customer.bonus)} /> : null}
-      <Line label="Qalan borc" value={money(customer.remaining)} strong tone={customer.remaining > 0 ? (unpaid ? 'bad' : 'warn') : 'good'} />
-      {customer.carryToTomorrow ? (
-        <Text style={{ color: colors.warning, fontSize: 14 }}>Bu günkü borc sabaha saxlanılıb</Text>
-      ) : null}
+      <Pairs
+        items={[
+          { label: 'Köhnə', value: moneyShort(customer.oldDebt) },
+          customer.carriedDebt > 0 && { label: 'Dünənki', value: moneyShort(customer.carriedDebt) },
+          { label: 'Bu günkü', value: moneyShort(customer.todayDebt) },
+          { label: `Ödədi${method}`, value: moneyShort(customer.paid), tone: unpaid ? 'bad' : 'good' },
+          customer.returnCredit > 0 && { label: 'Vazvrat', value: moneyShort(customer.returnCredit) },
+          customer.bonus > 0 && { label: 'Bonus', value: moneyShort(customer.bonus) },
+          customer.carryToTomorrow && { label: 'Sabaha saxlanılıb', value: '✓', tone: 'warn' },
+        ]}
+      />
     </Card>
   );
 }

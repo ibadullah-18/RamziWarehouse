@@ -1,18 +1,19 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { View } from 'react-native';
 import { Href, router, useFocusEffect } from 'expo-router';
 
 import { getAccountHistory, getAllCustomerAccounts } from '../../api/customer-account-api';
 import { TextField } from '../../components/form-inputs';
-import { colors } from '../../theme';
 import { dateLabel, monthKey, monthLabel, shiftMonth, todayKey } from './account-dates';
 import { accountDestination } from './account-navigation';
 import {
   AccountPageShell,
   Card,
   Chip,
-  Grid,
-  Line,
+  CompactHead,
+  Pairs,
+  compactCardStyle,
+  moneyShort,
   Loading,
   Notice,
   Tile,
@@ -114,44 +115,50 @@ export default function ReportsScreen() {
         <Loading />
       ) : mode === 'days' ? (
         history && history.days.length > 0 ? (
-          <Grid>
+          <View style={{ gap: 8 }}>
             {history.days.map((day) => (
-              <Card key={day.businessDate} onPress={() => open(accountDestination('report', undefined, day.businessDate))}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ color: colors.text, fontSize: 19, fontWeight: '700' }}>{dateLabel(day.businessDate)}</Text>
-                  <Text style={{ color: day.closed ? colors.success : colors.warning, fontSize: 14 }}>
-                    {day.closed ? 'Bitirilib' : 'Bitirilməyib'}
-                  </Text>
-                </View>
-                <Line label="Yığılan pul" value={money(day.collected)} strong tone="good" />
-                <Line label="Nağd" value={money(day.cash)} />
-                <Line label="Kart" value={money(day.card)} />
-                <Line label="Müştəri" value={String(day.customerCount)} />
+              <Card
+                key={day.businessDate}
+                style={compactCardStyle}
+                onPress={() => open(accountDestination('report', undefined, day.businessDate))}
+              >
+                <CompactHead
+                  title={dateLabel(day.businessDate)}
+                  badge={day.closed ? undefined : 'Bitirilməyib'}
+                  amount={moneyShort(day.collected)}
+                  amountTone="good"
+                />
+                <Pairs
+                  items={[
+                    { label: 'Nağd', value: moneyShort(day.cash) },
+                    { label: 'Kart', value: moneyShort(day.card) },
+                    { label: 'Müştəri', value: String(day.customerCount) },
+                  ]}
+                />
               </Card>
             ))}
-          </Grid>
+          </View>
         ) : (
           <Notice>Bu ayda açot qeydi yoxdur.</Notice>
         )
       ) : (
         <>
           <TextField label="Müştəri axtar" value={search} onChangeText={setSearch} placeholder="Ad yazın" autoCorrect={false} />
-          <Grid>
+          <View style={{ gap: 8 }}>
             {filtered.map((customer) => (
-              <Pressable
+              <Card
                 key={customer.customerId}
-                accessibilityRole="button"
+                style={compactCardStyle}
                 onPress={() => open(accountDestination('detail', customer.customerId))}
               >
-                <Card>
-                  <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }} numberOfLines={2}>
-                    {customer.customerName}
-                  </Text>
-                  <Line label="Qalan borc" value={money(customer.remainingDebt)} tone={customer.remainingDebt > 0 ? 'warn' : 'good'} />
-                </Card>
-              </Pressable>
+                <CompactHead
+                  title={customer.customerName}
+                  amount={moneyShort(customer.remainingDebt)}
+                  amountTone={customer.remainingDebt > 0 ? 'warn' : 'good'}
+                />
+              </Card>
             ))}
-          </Grid>
+          </View>
         </>
       )}
     </AccountPageShell>

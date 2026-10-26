@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { Modal, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Modal, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
@@ -27,6 +28,8 @@ import {
   Tile,
   TileRow,
   money,
+  moneyShort,
+  shortDate,
 } from './account-ui';
 import {
   CustomerAccountDay,
@@ -66,6 +69,7 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
   const [monthData, setMonthData] = useState<CustomerMonth | null>(null);
   const [correction, setCorrection] = useState<Correction | null>(null);
   const [adjustment, setAdjustment] = useState<Adjustment | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const request = useRef(0);
@@ -127,15 +131,15 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
             <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
               Kritik anda borcu dəqiq düzəldin. Hər dəyişiklik səbəbi və adınızla tarixçədə saxlanılır.
             </Text>
-            <Grid>
+            <Grid columns={2}>
               {canWriteOldDebt ? (
-                <Btn icon="add-circle-outline" variant="secondary" title="Köhnə borca əlavə et" onPress={() => setAdjustment({ target: 'old', mode: 'add' })} />
+                <Btn icon="add-circle-outline" variant="secondary" compact title="Köhnə borca əlavə et" onPress={() => setAdjustment({ target: 'old', mode: 'add' })} />
               ) : null}
               {canWriteOldDebt ? (
-                <Btn icon="create-outline" variant="secondary" title="Köhnə borcu düzəlt" onPress={() => setAdjustment({ target: 'old', mode: 'set' })} />
+                <Btn icon="create-outline" variant="secondary" compact title="Köhnə borcu düzəlt" onPress={() => setAdjustment({ target: 'old', mode: 'set' })} />
               ) : null}
-              <Btn icon="add-circle-outline" variant="secondary" title="Günlük borca əlavə et" onPress={() => setAdjustment({ target: 'daily', mode: 'add' })} />
-              <Btn icon="create-outline" variant="secondary" title="Günlük borcu düzəlt" onPress={() => setAdjustment({ target: 'daily', mode: 'set' })} />
+              <Btn icon="add-circle-outline" variant="secondary" compact title="Günlük borca əlavə et" onPress={() => setAdjustment({ target: 'daily', mode: 'add' })} />
+              <Btn icon="create-outline" variant="secondary" compact title="Günlük borcu düzəlt" onPress={() => setAdjustment({ target: 'daily', mode: 'set' })} />
             </Grid>
           </Card>
 
@@ -155,67 +159,105 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
               {monthData.days.length === 0 ? (
                 <Notice>Bu ayda qeyd yoxdur.</Notice>
               ) : (
-                <Grid>
-                  {monthData.days.map((day) => (
-                    <Card key={day.businessDate}>
-                      <Text style={{ color: colors.text, fontSize: 17, fontWeight: '700' }}>{dateLabel(day.businessDate)}</Text>
-                      <Line label="Köhnə" value={money(day.oldDebt)} />
-                      {day.carriedDebt > 0 ? <Line label="Dünənki" value={money(day.carriedDebt)} /> : null}
-                      <Line label="Bu günkü" value={money(day.todayDebt)} />
-                      <Line label="Ödədi" value={money(day.cash + day.card)} tone={day.cash + day.card > 0 ? 'good' : undefined} />
-                      {day.returnCredit > 0 ? <Line label="Vazvrat" value={money(day.returnCredit)} /> : null}
-                      {day.bonus > 0 ? <Line label="Bonus" value={money(day.bonus)} /> : null}
-                      <Line label="Qalan" value={money(day.remaining)} strong />
-                    </Card>
-                  ))}
-                </Grid>
+                <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
+                  {monthData.days.map((day, index) => {
+                    const paid = day.cash + day.card;
+                    return (
+                      <View
+                        key={day.businessDate}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 9,
+                          gap: 2,
+                          borderTopWidth: index === 0 ? 0 : 1,
+                          borderTopColor: colors.border,
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700', width: 46 }}>{shortDate(day.businessDate)}</Text>
+                          <Text style={{ flex: 1, color: paid > 0 ? colors.success : colors.textLight, fontSize: 14, fontWeight: '600' }} numberOfLines={1}>
+                            {paid > 0
+                              ? `Ödədi ${moneyShort(paid)}${day.cash > 0 && day.card > 0 ? ' (nağd+kart)' : day.card > 0 ? ' (kart)' : ''}`
+                              : 'Ödəməyib'}
+                          </Text>
+                          <Text style={{ color: day.remaining > 0 ? colors.warning : colors.success, fontSize: 14, fontWeight: '800' }}>
+                            Qalan {moneyShort(day.remaining)}
+                          </Text>
+                        </View>
+                        {day.returnCredit > 0 || day.bonus > 0 ? (
+                          <Text style={{ color: colors.textSecondary, fontSize: 12, marginLeft: 56 }}>
+                            {day.returnCredit > 0 ? `Vazvrat ${moneyShort(day.returnCredit)}` : ''}
+                            {day.returnCredit > 0 && day.bonus > 0 ? ' · ' : ''}
+                            {day.bonus > 0 ? `Bonus ${moneyShort(day.bonus)}` : ''}
+                          </Text>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </Card>
               )}
             </>
           ) : null}
 
           <SectionTitle>Əməliyyatlar</SectionTitle>
-          <Grid>
-            {details.days.map((day) => {
-              const daily = day.entries.filter((e) =>
+          <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
+            {details.days.map((day, index) => {
+              const open = expanded === day.businessDate;
+              const dailyEntries = day.entries.filter((e) =>
                 [CustomerAccountEntryType.Debt, CustomerAccountEntryType.DailyIncrease, CustomerAccountEntryType.DailyDecrease].includes(e.entryType),
               );
-              const dailyCurrent = daily.reduce(
+              const dailyCurrent = dailyEntries.reduce(
                 (sum, e) => sum + (e.entryType === CustomerAccountEntryType.DailyDecrease ? -e.amount : e.amount),
                 0,
               );
               const hasDebt = day.entries.some((e) => e.entryType === CustomerAccountEntryType.Debt);
               return (
-                <Card key={day.businessDate}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ color: colors.text, fontSize: 17, fontWeight: '700' }}>{dateLabel(day.businessDate)}</Text>
-                    {day.isLocked ? <Text style={{ color: colors.textLight }}>Bitib</Text> : null}
-                  </View>
-                  {day.entries.map((entry) => (
-                    <View key={entry.id} style={{ gap: 6 }}>
-                      <Line
-                        label={`${entryLabels[entry.entryType] ?? 'Qeyd'}${entry.paymentMethod ? ` (${entry.paymentMethod === 'card' ? 'kart' : 'nağd'})` : ''}`}
-                        value={money(entry.amount)}
-                      />
-                      {entry.entryType === CustomerAccountEntryType.Payment && canCorrect(day) ? (
-                        <Btn
-                          title="Ödənişi düzəlt"
-                          variant="secondary"
-                          onPress={() => setCorrection({ kind: 'payment', entry })}
-                        />
+                <View key={day.businessDate} style={{ borderTopWidth: index === 0 ? 0 : 1, borderTopColor: colors.border }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setExpanded(open ? null : day.businessDate)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10 }}
+                  >
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700', width: 46 }}>{shortDate(day.businessDate)}</Text>
+                    <Text style={{ flex: 1, color: colors.textSecondary, fontSize: 13 }} numberOfLines={1}>
+                      {day.entries.length} qeyd{day.isLocked ? ' · bitib' : ''}
+                    </Text>
+                    <Text style={{ color: day.remainingDebt > 0 ? colors.warning : colors.success, fontSize: 14, fontWeight: '800' }}>
+                      {moneyShort(day.remainingDebt)}
+                    </Text>
+                    <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textLight} />
+                  </Pressable>
+                  {open ? (
+                    <View style={{ paddingHorizontal: 12, paddingBottom: 10, gap: 6 }}>
+                      {day.entries.map((entry) => (
+                        <View key={entry.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={{ flex: 1, color: colors.textSecondary, fontSize: 13 }} numberOfLines={1}>
+                            {entryLabels[entry.entryType] ?? 'Qeyd'}
+                            {entry.paymentMethod ? ` (${entry.paymentMethod === 'card' ? 'kart' : 'nağd'})` : ''}
+                          </Text>
+                          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>{moneyShort(entry.amount)}</Text>
+                          {entry.entryType === CustomerAccountEntryType.Payment && canCorrect(day) ? (
+                            <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setCorrection({ kind: 'payment', entry })}>
+                              <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>Düzəlt</Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      ))}
+                      {hasDebt && canCorrect(day) ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          hitSlop={8}
+                          onPress={() => setCorrection({ kind: 'daily', date: day.businessDate, current: dailyCurrent })}
+                        >
+                          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>Günlük borcu düzəlt</Text>
+                        </Pressable>
                       ) : null}
                     </View>
-                  ))}
-                  {hasDebt && canCorrect(day) ? (
-                    <Btn
-                      title="Günlük borcu düzəlt"
-                      variant="secondary"
-                      onPress={() => setCorrection({ kind: 'daily', date: day.businessDate, current: dailyCurrent })}
-                    />
                   ) : null}
-                </Card>
+                </View>
               );
             })}
-          </Grid>
+          </Card>
 
           {details.audit.length > 0 ? (
             <>

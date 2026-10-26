@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Children, type ReactNode } from 'react';
+import { Children, useCallback, useRef, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Pressable,
   RefreshControl,
   StyleProp,
@@ -11,9 +12,10 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { KeyboardAwareScrollView, type KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ScrollIntoViewContext } from '../../components/scroll-into-view';
 import { useResponsiveLayout } from '../../hooks/use-responsive-layout';
 import { colors } from '../../theme';
 
@@ -22,6 +24,13 @@ export const money = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} ₼`;
+
+/** 1 250 ₼ for whole amounts, 1 250,50 ₼ otherwise: short enough for one-line rows. */
+export const moneyShort = (value: number) =>
+  Number.isInteger(value) ? `${value.toLocaleString('az-AZ')} ₼` : money(value);
+
+/** 2026-10-26 -> 26.10 */
+export const shortDate = (value: string) => value.split('-').reverse().slice(0, 2).join('.');
 
 export function goBack(fallback: string = '/(app)/(tabs)/accounts') {
   if (router.canGoBack()) router.back();
@@ -54,10 +63,29 @@ export function AccountPageShell({
   const layout = useResponsiveLayout();
   // Android draws the system back/home buttons over the bottom edge: keep the footer above them.
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
+  const scrollY = useRef(0);
+  // Brings a panel that a field opened (the code keypad) above the footer.
+  const reveal = useCallback(
+    (node: import('react-native').View | null) => {
+      node?.measureInWindow((_x, y, _w, height) => {
+        const limit = Dimensions.get('window').height - (footer ? 130 : 24);
+        const overflow = y + height - limit;
+        if (overflow > 0) scrollRef.current?.scrollTo({ y: scrollY.current + overflow + 8, animated: true });
+      });
+    },
+    [footer],
+  );
   const width = layout.isTablet ? Math.min(layout.contentMaxWidth, 1040) : layout.contentMaxWidth;
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <ScrollIntoViewContext.Provider value={reveal}>
       <KeyboardAwareScrollView
+        ref={scrollRef}
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          scrollY.current = event.nativeEvent.contentOffset.y;
+        }}
         bottomOffset={62}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -100,6 +128,7 @@ export function AccountPageShell({
         </View>
         {children}
       </KeyboardAwareScrollView>
+      </ScrollIntoViewContext.Provider>
       {footer ? (
         <View
           style={[
@@ -124,9 +153,11 @@ export function Btn({
   busy,
   icon,
   style,
+  compact,
 }: {
   title: string;
   onPress: () => void;
+  compact?: boolean;
   variant?: ButtonVariant;
   disabled?: boolean;
   busy?: boolean;
@@ -142,6 +173,7 @@ export function Btn({
       onPress={onPress}
       style={({ pressed }) => [
         styles.btn,
+        compact && styles.btnCompact,
         buttonStyles[variant],
         inactive && styles.btnDisabled,
         pressed && styles.pressed,
@@ -153,7 +185,9 @@ export function Btn({
       ) : icon ? (
         <Ionicons name={icon} size={20} color={buttonText[variant]} />
       ) : null}
-      <Text style={[styles.btnText, { color: buttonText[variant] }]}>{title}</Text>
+      <Text style={[styles.btnText, compact && styles.btnTextCompact, { color: buttonText[variant] }]} numberOfLines={2}>
+        {title}
+      </Text>
     </Pressable>
   );
 }
@@ -279,11 +313,76 @@ export function Line({
   );
 }
 
-/** "−" while the customer still has to be finished, "+" (green) once done. */
-export function StatusMark({ done }: { done: boolean }) {
+export type Pair = { label: string; value: string; tone?: 'good' | 'warn' | 'bad' } | null | false | undefined;
+
+/** "Köhnə 300 ₼ · Dünənki 60 ₼ · Ödədi 350 ₼": the numbers of one customer in a compact, wrapping line. */
+export function Pairs({ items }: { items: Pair[] }) {
+  const shown = items.filter(Boolean) as Exclude<Pair, null | false | undefined>[];
   return (
-    <View style={[styles.mark, done ? styles.markDone : styles.markPending]}>
-      <Text style={[styles.markText, { color: done ? colors.background : colors.warning }]}>
+    <View style={styles.pairs}>
+      {shown.map((pair) => (
+        <Text key={pair.label} style={styles.pairLabel}>
+          {pair.label}{' '}
+          <Text
+            style={[
+              styles.pairValue,
+              pair.tone === 'good' && { color: colors.success },
+              pair.tone === 'warn' && { color: colors.warning },
+              pair.tone === 'bad' && { color: colors.danger },
+            ]}
+          >
+            {pair.value}
+          </Text>
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+/** Title row of a compact card: optional mark, name, and the amount that matters on the right. */
+export function CompactHead({
+  leading,
+  title,
+  badge,
+  amount,
+  amountTone,
+}: {
+  leading?: ReactNode;
+  title: string;
+  badge?: string;
+  amount?: string;
+  amountTone?: 'good' | 'warn' | 'bad';
+}) {
+  return (
+    <View style={styles.compactHead}>
+      {leading}
+      <Text style={styles.compactTitle} numberOfLines={1}>
+        {title}
+      </Text>
+      {badge ? <Text style={styles.compactBadge}>{badge}</Text> : null}
+      {amount ? (
+        <Text
+          style={[
+            styles.compactAmount,
+            amountTone === 'good' && { color: colors.success },
+            amountTone === 'warn' && { color: colors.warning },
+            amountTone === 'bad' && { color: colors.danger },
+          ]}
+        >
+          {amount}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+export const compactCardStyle = { padding: 12, gap: 6, borderRadius: 14 } as const;
+
+/** "−" while the customer still has to be finished, "+" (green) once done. */
+export function StatusMark({ done, small }: { done: boolean; small?: boolean }) {
+  return (
+    <View style={[styles.mark, small && styles.markSmall, done ? styles.markDone : styles.markPending]}>
+      <Text style={[styles.markText, small && styles.markTextSmall, { color: done ? colors.background : colors.warning }]}>
         {done ? '+' : '−'}
       </Text>
     </View>
@@ -388,6 +487,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  btnCompact: { minHeight: 46, paddingHorizontal: 10, paddingVertical: 8, gap: 6, borderRadius: 12 },
+  btnTextCompact: { fontSize: 14, flexShrink: 1, textAlign: 'center' },
   btnDisabled: { opacity: 0.45 },
   btnText: { fontSize: 17, fontWeight: '700' },
   card: {
@@ -428,6 +529,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
   },
+  markSmall: { width: 26, height: 26, borderRadius: 13, borderWidth: 2 },
+  markTextSmall: { fontSize: 18, lineHeight: 21 },
+  pairs: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 2 },
+  pairLabel: { color: colors.textSecondary, fontSize: 13 },
+  pairValue: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  compactHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  compactTitle: { flex: 1, minWidth: 0, color: colors.text, fontSize: 16, fontWeight: '700' },
+  compactBadge: { color: colors.danger, fontSize: 12, fontWeight: '700' },
+  compactAmount: { color: colors.text, fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
   markPending: { borderColor: colors.warning, backgroundColor: colors.warningSoft },
   markDone: { borderColor: colors.success, backgroundColor: colors.success },
   markText: { fontSize: 24, fontWeight: '800', lineHeight: 28 },
