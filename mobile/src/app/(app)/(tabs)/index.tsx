@@ -74,6 +74,7 @@ export default function AdminManagementScreen() {
 
       <AppUpdateBanner />
       <QuickActionCard title="Vazvrat yaradanlar" description="Adları və aktivliyi idarə et" icon="people-outline" onPress={() => router.push('/return-persons' as Href)} />
+      <QuickActionCard title="Vazvrad kod qaydası" description="Kod neçə rəqəmli olsun, ikinci rəqəm 0" icon="barcode-outline" onPress={() => router.push('/return-code-rules' as Href)} />
 
       <Animated.View
         entering={FadeInDown

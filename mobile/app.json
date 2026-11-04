@@ -1,4 +1,4 @@
-﻿{
+{
     "expo":  {
                  "name":  "GrandWall",
                  "slug":  "grandwall",
@@ -6,9 +6,9 @@
                  "orientation":  "portrait",
                  "icon":  "./assets/images/grandwall-icon.png",
                  "scheme":  "grandwall",
-                 "userInterfaceStyle":  "dark",
-                 "backgroundColor":  "#080A0D",
-                 "primaryColor":  "#8A632B",
+                 "userInterfaceStyle":  "light",
+                 "backgroundColor":  "#F3F6FB",
+                 "primaryColor":  "#1D4ED8",
                  "ios":  {
                              "icon":  "./assets/images/grandwall-icon.png",
                              "supportsTablet":  true,
@@ -48,7 +48,7 @@
                                  [
                                      "expo-splash-screen",
                                      {
-                                         "backgroundColor":  "#080A0D",
+                                         "backgroundColor":  "#F3F6FB",
                                          "image":  "./assets/images/grandwall-wordmark.png",
                                          "imageWidth":  280
                                      }

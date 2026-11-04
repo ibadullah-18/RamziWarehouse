@@ -25,6 +25,7 @@ import {
   ProductType,
 } from "../../../features/product-returns/product-return-types";
 import { CodeInput } from "../../../components/form-inputs";
+import { codeRuleProblem, useReturnCodeRule } from "../../../features/product-returns/code-rule";
 import { colors } from "../../../theme";
 export default function EditReturnScreen() {
   const { session } = useAuth();
@@ -45,6 +46,7 @@ export default function EditReturnScreen() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const lock = useRef(false);
+  const codeRule = useReturnCodeRule(session?.accessToken);
   const [returnAmount,setReturnAmount]=useState('');
   useFocusEffect(
     useCallback(() => {
@@ -100,6 +102,11 @@ export default function EditReturnScreen() {
         ))
     ) {
       setError("Kod və partiya boş ola bilməz.");
+      return;
+    }
+    const badCode = deleting ? null : items.map((i) => codeRuleProblem(i.productCode, codeRule)).find(Boolean);
+    if (badCode) {
+      setError(badCode);
       return;
     }
     lock.current = true;
@@ -182,6 +189,7 @@ export default function EditReturnScreen() {
                   </Text>
                   <CodeInput
                     label="Məhsul kodu"
+                    error={codeRuleProblem(item.productCode, codeRule)}
                     value={item.productCode}
                     maxLength={50}
                     editable={!busy}

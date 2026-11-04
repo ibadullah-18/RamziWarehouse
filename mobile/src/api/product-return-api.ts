@@ -382,3 +382,21 @@ export async function deleteProductReturn(
     { method: "DELETE", body: JSON.stringify(request) },
   );
 }
+
+export function getReturnCodeRule(token: string) {
+  return authorizedRequest<import("../features/product-returns/code-rule").ReturnCodeRule>(
+    token,
+    "/api/settings/return-codes",
+  );
+}
+
+export function saveReturnCodeRule(
+  token: string,
+  rule: import("../features/product-returns/code-rule").ReturnCodeRule,
+) {
+  return authorizedRequest<import("../features/product-returns/code-rule").ReturnCodeRule>(
+    token,
+    "/api/settings/return-codes",
+    { method: "PUT", body: JSON.stringify(rule) },
+  );
+}

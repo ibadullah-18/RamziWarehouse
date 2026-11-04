@@ -34,6 +34,7 @@ export default function ReturnsBrowser({
   allowCustomerFilter,
   defaultStatus = 'all',
   allowAcceptedDate,
+  showFilters = true,
 }: {
   title: string;
   description: string;
@@ -43,6 +44,8 @@ export default function ReturnsBrowser({
   defaultStatus?: StatusFilter;
   /** Search by the day the manager accepted the return into the warehouse. */
   allowAcceptedDate?: boolean;
+  /** The Vazvrad tab shows only the list waiting for the manager, without filter chips. */
+  showFilters?: boolean;
 }) {
   const { session } = useAuth();
   const token = session?.accessToken ?? '';
@@ -159,7 +162,7 @@ export default function ReturnsBrowser({
                 {customer ? <Chip label="Təmizlə" onPress={() => setCustomer(null)} /> : null}
               </View>
             ) : null}
-            {!acceptedOn ? (
+            {showFilters && !acceptedOn ? (
               <View style={styles.filters}>
                 <Chip label="Təsdiq gözləyir" selected={status === ReturnStatus.Submitted} onPress={() => setStatus(ReturnStatus.Submitted)} />
                 <Chip label="Şəkil gözləyir" selected={status === ReturnStatus.Pending} onPress={() => setStatus(ReturnStatus.Pending)} />
@@ -176,11 +179,13 @@ export default function ReturnsBrowser({
                 {acceptedOn ? <AccountDateInput value={acceptedDate} onChange={setAcceptedDate} /> : null}
               </>
             ) : null}
+            {showFilters ? (
             <View style={styles.filters}>
               <Chip label="Hamısı" selected={kind === 'both'} onPress={() => setKind('both')} />
               <Chip label="Vazvrad" selected={kind === 'return'} onPress={() => setKind('return')} />
               <Chip label="Vitrin" selected={kind === 'showcase'} onPress={() => setKind('showcase')} />
             </View>
+            ) : null}
             <Text style={styles.muted}>
               {total} qeyd{items.length > 0 ? ` · göstərilən ${quantity} ədəd` : ''}
             </Text>

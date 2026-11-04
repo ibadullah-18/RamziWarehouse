@@ -150,7 +150,7 @@ test('all text, money, quantity and phone fields declare the correct keyboard mo
             assert.ok(mode, `${p} must declare inputMode`);
             const value = attrs.value?.getText(source);
             if (value === '{amount}' || value === '{initial}' || value === '{returnAmount}') { assert.equal(keyboard, 'decimal-pad'); assert.equal(mode, 'decimal'); }
-            else if (value === '{String(quantity)}' || value === '{quantityText}' || (p.includes('edit-return') && value?.includes('item.quantity'))) { assert.equal(keyboard, 'number-pad'); assert.equal(mode, 'numeric'); }
+            else if (value === '{String(quantity)}' || value === '{quantityText}' || value === '{row.prefix}' || value === '{length}' || (p.includes('edit-return') && value?.includes('item.quantity'))) { assert.equal(keyboard, 'number-pad'); assert.equal(mode, 'numeric'); }
             else if (value === '{phoneNumber}' || value === '{customerPhoneNumber}') { assert.equal(keyboard, 'phone-pad'); assert.equal(mode, 'tel'); }
             else if (p.endsWith('account-date-input.tsx')) { assert.equal(keyboard, 'number-pad'); assert.equal(mode, 'numeric'); }
             else { assert.equal(keyboard, 'default', `${p}: ${value}`); assert.equal(mode, 'text', `${p}: ${value}`); }
@@ -198,4 +198,36 @@ test('the day report puts non-payers last, in red and in one column', () => {
   const report = fs.readFileSync(path.join(sourceRoot, 'features/customer-accounts/day-report-screen.tsx'), 'utf8');
   assert.ok(report.includes("tone={unpaid ? 'bad'") && report.includes('Pul ödəməyənlər'));
   assert.equal(report.includes('<Grid>'), false);
+});
+
+test('returns are priced by the longest code prefix and showcase items are free', () => {
+  const pricing = load('features/customer-accounts/return-pricing.ts');
+  const rules = [{ codePrefix: '10', price: 26 }, { codePrefix: '50', price: 23 }, { codePrefix: '501', price: 30 }];
+  assert.equal(pricing.priceFor('5058', rules), 23);
+  assert.equal(pricing.priceFor('5012', rules), 30);
+  assert.equal(pricing.priceFor('7001', rules), null);
+  const result = pricing.priceReturn([
+    { productCode: '5058', quantity: 2, isShowcase: false },
+    { productCode: '1001', quantity: 1, isShowcase: false },
+    { productCode: '1002', quantity: 4, isShowcase: true },
+    { productCode: '9999', quantity: 1, isShowcase: false },
+  ], rules);
+  assert.equal(result.total, 72);
+  assert.deepEqual([...result.unpriced], ['9999']);
+});
+
+test('the app uses the white, blue, green and red theme', () => {
+  const theme = fs.readFileSync(path.join(sourceRoot, 'theme/index.ts'), 'utf8');
+  assert.ok(theme.includes("primary: '#1D4ED8'") && theme.includes("surface: '#FFFFFF'"));
+  assert.ok(theme.includes("success: '#15803D'") && theme.includes("danger: '#DC2626'"));
+});
+
+test('return codes follow the admin rule: digit count and zero as second digit', () => {
+  const rule = load('features/product-returns/code-rule.ts', { react: { useEffect() {}, useState: (v) => [v, () => {}] }, '../../api/product-return-api': {} });
+  const strict = { requiredLength: 4, secondDigitMustBeZero: true };
+  assert.equal(rule.codeRuleProblem('1019', strict), null);
+  assert.match(rule.codeRuleProblem('101', strict), /4 rəqəmli/);
+  assert.match(rule.codeRuleProblem('10191', strict), /4 rəqəmli/);
+  assert.match(rule.codeRuleProblem('1519', strict), /ikinci rəqəmi 0/);
+  assert.equal(rule.codeRuleProblem('9', rule.noCodeRule), null);
 });

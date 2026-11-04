@@ -55,6 +55,8 @@ public sealed class CompleteSettlementRequestValidator
         RuleFor(request => request.Cash).GreaterThanOrEqualTo(0).WithMessage("Nağd məbləğ mənfi ola bilməz.");
         RuleFor(request => request.Card).GreaterThanOrEqualTo(0).WithMessage("Kart məbləği mənfi ola bilməz.");
         RuleFor(request => request.Bonus).GreaterThanOrEqualTo(0).WithMessage("Bonus mənfi ola bilməz.");
+        RuleFor(request => request.PayoutCash).GreaterThanOrEqualTo(0).WithMessage("Verilən məbləğ mənfi ola bilməz.");
+        RuleFor(request => request.PayoutCard).GreaterThanOrEqualTo(0).WithMessage("Verilən məbləğ mənfi ola bilməz.");
         RuleFor(request => request.Returns).NotNull()
             .Must(returns => returns.Count <= 50)
             .WithMessage("Bir əməliyyatda ən çox 50 vazvrat seçilə bilər.")

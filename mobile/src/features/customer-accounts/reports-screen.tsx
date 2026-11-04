@@ -20,7 +20,7 @@ import {
   TileRow,
   money,
 } from './account-ui';
-import { AccountHistoryMonth, CustomerAccountSummary } from './customer-account-types';
+import { AccountHistoryMonth, CustomerAccountSummary, netBalance } from './customer-account-types';
 import { errorText, useAccountSession } from './use-account-session';
 
 type View_ = 'days' | 'customers';
@@ -153,8 +153,8 @@ export default function ReportsScreen() {
               >
                 <CompactHead
                   title={customer.customerName}
-                  amount={moneyShort(customer.remainingDebt)}
-                  amountTone={customer.remainingDebt > 0 ? 'warn' : 'good'}
+                  amount={moneyShort(netBalance(customer))}
+                  amountTone={netBalance(customer) > 0 ? 'warn' : netBalance(customer) < 0 ? 'bad' : 'good'}
                 />
               </Card>
             ))}

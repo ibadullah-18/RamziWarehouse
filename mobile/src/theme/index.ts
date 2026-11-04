@@ -1,27 +1,28 @@
+// Light theme: white surfaces, blue for actions, green for paid/done, red for debt and errors.
 export const colors = {
-  primary: '#E5B66C',
-  primaryDark: '#171A20',
-  primarySoft: '#30271B',
+  primary: '#1D4ED8',
+  primaryDark: '#1E3A8A',
+  primarySoft: '#DBEAFE',
 
-  background: '#080A0D',
-  surface: '#12161D',
-  surfaceSecondary: '#1B2028',
+  background: '#F3F6FB',
+  surface: '#FFFFFF',
+  surfaceSecondary: '#EEF2F8',
 
-  text: '#F3F4F6',
-  textSecondary: '#A9B1BE',
-  textLight: '#8893A3',
+  text: '#0F172A',
+  textSecondary: '#475569',
+  textLight: '#64748B',
 
-  border: '#2B333F',
-  inputBorder: '#374354',
+  border: '#DCE3EE',
+  inputBorder: '#C3CEDD',
 
-  success: '#51D6A0',
-  successSoft: '#102C23',
+  success: '#15803D',
+  successSoft: '#DCFCE7',
 
-  warning: '#F2C45C',
-  warningSoft: '#332A16',
+  warning: '#C2410C',
+  warningSoft: '#FFEDD5',
 
-  danger: '#FF8791',
-  dangerSoft: '#361B22',
+  danger: '#DC2626',
+  dangerSoft: '#FEE2E2',
 
   white: '#FFFFFF',
   black: '#000000',
@@ -58,5 +59,5 @@ export const fontSize = {
 
 export const cardShadow = {
   boxShadow:
-    '0 8px 18px rgba(41, 37, 31, 0.08)',
+    '0 6px 16px rgba(15, 23, 42, 0.08)',
 } as const;

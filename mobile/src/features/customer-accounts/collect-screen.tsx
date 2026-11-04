@@ -133,6 +133,7 @@ export default function CollectScreen() {
           <Tile label="Yığılan pul" value={money(day.collected)} tone="good" />
           <Tile label="Nağd" value={money(day.cash)} />
           <Tile label="Kart" value={money(day.card)} />
+          {day.paidOut > 0 ? <Tile label="Müştəriyə verilən" value={money(day.paidOut)} tone="warn" /> : null}
         </TileRow>
       ) : null}
 
@@ -192,7 +193,7 @@ function CustomerCard({ customer, onPress }: { customer: AccountDayCustomer; onP
             customer.paid > 0 && { label: `Ödədi${method}`, value: moneyShort(customer.paid), tone: 'good' },
             customer.returnCredit > 0 && { label: 'Vazvrat', value: moneyShort(customer.returnCredit) },
             customer.bonus > 0 && { label: 'Bonus', value: moneyShort(customer.bonus) },
-            { label: 'Qalan', value: moneyShort(customer.remaining), tone: customer.remaining > 0 ? 'warn' : 'good' },
+            { label: 'Qalan', value: moneyShort(customer.remaining - customer.advance), tone: customer.remaining - customer.advance > 0 ? 'warn' : customer.remaining - customer.advance < 0 ? 'bad' : 'good' },
             customer.carryToTomorrow && { label: 'Sabaha saxlanılıb', value: '✓', tone: 'warn' },
           ]}
         />

@@ -152,6 +152,7 @@ export default function AccountHomeScreen() {
                 <Tile label="Yığılan pul" value={money(day.collected)} tone="good" />
                 <Tile label="Nağd" value={money(day.cash)} />
                 <Tile label="Kart" value={money(day.card)} />
+                {day.paidOut > 0 ? <Tile label="Müştəriyə verilən" value={money(day.paidOut)} tone="warn" /> : null}
               </TileRow>
               <TileRow>
                 <Tile label="Bitirilən müştəri" value={`${day.doneCount} / ${day.customerCount}`} />

@@ -52,6 +52,11 @@ public sealed class CompleteSettlementRequest
 
     public List<SettlementReturnDto> Returns { get; init; } = [];
 
+    /// <summary>Money we give back to the customer in the same step (only what we owe them).</summary>
+    public decimal PayoutCash { get; init; }
+
+    public decimal PayoutCard { get; init; }
+
     /// <summary>The unpaid daily debt stays in tomorrow's daily debt instead of becoming old debt.</summary>
     public bool CarryToTomorrow { get; init; }
 
@@ -83,6 +88,25 @@ public sealed class AdjustDebtRequestDto
 
     public decimal Amount { get; init; }
 
+    public string Reason { get; init; } = string.Empty;
+}
+
+/// <summary>Money given back to a customer we owe (their credit), in cash and/or by card.</summary>
+public sealed class PayoutRequestDto
+{
+    public Guid OperationId { get; init; }
+
+    public Guid CustomerId { get; init; }
+
+    public decimal Cash { get; init; }
+
+    public decimal Card { get; init; }
+
+    public string? Note { get; init; }
+}
+
+public sealed class AccountResetRequestDto
+{
     public string Reason { get; init; } = string.Empty;
 }
 
@@ -141,6 +165,13 @@ public sealed class AccountDayCustomerDto
 
     public decimal Paid => Cash + Card;
 
+    /// <summary>Money we gave back to the customer today, in cash and by card.</summary>
+    public decimal PaidOutCash { get; init; }
+
+    public decimal PaidOutCard { get; init; }
+
+    public decimal PaidOut => PaidOutCash + PaidOutCard;
+
     public decimal Bonus { get; init; }
 
     public decimal ReturnCredit { get; init; }
@@ -183,11 +214,14 @@ public sealed class AccountDayDto
 
     public DateTime? ClosedAtUtc { get; init; }
 
+    /// <summary>Money in hand: received minus what was given back to customers.</summary>
     public decimal Collected { get; init; }
 
     public decimal Cash { get; init; }
 
     public decimal Card { get; init; }
+
+    public decimal PaidOut { get; init; }
 
     public decimal Bonus { get; init; }
 
@@ -345,7 +379,8 @@ public sealed record CustomerMonthDayDto(
     decimal Card,
     decimal Bonus,
     decimal ReturnCredit,
-    decimal Remaining);
+    decimal Remaining,
+    decimal PaidOut = 0);
 
 public sealed class CustomerMonthDto
 {

@@ -24,6 +24,8 @@ type FieldProps = Omit<
 > & {
   label?: string;
   hint?: string;
+  /** Shown in red under the field, which turns red too. */
+  error?: string | null;
   value: string;
   onChangeText: (value: string) => void;
   inputStyle?: StyleProp<TextStyle>;
@@ -32,17 +34,19 @@ type FieldProps = Omit<
 function FieldFrame({
   label,
   hint,
+  error,
   children,
 }: {
   label?: string;
   hint?: string;
+  error?: string | null;
   children: React.ReactNode;
 }) {
   return (
     <View style={styles.frame}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, error ? styles.labelError : null]}>{label}</Text> : null}
       {children}
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : hint ? <Text style={styles.hint}>{hint}</Text> : null}
     </View>
   );
 }
@@ -83,7 +87,7 @@ export function MoneyInput({
  * case a keyboard hides the symbol. Anything but digits and "-" is dropped as it is typed.
  */
 export const CodeInput = forwardRef<TextInput, FieldProps>(function CodeInput(
-  { label, hint, value, onChangeText, inputStyle, ...rest },
+  { label, hint, error, value, onChangeText, inputStyle, ...rest },
   forwardedRef,
 ) {
   const localRef = useRef<TextInput>(null);
@@ -93,7 +97,7 @@ export const CodeInput = forwardRef<TextInput, FieldProps>(function CodeInput(
     else if (forwardedRef) forwardedRef.current = instance;
   };
   return (
-    <FieldFrame label={label} hint={hint}>
+    <FieldFrame label={label} hint={hint} error={error}>
       <View style={styles.codeRow}>
         <TextInput
           placeholderTextColor={colors.textLight}
@@ -108,7 +112,7 @@ export const CodeInput = forwardRef<TextInput, FieldProps>(function CodeInput(
           onChangeText={(text) => onChangeText(cleanCodeInput(text))}
           keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'phone-pad'}
           inputMode="tel"
-          style={[styles.input, styles.codeInput, inputStyle]}
+          style={[styles.input, styles.codeInput, error ? styles.inputError : null, inputStyle]}
         />
         <Pressable
           accessibilityRole="button"
@@ -157,6 +161,9 @@ const styles = StyleSheet.create({
   frame: { gap: 6, minWidth: 0 },
   label: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   hint: { color: colors.textLight, fontSize: 13 },
+  labelError: { color: colors.danger },
+  errorText: { color: colors.danger, fontSize: 13, fontWeight: '600' },
+  inputError: { borderColor: colors.danger, borderWidth: 2, backgroundColor: colors.dangerSoft },
   input: {
     color: colors.text,
     backgroundColor: colors.surface,

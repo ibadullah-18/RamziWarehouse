@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using GrandWall.Infrastructure.Notifications.Push;
 using GrandWall.Application.Abstractions.Identity;
 using GrandWall.Application.Abstractions.Notifications;
@@ -86,6 +86,12 @@ public sealed class ProductReturnSubmissionService
                 "Yalnız gözləmədə olan vazvrad təqdim edilə bilər.");
         }
 
+        // Codes typed before the admin tightened the rule must be corrected before sending.
+        var codeRule = await _dbContext.ReturnCodeRules.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+        var codeProblem = codeRule is null ? null : productReturn.Items.Select(item => codeRule.Violation(item.ProductCode)).FirstOrDefault(problem => problem is not null);
+        if (codeProblem is not null)
+            throw new ConflictException($"{codeProblem} Düzəliş edib sonra menecerə göndərin.");
+
 
         var previousStatus = productReturn.Status;
 
@@ -93,6 +99,11 @@ public sealed class ProductReturnSubmissionService
             _timeProvider.GetUtcNow().UtcDateTime;
 
         productReturn.Submit();
+
+        // A Sədərək customer's return reduces the debt as soon as it goes to the manager;
+        // approval keeps it, rejection or deletion gives it back.
+        if (productReturn.Customer.IsAccountCustomer && productReturn.Amount > 0)
+            ReturnCreditPosting.Apply(_dbContext, productReturn, productReturn.Amount, _currentUserService, _timeProvider);
 
         var history = new ProductReturnStatusHistory
         {

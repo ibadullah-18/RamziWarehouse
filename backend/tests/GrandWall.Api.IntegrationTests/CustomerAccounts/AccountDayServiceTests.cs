@@ -258,6 +258,36 @@ public sealed class AccountDayServiceTests
     }
 
     [Fact]
+    public async Task ReturnWorthMoreThanTheDebtCanBePaidBackInTheSameStep()
+    {
+        using var f = new Fixture();
+        await f.Debts(f.Filman, 30);
+        var record = new ProductReturn { CustomerId = f.Filman.Id, WarehouseId = Guid.NewGuid(), CreatedByUserId = f.User.UserId };
+        f.Db.ProductReturns.Add(record);
+        await f.Db.SaveChangesAsync();
+
+        var tooMuch = new CompleteSettlementRequest
+        {
+            OperationId = Guid.NewGuid(), CustomerId = f.Filman.Id, PayoutCash = 20,
+            Returns = [new SettlementReturnDto { ReturnId = record.Id, Amount = 46 }]
+        };
+        await Assert.ThrowsAsync<ConflictException>(() => f.Service.CompleteSettlementAsync(tooMuch));
+
+        var result = await f.Service.CompleteSettlementAsync(new CompleteSettlementRequest
+        {
+            OperationId = Guid.NewGuid(), CustomerId = f.Filman.Id, PayoutCash = 10, PayoutCard = 6,
+            Returns = [new SettlementReturnDto { ReturnId = record.Id, Amount = 46 }]
+        });
+
+        Assert.Equal(0, result.RemainingDebt);
+        Assert.Equal(0, result.Advance);
+        var day = await f.Service.GetDayAsync(f.Today);
+        Assert.Equal(16, day.PaidOut);
+        Assert.Equal(-10, day.Cash);
+        Assert.Equal(-6, day.Card);
+    }
+
+    [Fact]
     public async Task ReturnOfAnotherCustomerIsRejected()
     {
         using var f = new Fixture();

@@ -14,6 +14,8 @@ public sealed class AppDbContext : DbContext
         
     public DbSet<AccountEntryAudit> AccountEntryAudits => Set<AccountEntryAudit>();
     public DbSet<ReturnPerson> ReturnPersons => Set<ReturnPerson>();
+    public DbSet<CustomerPriceRule> CustomerPriceRules => Set<CustomerPriceRule>();
+    public DbSet<ReturnCodeRule> ReturnCodeRules => Set<ReturnCodeRule>();
     public DbSet<AccountSettlement> AccountSettlements => Set<AccountSettlement>();
     public DbSet<AccountDay> AccountDays => Set<AccountDay>();
 
@@ -69,9 +71,16 @@ public sealed class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.Entity<ReturnPerson>().Property(x=>x.Name).HasMaxLength(150);
+        modelBuilder.Entity<ReturnCodeRule>().Property(x => x.Id).ValueGeneratedNever();
+        modelBuilder.Entity<CustomerPriceRule>().Property(x => x.CodePrefix).HasMaxLength(10);
+        modelBuilder.Entity<CustomerPriceRule>().Property(x => x.Price).HasPrecision(18, 2);
+        modelBuilder.Entity<CustomerPriceRule>().HasIndex(x => new { x.CustomerId, x.CodePrefix }).IsUnique();
+        modelBuilder.Entity<CustomerPriceRule>().HasOne<Customer>().WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<AccountSettlement>().Property(x=>x.Cash).HasPrecision(18,2);
         modelBuilder.Entity<AccountSettlement>().Property(x=>x.Card).HasPrecision(18,2);
         modelBuilder.Entity<AccountSettlement>().Property(x=>x.Bonus).HasPrecision(18,2);
+        modelBuilder.Entity<AccountSettlement>().Property(x => x.PayoutCash).HasPrecision(18, 2);
+        modelBuilder.Entity<AccountSettlement>().Property(x => x.PayoutCard).HasPrecision(18, 2);
         modelBuilder.Entity<AccountSettlement>().Property(x=>x.Note).HasMaxLength(400);
         modelBuilder.Entity<AccountSettlement>().HasIndex(x=>x.CustomerId);
         modelBuilder.Entity<ProductReturn>().Property(x=>x.Amount).HasPrecision(18,2);

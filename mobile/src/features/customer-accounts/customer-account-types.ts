@@ -10,6 +10,7 @@ export enum CustomerAccountEntryType {
   Bonus = 9,
   CreditReversal = 10,
   DailyToOld = 11,
+  Payout = 12,
 }
 
 export type AccountDayState = 'notStarted' | 'open' | 'closed';
@@ -29,6 +30,10 @@ export type AccountDayCustomer = {
   cash: number;
   card: number;
   paid: number;
+  /** Money we gave back to the customer today. */
+  paidOutCash: number;
+  paidOutCard: number;
+  paidOut: number;
   bonus: number;
   returnCredit: number;
   remainingOld: number;
@@ -53,6 +58,7 @@ export type AccountDay = {
   collected: number;
   cash: number;
   card: number;
+  paidOut: number;
   bonus: number;
   returnCredit: number;
   newDailyDebt: number;
@@ -163,6 +169,7 @@ export type CustomerMonthDay = {
   bonus: number;
   returnCredit: number;
   remaining: number;
+  paidOut: number;
 };
 
 export type CustomerMonth = {
@@ -199,6 +206,27 @@ export type SettlementRequest = {
   card: number;
   bonus: number;
   returns: { returnId: string; amount: number }[];
+  /** Money given back to the customer in the same step (only what we owe them). */
+  payoutCash: number;
+  payoutCard: number;
   carryToTomorrow: boolean;
   note: string | null;
 };
+
+/** A Sədərək customer's return price for codes starting with the prefix ("10" -> 26 AZN). */
+export type PriceRule = {
+  codePrefix: string;
+  price: number;
+};
+
+export type PayoutRequest = {
+  operationId: string;
+  customerId: string;
+  cash: number;
+  card: number;
+  note: string | null;
+};
+
+/** Debt minus what we owe the customer; negative means we owe them. */
+export const netBalance = (value: { remainingDebt: number; advance: number }) =>
+  Math.round((value.remainingDebt - value.advance) * 100) / 100;

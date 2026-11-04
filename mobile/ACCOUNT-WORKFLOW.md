@@ -70,3 +70,32 @@ Server və mobil tətbiq birlikdə yenilənməlidir. Yeni miqrasiya `AccountDays
 25.10.2026 tarixindən yeni qayda işləyir. Bu tarixdən əvvəlki günlərdə ödənilməyən günlük borc növbəti gün avtomatik köhnə borca keçmişdi və eyni qaydada göstərilir; ümumi borc dəyişmir.
 
 `npm run test:accounts` marşrutları, tarix və məbləğ hesablamalarını, klaviatura rejimlərini yoxlayır. `dotnet test` açot günü, ödəniş, vazvrat/bonus tətbiqi, bitmiş gün kilidi və icazələri yoxlayır. InMemory test bazası SQL Server kilidlənməsini yoxlamır; fiziki Tab A7 və telefonda ekran, klaviatura və geri düyməsi ayrıca yoxlanmalıdır.
+
+## Vazvrad qiymətləri və avtomatik məbləğ
+
+Sədərək müştərisinin səhifəsində **Vazvrad qiymətləri** bölməsi var: kodun başlanğıcı və 1 ədədin qiyməti, məsələn `10 → 26 ₼` (1001–1047), `50 → 23 ₼` (5001–5058). Yeni aboy gələndə yeni sətir əlavə edilir. Ən uzun uyğun başlanğıc götürülür (`501` ayrıca qiymət ola bilər). Siyahını admin və açot operatoru dəyişir.
+
+Bu müştəriyə vazvrad yaradılanda məbləğ avtomatik hesablanır: `5012 × 2 = 46 ₼`. **Vitrin hesablanmır.** Qiyməti olmayan kod qırmızı ilə göstərilir. Məbləği əl ilə də dəyişmək olar.
+
+Vazvrad **menecerə göndəriləndə** məbləğ müştərinin borcundan avtomatik çıxılır. Menecer “Sistemə işlənildi” desə belə qalır; **rədd etsə və ya vazvrad silinsə**, çıxılan məbləğ borca geri qayıdır. Məbləğ sonradan dəyişsə, yalnız fərq yazılır.
+
+## Bizim müştəriyə borcumuz və müştəriyə verilən məbləğ
+
+Vazvrat borcdan çox olsa (borc 30 ₼, vazvrat 46 ₼), müştərinin balansı **−16 ₼** olur və “Bizim borcumuz” kimi göstərilir. Müştəri səhifəsində **Müştəriyə verilən məbləğ** bölməsi açılır: nağd və/və ya kartla verilən məbləğ yazılır, borc sıfırlanır və bu pul günün yığılan pulundan (nağd və kart ayrıca) çıxılır. Borcumuzdan çox vermək olmaz.
+
+## Səhv yazılıbsa: sıfırlama
+
+- **Bu günü sıfırla** (admin, açot operatoru): müştəri üçün bu gün yazılan bütün borc, ödəniş, vazvrat, bonus və düzəlişlər silinir, sanki bu gün heç nə olmayıb. Bu gün borca tətbiq olunan vazvrat yenidən istifadə olunmamış olur.
+- **Bütün hesabı sıfırla** (yalnız admin): müştərinin bütün borcu, ödənişləri və tarixçəsi silinir, yeni müştəri kimi 0 olur.
+
+Hər ikisində səbəb məcburidir və təsdiq soruşulur; sıfırlama özü düzəliş tarixçəsində qalır.
+
+Bu dəyişikliklər `PriceRulesAndPayouts` miqrasiyasını tələb edir (qiymət cədvəli və `EntryType` 12).
+
+## Rənglər
+
+Tətbiq açıq rəngdədir: ağ fon, göy əsas düymələr, yaşıl ödənilmiş/bitmiş, qırmızı borc və xəbərdarlıqlar.
+
+## Ödəniş pəncərəsində mənfi borc və müştəriyə verilən məbləğ
+
+“Avans” sözü işlədilmir: müştəri artıq veribsə və ya vazvrat borcdan çoxdursa, cəmi **mənfi** göstərilir (məsələn −30 ₼, “bizim borcumuz”). “Günlük borcu sabaha saxla”nın altında həmişə **Müştəriyə verilən məbləğ** xanası var: bu addımdakı ödəniş, vazvrat və bonusdan sonra müştəriyə verməli olduğumuz məbləğ avtomatik hesablanır, “nağd ver” / “kartla ver” düyməsi onu bir toxunuşla yazır. Verilən məbləğ borcumuzdan çox ola bilməz və günün yığılan pulundan çıxılır. `SettlementPayouts` miqrasiyası bunun üçündür.

@@ -20,7 +20,7 @@ import {
   TileRow,
   money,
 } from './account-ui';
-import { CustomerAccountSummary } from './customer-account-types';
+import { CustomerAccountSummary, netBalance } from './customer-account-types';
 import { errorText, useAccountSession } from './use-account-session';
 
 type Sort = 'name' | 'debt';
@@ -67,12 +67,12 @@ export default function ShopsScreen() {
     const query = search.trim().toLocaleLowerCase('az-AZ');
     const filtered = items.filter((c) => !query || c.customerName.toLocaleLowerCase('az-AZ').includes(query));
     return [...filtered].sort((a, b) =>
-      sort === 'debt' ? b.remainingDebt - a.remainingDebt : a.customerName.localeCompare(b.customerName, 'az'),
+      sort === 'debt' ? netBalance(b) - netBalance(a) : a.customerName.localeCompare(b.customerName, 'az'),
     );
   }, [items, search, sort]);
 
   const totalOld = items.reduce((sum, c) => sum + c.oldDebt, 0);
-  const totalDebt = items.reduce((sum, c) => sum + c.remainingDebt, 0);
+  const totalDebt = items.reduce((sum, c) => sum + netBalance(c), 0);
 
   const open = (target: string) => {
     if (navigating.current) return;
@@ -116,21 +116,21 @@ export default function ShopsScreen() {
           {visible.map((customer) => (
             <Card
               key={customer.customerId}
-              tone={customer.remainingDebt > 0 ? 'default' : 'done'}
+              tone={netBalance(customer) > 0 ? 'default' : 'done'}
               style={compactCardStyle}
               onPress={() => open(accountDestination('detail', customer.customerId))}
             >
               <CompactHead
                 title={customer.customerName}
-                amount={moneyShort(customer.remainingDebt)}
-                amountTone={customer.remainingDebt > 0 ? 'warn' : 'good'}
+                amount={moneyShort(netBalance(customer))}
+                amountTone={netBalance(customer) > 0 ? 'warn' : netBalance(customer) < 0 ? 'bad' : 'good'}
               />
               <Pairs
                 items={[
                   { label: 'Köhnə', value: moneyShort(customer.oldDebt) },
                   customer.carriedDebt > 0 && { label: 'Dünənki', value: moneyShort(customer.carriedDebt), tone: 'warn' },
                   customer.todayDebt > 0 && { label: 'Bu günkü', value: moneyShort(customer.todayDebt) },
-                  customer.advance > 0 && { label: 'Avans', value: moneyShort(customer.advance), tone: 'good' },
+                  customer.advance > 0 && { label: 'Bizim borcumuz', value: moneyShort(customer.advance), tone: 'bad' },
                   !customer.isAccountCustomer && { label: 'Sədərək deyil', value: '' },
                 ]}
               />

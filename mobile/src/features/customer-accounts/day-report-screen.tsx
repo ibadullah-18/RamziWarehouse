@@ -92,6 +92,7 @@ export default function DayReportScreen() {
             <Tile label="Yığılan pul" value={money(day.collected)} tone="good" />
             <Tile label="Nağd alınan" value={money(day.cash)} />
             <Tile label="Kartla alınan" value={money(day.card)} />
+            {day.paidOut > 0 ? <Tile label="Müştəriyə verilən" value={money(day.paidOut)} tone="warn" /> : null}
           </TileRow>
           {day.returnCredit > 0 || day.bonus > 0 ? (
             <TileRow>
@@ -141,7 +142,7 @@ function ReportCard({ customer }: { customer: AccountDayCustomer }) {
         leading={<StatusMark done={customer.isDone} small />}
         title={customer.customerName}
         badge={unpaid ? 'Ödəməyib' : undefined}
-        amount={moneyShort(customer.remaining)}
+        amount={moneyShort(customer.remaining - customer.advance)}
         amountTone={customer.remaining > 0 ? (unpaid ? 'bad' : 'warn') : 'good'}
       />
       <Pairs
@@ -152,6 +153,7 @@ function ReportCard({ customer }: { customer: AccountDayCustomer }) {
           { label: `Ödədi${method}`, value: moneyShort(customer.paid), tone: unpaid ? 'bad' : 'good' },
           customer.returnCredit > 0 && { label: 'Vazvrat', value: moneyShort(customer.returnCredit) },
           customer.bonus > 0 && { label: 'Bonus', value: moneyShort(customer.bonus) },
+          customer.paidOut > 0 && { label: 'Müştəriyə verildi', value: moneyShort(customer.paidOut), tone: 'bad' },
           customer.carryToTomorrow && { label: 'Sabaha saxlanılıb', value: '✓', tone: 'warn' },
         ]}
       />

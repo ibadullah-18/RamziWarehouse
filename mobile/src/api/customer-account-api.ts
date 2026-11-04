@@ -4,6 +4,8 @@ import { ApiProblemDetails } from "../auth/auth-types";
 import {
   AccountDay,
   AdjustDebtRequest,
+  PayoutRequest,
+  PriceRule,
   AccountHistoryMonth,
   CustomerAccountDetails,
   CustomerAccountList,
@@ -282,5 +284,47 @@ export function correctAccountPayment(
     "/api/customer-accounts/payments",
     accessToken,
     { method: "PUT", body },
+  );
+}
+
+/** Gives money back to a customer we owe. */
+export function payOut(accessToken: string, body: PayoutRequest) {
+  return sendAccountRequest<CustomerAccountDetails>(
+    "/api/customer-accounts/payouts",
+    accessToken,
+    { method: "POST", body },
+  );
+}
+
+/** Removes everything written for the customer today. */
+export function resetToday(accessToken: string, customerId: string, reason: string) {
+  return sendAccountRequest<CustomerAccountDetails>(
+    `/api/customer-accounts/${encodeURIComponent(customerId)}/reset-today`,
+    accessToken,
+    { method: "POST", body: { reason } },
+  );
+}
+
+/** Clears the whole account of the customer (admin only). */
+export function wipeAccount(accessToken: string, customerId: string, reason: string) {
+  return sendAccountRequest<CustomerAccountDetails>(
+    `/api/customer-accounts/${encodeURIComponent(customerId)}/wipe`,
+    accessToken,
+    { method: "POST", body: { reason } },
+  );
+}
+
+export function getPriceRules(accessToken: string, customerId: string) {
+  return sendAccountRequest<PriceRule[]>(
+    `/api/customers/${encodeURIComponent(customerId)}/price-rules`,
+    accessToken,
+  );
+}
+
+export function savePriceRules(accessToken: string, customerId: string, rules: PriceRule[]) {
+  return sendAccountRequest<PriceRule[]>(
+    `/api/customers/${encodeURIComponent(customerId)}/price-rules`,
+    accessToken,
+    { method: "PUT", body: rules },
   );
 }

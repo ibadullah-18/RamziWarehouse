@@ -36,6 +36,7 @@ import {
   retryPhoto,
   usePhotoJobs,
 } from '../../../features/product-returns/photo-upload-queue';
+import { codeRuleProblem, useReturnCodeRule } from '../../../features/product-returns/code-rule';
 import { ProductReturn, ReturnStatus } from '../../../features/product-returns/product-return-types';
 import { colors } from '../../../theme';
 
@@ -84,6 +85,7 @@ export default function ReturnDetailScreen() {
   const [capturing, setCapturing] = useState(false);
   const [working, setWorking] = useState<'submit' | 'complete' | 'cancel' | null>(null);
   const jobs = usePhotoJobs(returnId);
+  const codeRule = useReturnCodeRule(token);
   const navigating = useRef(false);
   const request = useRef(0);
 
@@ -214,6 +216,7 @@ export default function ReturnDetailScreen() {
   const canChange = !record.isDeleted && (isAdmin || open);
   // Only photos that are still on their way block sending; a failed one can be retried or skipped.
   const uploading = jobs.some((job) => job.status !== 'failed');
+  const badCode = record.items.map((item) => codeRuleProblem(item.productCode, codeRule)).find(Boolean) ?? null;
   const failedPhotos = jobs.filter((job) => job.status === 'failed').length;
   const totalQuantity = record.items.reduce((sum, item) => sum + item.quantity, 0);
   const type = getReturnTypeSummary(record.items.map((item) => item.productType));
@@ -248,7 +251,7 @@ export default function ReturnDetailScreen() {
       <Grid>
         {record.items.map((item) => (
           <Card key={item.id}>
-            <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>
+            <Text style={{ color: codeRuleProblem(item.productCode, codeRule) ? colors.danger : colors.text, fontSize: 18, fontWeight: '700' }}>
               Kod {item.productCode} · Partiya {item.batchNumber}
             </Text>
             <Line label={getProductTypeLabel(item.productType)} value={`${item.quantity} ədəd`} />
@@ -340,6 +343,7 @@ export default function ReturnDetailScreen() {
 
       {!record.isDeleted && record.status === ReturnStatus.Pending ? (
         <>
+          {badCode ? <Notice tone="error">{badCode} Düzəliş edin, sonra menecerə göndərin.</Notice> : null}
           {uploading ? <Notice>Şəkillər göndərilir. Bitəndən sonra menecerə göndərmək olar.</Notice> : null}
           {failedPhotos > 0 ? (
             <Notice tone="error">{failedPhotos} şəkil göndərilməyib. Yenidən göndərin və ya silin; istəsəniz şəkilsiz də göndərə bilərsiniz.</Notice>
@@ -349,7 +353,7 @@ export default function ReturnDetailScreen() {
             title="Menecerə göndər"
             onPress={() => confirmWorkflow('submit')}
             busy={working === 'submit'}
-            disabled={uploading || Boolean(working)}
+            disabled={uploading || Boolean(working) || Boolean(badCode)}
           />
         </>
       ) : null}

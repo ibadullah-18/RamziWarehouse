@@ -227,6 +227,10 @@ public sealed partial class ProductReturnService : IProductReturnService
             throw new ConflictException(ProductCodeRules.Message);
         }
 
+        var codeRule = await _dbContext.ReturnCodeRules.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+        var codeProblem = codeRule is null ? null : request.Items.Select(item => codeRule.Violation(item.ProductCode)).FirstOrDefault(problem => problem is not null);
+        if (codeProblem is not null) throw new ConflictException(codeProblem);
+
         ValidateReturnAmount(request.Amount);
         ReturnPerson? person = null;
         if(request.ReturnPersonId.HasValue)
@@ -234,11 +238,22 @@ public sealed partial class ProductReturnService : IProductReturnService
                 ?? throw new ConflictException("Aktiv vazvrat yaradan şəxs seçin.");
         else if(await _dbContext.ReturnPersons.AnyAsync(p=>p.IsActive,cancellationToken))
             throw new ConflictException("Vazvratı yaradan işçinin adını seçin.");
+        // No amount typed: price the wallpaper lines from the customer's code-prefix list.
+        var amount = request.Amount;
+        if (amount == 0)
+        {
+            var rules = await _dbContext.CustomerPriceRules.AsNoTracking()
+                .Where(rule => rule.CustomerId == request.CustomerId)
+                .ToListAsync(cancellationToken);
+            if (rules.Count > 0)
+                amount = ReturnPricing.Total(request.Items.Select(item => (item.ProductCode, item.Quantity, item.ProductType)), rules);
+        }
+
         var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
 
         var productReturn = new ProductReturn
         {
-            Amount=request.Amount, ReturnPersonId=person?.Id,ReturnPersonName=person?.Name,
+            Amount=amount, ReturnPersonId=person?.Id,ReturnPersonName=person?.Name,
             ReturnDateUtc = utcNow,
             CustomerId = request.CustomerId,
             WarehouseId = request.WarehouseId,

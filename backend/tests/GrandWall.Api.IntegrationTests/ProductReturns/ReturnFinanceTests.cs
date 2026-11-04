@@ -74,7 +74,7 @@ public sealed class ReturnFinanceTests
     }
 
     [Fact]
-    public async Task ManagerApprovalCreditsTheDebtOnce()
+    public async Task SendingCreditsTheDebtAndApprovalKeepsIt()
     {
         using var factory = new GrandWallApiFactory();
         using var admin = await LoginAdmin(factory);
@@ -97,7 +97,7 @@ public sealed class ReturnFinanceTests
         Assert.Equal(500, await Remaining(admin, customer));
 
         (await admin.PostAsync($"/api/product-returns/{id}/submit", null)).EnsureSuccessStatusCode();
-        Assert.Equal(500, await Remaining(admin, customer));   // submitting alone never reduces the debt
+        Assert.Equal(480, await Remaining(admin, customer));   // a Sədərək return leaves the debt when it goes to the manager
 
         (await manager.PostAsJsonAsync($"/api/product-returns/{id}/complete", new { note = "" })).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Conflict, (await manager.PostAsJsonAsync($"/api/product-returns/{id}/complete", new { note = "" })).StatusCode);

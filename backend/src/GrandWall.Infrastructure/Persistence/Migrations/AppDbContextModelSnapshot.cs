@@ -125,6 +125,14 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<decimal>("PayoutCard")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PayoutCash")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<Guid>("RecordedByUserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -293,8 +301,37 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_CustomerAccountEntries_Amount_Positive", "[Amount] > 0");
 
-                            t.HasCheckConstraint("CK_CustomerAccountEntries_EntryType_Valid", "[EntryType] IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)");
+                            t.HasCheckConstraint("CK_CustomerAccountEntries_EntryType_Valid", "[EntryType] IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)");
                         });
+                });
+
+            modelBuilder.Entity("GrandWall.Domain.Entities.CustomerPriceRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CodePrefix")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId", "CodePrefix")
+                        .IsUnique();
+
+                    b.ToTable("CustomerPriceRules");
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.DeliveryPhoto", b =>
@@ -928,6 +965,22 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("GrandWall.Domain.Entities.ReturnCodeRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RequiredLength")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("SecondDigitMustBeZero")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ReturnCodeRules");
+                });
+
             modelBuilder.Entity("GrandWall.Domain.Entities.ReturnPerson", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1160,6 +1213,15 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("RecordedByUser");
+                });
+
+            modelBuilder.Entity("GrandWall.Domain.Entities.CustomerPriceRule", b =>
+                {
+                    b.HasOne("GrandWall.Domain.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.DeliveryPhoto", b =>

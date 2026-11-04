@@ -56,6 +56,23 @@ public sealed class CustomerAccountsController(ICustomerAccountService service) 
     public async Task<ActionResult<CustomerAccountDetailsDto>> CorrectDaily(CorrectDailyDebtRequestDto request, CancellationToken cancellationToken)
         => Ok(await service.CorrectDailyAsync(request, cancellationToken));
 
+    /// <summary>Give money back to a customer we owe (cash and/or card).</summary>
+    [HttpPost("payouts")]
+    public async Task<ActionResult<CustomerAccountDetailsDto>> PayOut(PayoutRequestDto request, CancellationToken cancellationToken)
+        => Ok(await service.PayOutAsync(request, cancellationToken));
+
+    /// <summary>Removes everything written for this customer today, as if nothing happened.</summary>
+    [HttpPost("{customerId:guid}/reset-today")]
+    [Authorize(Roles = "Admin,Accountant")]
+    public async Task<ActionResult<CustomerAccountDetailsDto>> ResetToday(Guid customerId, AccountResetRequestDto request, CancellationToken cancellationToken)
+        => Ok(await service.ResetTodayAsync(customerId, request, cancellationToken));
+
+    /// <summary>Clears the whole account of this customer: no debt, no payments, like a new customer.</summary>
+    [HttpPost("{customerId:guid}/wipe")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<CustomerAccountDetailsDto>> Wipe(Guid customerId, AccountResetRequestDto request, CancellationToken cancellationToken)
+        => Ok(await service.WipeAccountAsync(customerId, request, cancellationToken));
+
     /// <summary>Add to or set the old debt or today's daily debt (Sədərək customer page).</summary>
     [HttpPost("adjust")]
     public async Task<ActionResult<CustomerAccountDetailsDto>> AdjustDebt(AdjustDebtRequestDto request, CancellationToken cancellationToken)

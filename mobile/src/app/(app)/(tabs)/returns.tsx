@@ -8,6 +8,7 @@ export default function ReturnsScreen() {
       description="Menecer təsdiqi gözləyən vazvrad və vitrinlər. Kod, partiya və ya müştəri adı ilə axtarın."
       allowCreate
       defaultStatus={ReturnStatus.Submitted}
+      showFilters={false}
     />
   );
 }

@@ -78,7 +78,7 @@ export default function RootLayout() {
     <AuthProvider>
       <PushNotificationProvider>
       <AppToastProvider>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <RootNavigator />
         <KeyboardToolbar doneText="Tamam"/>
       </AppToastProvider>

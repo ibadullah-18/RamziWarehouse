@@ -38,3 +38,9 @@ Yeni vazvrad menecerə göndəriləndə Telegram kanalına mətn və şəkillər
 4. Yeni Android APK yığın və quraşdırın. Menecer hesabında Hesab → Bildirişləri aktivləşdir seçin və Android bildiriş icazəsini verin.
 
 CI APK hazırlayanda versiya nömrəsini yayımlanmış APK-dan böyük seçir. API dəyişdiyi üçün yeni APK buraxıldıqdan sonra serverdə `minimumVersionCode` yeni build nömrəsinə qaldırılmalıdır ki, köhnə tətbiqlər yenilənməyə yönləndirilsin.
+
+## Kod qaydası (admin)
+
+İdarəetmə → **Vazvrad kod qaydası**: məhsul kodu neçə rəqəmli olmalıdır (boş = istənilən) və **ikinci rəqəm 0 olsun** (10.., 30.., 50.., 60.., 70..). Qayda bütün müştərilərin vazvradlarına aiddir. Başlanğıc dəyər: 4 rəqəm, ikinci rəqəm 0.
+
+Qaydaya uymayan kod yazılanda xana qırmızı olur və səbəb altında yazılır; məhsul siyahıya əlavə olunmur, vazvrad yaradılmır. Qayda sonradan sərtləşibsə, köhnə qeyd düzəldilməyincə **menecerə göndərilmir**. Server də eyni qaydanı yoxlayır.

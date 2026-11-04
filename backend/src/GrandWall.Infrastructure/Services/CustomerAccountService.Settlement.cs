@@ -24,6 +24,8 @@ public sealed partial class CustomerAccountService
         Money(r.Cash);
         Money(r.Card);
         Money(r.Bonus);
+        Money(r.PayoutCash);
+        Money(r.PayoutCard);
         foreach (var item in r.Returns) Money(item.Amount);
         if (r.OperationId == Guid.Empty) throw new ConflictException("Əməliyyat identifikatoru düzgün deyil.");
         if (r.Note?.Length > 400) throw new ConflictException("Qeyd 400 simvoldan çox ola bilməz.");
@@ -36,7 +38,7 @@ public sealed partial class CustomerAccountService
             var existing = await db.AccountSettlements.AsNoTracking().FirstOrDefaultAsync(s => s.Id == r.OperationId, cancellationToken);
             if (existing is not null)
             {
-                if (existing.CustomerId != r.CustomerId || existing.Cash != r.Cash || existing.Card != r.Card || existing.Bonus != r.Bonus ||
+                if (existing.CustomerId != r.CustomerId || existing.Cash != r.Cash || existing.Card != r.Card || existing.Bonus != r.Bonus || existing.PayoutCash != r.PayoutCash || existing.PayoutCard != r.PayoutCard ||
                     existing.CarryToTomorrow != r.CarryToTomorrow || existing.ReturnsKey != key || existing.Note != note)
                     throw new ConflictException("Əvvəlki əməliyyatın məlumatı dəyişdirilə bilməz. Yeni əməliyyat yaradın.");
                 return;
@@ -52,7 +54,7 @@ public sealed partial class CustomerAccountService
 
             db.AccountSettlements.Add(new AccountSettlement
             {
-                Id = r.OperationId, CustomerId = r.CustomerId, BusinessDate = today, Cash = r.Cash, Card = r.Card, Bonus = r.Bonus,
+                Id = r.OperationId, CustomerId = r.CustomerId, BusinessDate = today, Cash = r.Cash, Card = r.Card, Bonus = r.Bonus, PayoutCash = r.PayoutCash, PayoutCard = r.PayoutCard,
                 CarryToTomorrow = r.CarryToTomorrow, ReturnsKey = key, Note = note, RecordedByUserId = user.UserId,
                 CreatedAtUtc = DateTime.UtcNow
             });
@@ -87,6 +89,17 @@ public sealed partial class CustomerAccountService
 
             // The customer stays "−" only while daily debt is left; unless it is kept for
             // tomorrow, the unpaid rest becomes old debt right now.
+            // Money back to the customer: only what we owe after this step's payments and returns.
+            var payout = r.PayoutCash + r.PayoutCard;
+            if (payout > 0)
+            {
+                var owed = AccountLedger.Closing(Items(entries), today).Advance;
+                if (payout > owed)
+                    throw new ConflictException($"Müştəriyə borcumuz {owed:0.00} AZN olacaq; ondan çox vermək olmaz.");
+                Add(r.PayoutCash, CustomerAccountEntryType.Payout, "cash", null, "Müştəriyə verildi");
+                Add(r.PayoutCard, CustomerAccountEntryType.Payout, "card", null, "Müştəriyə verildi");
+            }
+
             var closingNow = AccountLedger.Closing(Items(entries), today);
             var remainingDaily = closingNow.Carried + closingNow.Today;
             if (!r.CarryToTomorrow && remainingDaily > 0)

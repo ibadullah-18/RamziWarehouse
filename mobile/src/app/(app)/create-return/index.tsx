@@ -5,6 +5,9 @@ import { Alert, Image, Pressable, Text, TextInput, View } from 'react-native';
 
 import { getActiveWarehouses } from '../../../api/create-order-api';
 import { createProductReturn } from '../../../api/product-return-api';
+import { getPriceRules } from '../../../api/customer-account-api';
+import type { PriceRule } from '../../../features/customer-accounts/customer-account-types';
+import { priceReturn } from '../../../features/customer-accounts/return-pricing';
 import { ReturnPerson, returnPersonRequest } from '../../../api/return-person-api';
 import { useAuth } from '../../../auth/auth-context';
 import { CustomerPickerModal } from '../../../components/customer-picker-modal';
@@ -26,6 +29,7 @@ import {
   captureReturnPhoto,
 } from '../../../features/product-returns/photo-capture';
 import { enqueuePhoto } from '../../../features/product-returns/photo-upload-queue';
+import { codeRuleProblem, useReturnCodeRule } from '../../../features/product-returns/code-rule';
 import { DraftProductReturnItem, ProductType } from '../../../features/product-returns/product-return-types';
 import { colors } from '../../../theme';
 
@@ -71,6 +75,10 @@ export default function CreateReturnScreen() {
   const [productType, setProductType] = useState<ProductType>(ProductType.Product);
   const [quantityText, setQuantityText] = useState('1');
   const [amount, setAmount] = useState('');
+  // Once the user types an amount by hand, the automatic price no longer overwrites it.
+  const [amountTyped, setAmountTyped] = useState(false);
+  const [rules, setRules] = useState<PriceRule[]>([]);
+  const codeRule = useReturnCodeRule(token);
   const [note, setNote] = useState('');
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const [capturing, setCapturing] = useState(false);
@@ -113,6 +121,30 @@ export default function CreateReturnScreen() {
     }, [loadPeople]),
   );
 
+  const customerId = customer?.id;
+  useEffect(() => {
+    if (!token || !customerId) return;
+    let active = true;
+    getPriceRules(token, customerId)
+      .then((result) => active && setRules(result))
+      .catch(() => active && setRules([]));
+    return () => {
+      active = false;
+    };
+  }, [token, customerId]);
+
+  // The return is priced from the customer's list: wallpaper lines by quantity, showcase free.
+  const pricing = priceReturn(
+    items.map((item) => ({
+      productCode: item.productCode,
+      quantity: item.quantity,
+      isShowcase: item.productType === ProductType.Showcase,
+    })),
+    customerId ? rules : [],
+  );
+  const autoPriced = rules.length > 0 && !amountTyped;
+  const shownAmount = autoPriced ? (pricing.total > 0 ? String(pricing.total) : '') : amount;
+
   const quantity = Number(quantityText);
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -127,6 +159,8 @@ export default function CreateReturnScreen() {
 
   function validateDraft(id: string): DraftProductReturnItem | string {
     if (!/^[0-9][0-9-]*$/.test(code.trim())) return 'Məhsul kodunu yazın (yalnız rəqəm və -).';
+    const rule = codeRuleProblem(code, codeRule);
+    if (rule) return rule;
     if (!/^[0-9][0-9-]*$/.test(batch.trim())) return 'Partiyanı yazın (yalnız rəqəm və -, məsələn 340-1).';
     if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 100000) return 'Say sıfırdan böyük olmalıdır.';
     const duplicate = items.some(
@@ -194,11 +228,16 @@ export default function CreateReturnScreen() {
       }
       finalItems = editingId ? finalItems.map((item) => (item.localId === editingId ? draft : item)) : [...finalItems, draft];
     }
+    const badCode = finalItems.map((item) => codeRuleProblem(item.productCode, codeRule)).find(Boolean);
+    if (badCode) {
+      Alert.alert('Kodu düzəldin', badCode);
+      return;
+    }
     if (finalItems.length === 0) {
       Alert.alert('Məhsul yoxdur', 'Ən azı bir məhsul əlavə edin.');
       return;
     }
-    const value = parseMoney(amount);
+    const value = autoPriced ? pricing.total : parseMoney(amount);
     if (value === null) {
       Alert.alert('Məbləği yoxlayın', 'Məbləği düzgün yazın (məsələn 150,50) və ya boş buraxın.');
       return;
@@ -312,7 +351,8 @@ export default function CreateReturnScreen() {
         <CodeInput
           ref={codeRef}
           label="Məhsul kodu"
-          hint="Yalnız rəqəm və - (məsələn 1019)"
+          hint={codeRule.requiredLength ? `${codeRule.requiredLength} rəqəmli kod (məsələn 1019)` : 'Yalnız rəqəm və - (məsələn 1019)'}
+          error={code.trim().length >= 2 ? codeRuleProblem(code, codeRule) : null}
           value={code}
           onChangeText={setCode}
           maxLength={50}
@@ -401,12 +441,40 @@ export default function CreateReturnScreen() {
       </Card>
 
       <Card>
-        <SectionTitle>4. Məbləğ (istəyə görə)</SectionTitle>
+        <SectionTitle>4. Vazvrad məbləği</SectionTitle>
+        {rules.length > 0 ? (
+          <View style={{ gap: 4 }}>
+            {pricing.lines.map((line, index) => (
+              <Text key={`${line.productCode}-${index}`} style={{ color: line.unit === null ? colors.danger : colors.textSecondary, fontSize: 14 }}>
+                {line.unit === null
+                  ? `${line.productCode}: bu kod üçün qiymət yoxdur`
+                  : `${line.productCode} × ${line.quantity} = ${line.total} ₼`}
+              </Text>
+            ))}
+            {items.some((item) => item.productType === ProductType.Showcase) ? (
+              <Text style={{ color: colors.textLight, fontSize: 13 }}>Vitrin hesablanmır.</Text>
+            ) : null}
+          </View>
+        ) : null}
         <MoneyInput
-          value={amount}
-          onChangeText={setAmount}
-          hint="Açotda müştəri ilə hesablaşanda da yazıla bilər."
+          value={shownAmount}
+          onChangeText={(value) => {
+            setAmountTyped(true);
+            setAmount(value);
+          }}
+          hint={
+            autoPriced
+              ? 'Müştərinin qiymət siyahısından avtomatik hesablandı. Menecerə göndərəndə borcdan çıxılır.'
+              : rules.length > 0
+                ? 'Əl ilə yazılıb.'
+                : 'Bu müştəri üçün qiymət siyahısı yoxdur; məbləği əl ilə yazın.'
+          }
         />
+        {amountTyped && rules.length > 0 ? (
+          <Pressable accessibilityRole="button" onPress={() => setAmountTyped(false)}>
+            <Text style={{ color: colors.primary, fontWeight: '700' }}>Avtomatik hesablamaya qayıt</Text>
+          </Pressable>
+        ) : null}
       </Card>
 
       <Card>

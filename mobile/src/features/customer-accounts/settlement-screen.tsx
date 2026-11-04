@@ -43,6 +43,8 @@ export default function SettlementScreen({ customerId }: { customerId: string })
   const [cash, setCash] = useState('');
   const [card, setCard] = useState('');
   const [bonus, setBonus] = useState('');
+  const [payoutCash, setPayoutCash] = useState('');
+  const [payoutCard, setPayoutCard] = useState('');
   const [showBonus, setShowBonus] = useState(false);
   const [chosen, setChosen] = useState<Record<string, string>>({});
   const [carry, setCarry] = useState(false);
@@ -85,11 +87,15 @@ export default function SettlementScreen({ customerId }: { customerId: string })
     const cashValue = parseMoney(cash);
     const cardValue = parseMoney(card);
     const bonusValue = showBonus ? parseMoney(bonus) : 0;
+    const payoutCashValue = parseMoney(payoutCash);
+    const payoutCardValue = parseMoney(payoutCard);
     const picked = Object.entries(chosen).map(([returnId, text]) => ({ returnId, amount: parseMoney(text) }));
     const valid =
       cashValue !== null &&
       cardValue !== null &&
       bonusValue !== null &&
+      payoutCashValue !== null &&
+      payoutCardValue !== null &&
       picked.every((p) => p.amount !== null && p.amount > 0);
     if (!valid) return null;
     const returnTotal = picked.reduce((sum, p) => sum + (p.amount ?? 0), 0);
@@ -99,14 +105,23 @@ export default function SettlementScreen({ customerId }: { customerId: string })
       bonus: bonusValue ?? 0,
       returns: picked.map((p) => ({ returnId: p.returnId, amount: p.amount ?? 0 })),
       returnTotal,
+      payoutCash: payoutCashValue ?? 0,
+      payoutCard: payoutCardValue ?? 0,
+      payout: Math.round(((payoutCashValue ?? 0) + (payoutCardValue ?? 0)) * 100) / 100,
       credit: Math.round(((cashValue ?? 0) + (cardValue ?? 0) + (bonusValue ?? 0) + returnTotal) * 100) / 100,
     };
-  }, [cash, card, bonus, showBonus, chosen]);
+  }, [cash, card, bonus, showBonus, chosen, payoutCash, payoutCard]);
 
   const balances = details
     ? { remainingOld: details.oldDebt, remainingCarried: details.carriedDebt, remainingToday: details.todayDebt }
     : null;
   const preview = balances && amounts ? previewSettlement(balances, amounts.credit, carry) : null;
+  // What we owe the customer once this step's money, returns and bonus are counted.
+  const owedAfter = details && preview ? Math.round((details.advance + preview.advance) * 100) / 100 : 0;
+  const balanceNow = details ? Math.round((details.remainingDebt - details.advance) * 100) / 100 : 0;
+  const finalBalance = preview && amounts
+    ? Math.round((preview.finalOld + preview.finalCarried - owedAfter + amounts.payout) * 100) / 100
+    : 0;
 
   function edit(update: () => void) {
     setError('');
@@ -130,7 +145,11 @@ export default function SettlementScreen({ customerId }: { customerId: string })
       setError('Məbləğləri düzgün yazın (məsələn 150,50).');
       return;
     }
-    if (amounts.credit === 0) {
+    if (amounts.payout > owedAfter) {
+      setError(`Müştəriyə borcumuz ${money(owedAfter)} olacaq; ondan çox vermək olmaz.`);
+      return;
+    }
+    if (amounts.credit === 0 && amounts.payout === 0) {
       Alert.alert(
         'Ödəniş yazılmayıb',
         'Müştəri ilə açot pul olmadan bitirilsin?',
@@ -157,6 +176,8 @@ export default function SettlementScreen({ customerId }: { customerId: string })
         cash: amounts.cash,
         card: amounts.card,
         bonus: amounts.bonus,
+        payoutCash: amounts.payoutCash,
+        payoutCard: amounts.payoutCard,
         returns: amounts.returns,
         carryToTomorrow: carry,
         note: note.trim() || null,
@@ -222,8 +243,15 @@ export default function SettlementScreen({ customerId }: { customerId: string })
           <Line label="Köhnə borc" value={money(details.oldDebt)} />
           {details.carriedDebt > 0 ? <Line label="Dünənki (sabaha saxlanılan)" value={money(details.carriedDebt)} /> : null}
           <Line label="Bu günkü günlük" value={money(details.todayDebt)} />
-          {details.advance > 0 ? <Line label="Avans" value={money(details.advance)} tone="good" /> : null}
-          <Line label="Qalan borc" value={money(details.remainingDebt)} strong tone={details.remainingDebt > 0 ? 'warn' : 'good'} />
+          {receipt.payoutCash + receipt.payoutCard > 0 ? (
+            <Line label="Müştəriyə verildi" value={money(receipt.payoutCash + receipt.payoutCard)} tone="bad" />
+          ) : null}
+          <Line
+            label={balanceNow < 0 ? 'Bizim borcumuz' : 'Qalan borc'}
+            value={money(balanceNow)}
+            strong
+            tone={balanceNow > 0 ? 'warn' : balanceNow < 0 ? 'bad' : 'good'}
+          />
           {receipt.carryToTomorrow && details.todayDebt > 0 ? (
             <Text style={{ color: colors.warning }}>Bu günkü borc sabaha saxlanıldı.</Text>
           ) : null}
@@ -261,8 +289,12 @@ export default function SettlementScreen({ customerId }: { customerId: string })
           <Line label="Dünənki (sabaha saxlanılan)" value={money(details.carriedDebt)} />
         ) : null}
         <Line label="Bu günkü günlük" value={money(details.todayDebt)} />
-        <Line label="Cəmi ödənməli" value={money(details.remainingDebt)} strong tone={details.remainingDebt > 0 ? 'warn' : 'good'} />
-        {details.advance > 0 ? <Line label="Avans (artıq verilib)" value={money(details.advance)} tone="good" /> : null}
+        <Line
+          label={balanceNow < 0 ? 'Cəmi (bizim borcumuz)' : 'Cəmi ödənməli'}
+          value={money(balanceNow)}
+          strong
+          tone={balanceNow > 0 ? 'warn' : balanceNow < 0 ? 'bad' : 'good'}
+        />
       </Card>
 
       <Card>
@@ -336,6 +368,33 @@ export default function SettlementScreen({ customerId }: { customerId: string })
         </View>
       </Card>
 
+      <Card tone={owedAfter > 0 ? 'bad' : 'default'}>
+        <SectionTitle>Müştəriyə verilən məbləğ</SectionTitle>
+        <Line
+          label="Müştəriyə verməli olduğumuz"
+          value={money(owedAfter)}
+          strong
+          tone={owedAfter > 0 ? 'bad' : undefined}
+        />
+        {owedAfter > 0 ? (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Chip label={`${money(owedAfter)} nağd ver`} onPress={() => edit(() => { setPayoutCash(String(owedAfter)); setPayoutCard(''); })} />
+            <Chip label={`${money(owedAfter)} kartla ver`} onPress={() => edit(() => { setPayoutCard(String(owedAfter)); setPayoutCash(''); })} />
+          </View>
+        ) : null}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <MoneyInput label="Nağd verdim" value={payoutCash} onChangeText={(v) => edit(() => setPayoutCash(v))} editable={!locked} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <MoneyInput label="Kartla verdim" value={payoutCard} onChangeText={(v) => edit(() => setPayoutCard(v))} editable={!locked} />
+          </View>
+        </View>
+        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+          Vazvrat və ya ödəniş borcdan çox olanda borc mənfiyə düşür; verilən pul günün yığılan pulundan çıxılır.
+        </Text>
+      </Card>
+
       <TextField label="Qeyd (istəyə görə)" value={note} onChangeText={(v) => edit(() => setNote(v))} maxLength={400} editable={!locked} />
 
       {preview ? (
@@ -345,7 +404,8 @@ export default function SettlementScreen({ customerId }: { customerId: string })
           {preview.paidFromToday > 0 ? <Line label="· bu günkü borcdan" value={money(preview.paidFromToday)} /> : null}
           {preview.paidFromCarried > 0 ? <Line label="· dünənki borcdan" value={money(preview.paidFromCarried)} /> : null}
           {preview.paidFromOld > 0 ? <Line label="· köhnə borcdan" value={money(preview.paidFromOld)} /> : null}
-          {preview.advance > 0 ? <Line label="Avans kimi qalır" value={money(preview.advance)} tone="good" /> : null}
+          {preview.advance > 0 ? <Line label="Borcdan artıq qalır (bizim borcumuz)" value={money(-preview.advance)} tone="bad" /> : null}
+          {amounts && amounts.payout > 0 ? <Line label="Müştəriyə verilir" value={money(amounts.payout)} tone="bad" /> : null}
           {preview.remainingToday > 0 ? (
             <Line
               label={carry ? 'Sabaha “dünənki” kimi qalır' : 'Köhnə borca keçir'}
@@ -359,10 +419,10 @@ export default function SettlementScreen({ customerId }: { customerId: string })
           <Line label="Qalan köhnə borc" value={money(preview.finalOld)} />
           {preview.finalCarried > 0 ? <Line label="Sabaha saxlanılan" value={money(preview.finalCarried)} /> : null}
           <Line
-            label="Qalan borc cəmi"
-            value={money(preview.finalOld + preview.finalCarried)}
+            label={finalBalance < 0 ? 'Bizim borcumuz qalır' : 'Qalan borc cəmi'}
+            value={money(finalBalance)}
             strong
-            tone={preview.finalOld + preview.finalCarried > 0 ? 'warn' : 'good'}
+            tone={finalBalance > 0 ? 'warn' : finalBalance < 0 ? 'bad' : 'good'}
           />
         </Card>
       ) : null}

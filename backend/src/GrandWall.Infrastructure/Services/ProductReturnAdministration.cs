@@ -29,12 +29,14 @@ public sealed partial class ProductReturnService
         if(request.Items==null || request.Items.Count is <1 or >500 || request.Items.Where(i=>i.Id!=Guid.Empty).Select(i=>i.Id).Distinct().Count()!=request.Items.Count(i=>i.Id!=Guid.Empty) || request.Items.Any(i=>i.Id!=Guid.Empty && !record.Items.Any(old=>old.Id==i.Id)))
             throw new ConflictException("Məhsul siyahısı düzgün deyil. Səhifəni yeniləyin.");
         var changes=new List<string>();
-        if(request.Amount.HasValue){ValidateReturnAmount(request.Amount.Value);if(record.Amount!=request.Amount.Value){changes.Add($"Məbləğ: {record.Amount:0.00} → {request.Amount.Value:0.00} AZN.");record.Amount=request.Amount.Value;if(record.Status==ReturnStatus.Completed)ApplyReturnCredit(record,record.Amount);}}
+        if(request.Amount.HasValue){ValidateReturnAmount(request.Amount.Value);if(record.Amount!=request.Amount.Value){changes.Add($"Məbləğ: {record.Amount:0.00} → {request.Amount.Value:0.00} AZN.");record.Amount=request.Amount.Value;if(record.AppliedAmount>0)ApplyReturnCredit(record,record.Amount);}}
+        var codeRule=await _dbContext.ReturnCodeRules.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
         var candidates=new List<(ProductReturnItem Item,string Code,string Batch,int Quantity,ProductType Type)>();
         foreach(var input in request.Items)
         {
             var code=input.ProductCode?.Trim()??"";var batch=input.BatchNumber?.Trim()??"";
             if(!ProductCodeRules.IsValid(code)||!ProductCodeRules.IsValid(batch)) throw new ConflictException(ProductCodeRules.Message);
+            if(codeRule?.Violation(code) is string codeProblem) throw new ConflictException(codeProblem);
             if(code.Length is <1 or >50 || batch.Length is <1 or >50) throw new ConflictException("Kod və partiya 1–50 simvol olmalıdır.");
             var item=input.Id==Guid.Empty ? new ProductReturnItem{ProductReturnId=record.Id} : record.Items.Single(i=>i.Id==input.Id);
             var quantity=input.Quantity??item.Quantity; var type=input.ProductType??item.ProductType;
@@ -63,7 +65,7 @@ public sealed partial class ProductReturnService
         AddAdministrationAudit(record,$"Qeyd silindi. Səbəb: {request.Reason.Trim()}");
         record.IsDeleted=true;
         record.Revision=Guid.NewGuid();
-        if(record.Status==ReturnStatus.Completed)ApplyReturnCredit(record,0);
+        if(record.AppliedAmount>0)ApplyReturnCredit(record,0);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
     private void EnsureReturnChangeAllowed(ProductReturn record)

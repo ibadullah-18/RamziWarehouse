@@ -121,6 +121,8 @@ public static class AccountLedger
                     Credit(amount);
                     break;
                 case CustomerAccountEntryType.CreditReversal:
+                case CustomerAccountEntryType.Payout:
+                    // Takes back credit we owed the customer; beyond that it becomes debt again.
                     var fromAdvance = Math.Min(amount, advance);
                     advance -= fromAdvance;
                     old += amount - fromAdvance;

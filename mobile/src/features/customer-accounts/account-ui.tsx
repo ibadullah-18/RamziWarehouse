@@ -240,7 +240,7 @@ export function Card({
 export function Grid({ children, columns }: { children: ReactNode; columns?: 1 | 2 | 3 }) {
   const layout = useResponsiveLayout();
   const count = columns ?? layout.columnCount;
-  const basis = count === 1 ? '100%' : count === 2 ? '48.5%' : '31.8%';
+  const basis = count === 1 ? '100%' : count === 2 ? '48%' : '31.5%';
   const items = Children.toArray(children);
   return (
     <View style={styles.grid}>

@@ -43,6 +43,16 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
     private static decimal Method(IEnumerable<CustomerAccountEntry> entries, string method)
         => entries.Where(e => e.EntryType == CustomerAccountEntryType.Payment && e.PaymentMethod == method).Sum(e => e.Amount);
 
+    /// <summary>Debt minus the credit we owe the customer; negative means we owe them.</summary>
+    private static decimal NetBalance(LedgerBalance balance) => balance.Total - balance.Advance;
+
+    private static decimal PaidOut(IEnumerable<CustomerAccountEntry> entries, string method)
+        => entries.Where(e => e.EntryType == CustomerAccountEntryType.Payout && e.PaymentMethod == method).Sum(e => e.Amount);
+
+    /// <summary>Money kept by the method: received minus what was given back.</summary>
+    private static decimal Net(IEnumerable<CustomerAccountEntry> entries, string method)
+        => Method(entries, method) - PaidOut(entries, method);
+
     private CustomerAccountEntry NewEntry(Guid customerId, CustomerAccountEntryType type, decimal amount, DateOnly date, string? note, string? method = null) => new()
     {
         CustomerId = customerId, EntryType = type, Amount = amount, BusinessDate = date, Note = note, PaymentMethod = method,
@@ -144,9 +154,10 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             StartedAtUtc = day?.StartedAtUtc,
             ClosedByFullName = day?.ClosedByFullName,
             ClosedAtUtc = day?.ClosedAtUtc,
-            Cash = rows.Sum(r => r.Cash),
-            Card = rows.Sum(r => r.Card),
-            Collected = rows.Sum(r => r.Paid),
+            Cash = rows.Sum(r => r.Cash - r.PaidOutCash),
+            Card = rows.Sum(r => r.Card - r.PaidOutCard),
+            Collected = rows.Sum(r => r.Paid - r.PaidOut),
+            PaidOut = rows.Sum(r => r.PaidOut),
             Bonus = rows.Sum(r => r.Bonus),
             ReturnCredit = rows.Sum(r => r.ReturnCredit),
             NewDailyDebt = rows.Sum(r => r.TodayDebt),
@@ -180,6 +191,8 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             TodayDebt = newDaily,
             Cash = Method(day, "cash"),
             Card = Method(day, "card"),
+            PaidOutCash = PaidOut(day, "cash"),
+            PaidOutCard = PaidOut(day, "card"),
             Bonus = Sum(day, CustomerAccountEntryType.Bonus),
             ReturnCredit = Sum(day, CustomerAccountEntryType.ReturnCredit) - Sum(day, CustomerAccountEntryType.CreditReversal),
             RemainingOld = closing.Old,
@@ -438,7 +451,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
         {
             var day = entries.Where(e => e.BusinessDate == date).ToList();
             var row = days.FirstOrDefault(d => d.BusinessDate == date);
-            return new AccountHistoryDayDto(date, Sum(day, CustomerAccountEntryType.Payment), Method(day, "cash"), Method(day, "card"),
+            return new AccountHistoryDayDto(date, Net(day, "cash") + Net(day, "card"), Net(day, "cash"), Net(day, "card"),
                 day.Select(e => e.CustomerId).Distinct().Count(), row?.ClosedAtUtc.HasValue == true);
         }).ToList();
 
@@ -470,7 +483,8 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             var newDaily = Sum(g, CustomerAccountEntryType.Debt, CustomerAccountEntryType.DailyIncrease) - Sum(g, CustomerAccountEntryType.DailyDecrease);
             return new CustomerMonthDayDto(g.Key, opening.Old + oldToday, opening.Carried, newDaily, Method(g, "cash"), Method(g, "card"),
                 Sum(g, CustomerAccountEntryType.Bonus),
-                Sum(g, CustomerAccountEntryType.ReturnCredit) - Sum(g, CustomerAccountEntryType.CreditReversal), closing.Total);
+                Sum(g, CustomerAccountEntryType.ReturnCredit) - Sum(g, CustomerAccountEntryType.CreditReversal), closing.Total - closing.Advance,
+                Sum(g, CustomerAccountEntryType.Payout));
         }).ToList();
 
         return new CustomerMonthDto
@@ -483,7 +497,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
             Collected = days.Sum(d => d.Cash + d.Card),
             Bonus = days.Sum(d => d.Bonus),
             ReturnCredit = days.Sum(d => d.ReturnCredit),
-            Remaining = AccountLedger.Closing(Items(entries), to > Today ? Today : to).Total,
+            Remaining = NetBalance(AccountLedger.Closing(Items(entries), to > Today ? Today : to)),
             Days = days
         };
     }

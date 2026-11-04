@@ -33,6 +33,7 @@ export default function AppStackLayout() {
       <Stack.Screen name="create-customer" />
       <Stack.Protected guard={isAdmin}>
         <Stack.Screen name="return-persons" />
+        <Stack.Screen name="return-code-rules" />
         <Stack.Screen name="users" />
         <Stack.Screen name="create-user" />
         <Stack.Screen name="edit-user/[id]" />

@@ -37,8 +37,10 @@ import {
   CustomerAccountEntry,
   CustomerAccountEntryType,
   CustomerMonth,
+  netBalance,
 } from './customer-account-types';
 import { parseMoney } from './settlement-math';
+import { PayoutCard, PriceListCard, ResetCard } from './customer-account-extras';
 import { errorText, useAccountSession } from './use-account-session';
 
 type Adjustment = { target: 'old' | 'daily'; mode: 'add' | 'set' };
@@ -122,8 +124,11 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
             <Tile label="Köhnə borc" value={money(details.oldDebt)} tone={details.oldDebt > 0 ? 'warn' : undefined} />
             {details.carriedDebt > 0 ? <Tile label="Dünənki (saxlanılan)" value={money(details.carriedDebt)} tone="warn" /> : null}
             <Tile label="Bu günkü günlük" value={money(details.todayDebt)} tone={details.todayDebt > 0 ? 'warn' : undefined} />
-            <Tile label="Cəmi borc" value={money(details.remainingDebt)} tone={details.remainingDebt > 0 ? 'warn' : 'good'} />
-            {details.advance > 0 ? <Tile label="Avans" value={money(details.advance)} tone="good" /> : null}
+            {netBalance(details) >= 0 ? (
+              <Tile label="Cəmi borc" value={money(netBalance(details))} tone={netBalance(details) > 0 ? 'warn' : 'good'} />
+            ) : (
+              <Tile label="Bizim borcumuz" value={money(netBalance(details))} tone="warn" />
+            )}
           </TileRow>
 
           <Card>
@@ -142,6 +147,12 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
               <Btn icon="create-outline" variant="secondary" compact title="Günlük borcu düzəlt" onPress={() => setAdjustment({ target: 'daily', mode: 'set' })} />
             </Grid>
           </Card>
+
+          {details.advance > 0 ? (
+            <PayoutCard details={details} token={token} onSaved={(updated) => { setDetails(updated); void load(); }} />
+          ) : null}
+
+          <PriceListCard customerId={details.customerId} token={token} canEdit={canWriteOldDebt} />
 
           <SectionTitle>{monthLabel(month)} ödənişləri</SectionTitle>
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -180,7 +191,7 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
                               ? `Ödədi ${moneyShort(paid)}${day.cash > 0 && day.card > 0 ? ' (nağd+kart)' : day.card > 0 ? ' (kart)' : ''}`
                               : 'Ödəməyib'}
                           </Text>
-                          <Text style={{ color: day.remaining > 0 ? colors.warning : colors.success, fontSize: 14, fontWeight: '800' }}>
+                          <Text style={{ color: day.remaining > 0 ? colors.warning : day.remaining < 0 ? colors.danger : colors.success, fontSize: 14, fontWeight: '800' }}>
                             Qalan {moneyShort(day.remaining)}
                           </Text>
                         </View>
@@ -258,6 +269,18 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
               );
             })}
           </Card>
+
+          <ResetCard
+            customerId={details.customerId}
+            customerName={details.customerName}
+            token={token}
+            canResetToday={canWriteOldDebt}
+            canWipe={isAdmin}
+            onSaved={(updated) => {
+              setDetails(updated);
+              void load();
+            }}
+          />
 
           {details.audit.length > 0 ? (
             <>

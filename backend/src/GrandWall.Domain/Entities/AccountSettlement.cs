@@ -12,6 +12,10 @@ public sealed class AccountSettlement
     public decimal Cash { get; set; }
     public decimal Card { get; set; }
     public decimal Bonus { get; set; }
+
+    /// <summary>Money given back to the customer in the same step, when we owe them.</summary>
+    public decimal PayoutCash { get; set; }
+    public decimal PayoutCard { get; set; }
     public bool CarryToTomorrow { get; set; }
 
     /// <summary>Canonical "returnId:amount;..." text, used to recognise a repeated request.</summary>
