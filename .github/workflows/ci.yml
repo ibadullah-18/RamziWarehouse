@@ -133,8 +133,16 @@ jobs:
       - name: Run mobile tests
         run: node --test tests/*.test.cjs
 
+      # Expo publishes small patch updates often; they must not break CI or block a deploy.
+      # Doctor stays strict for every other check; versions are reported in the next step.
       - name: Run Expo Doctor
+        env:
+          EXPO_DOCTOR_SKIP_DEPENDENCY_VERSION_CHECK: "1"
         run: npx --yes expo-doctor@1.20.2
+
+      - name: Report Expo package updates (does not fail)
+        continue-on-error: true
+        run: npx expo install --check
 
   docker:
     name: Production Docker build
