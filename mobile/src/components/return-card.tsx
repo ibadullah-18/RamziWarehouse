@@ -44,7 +44,7 @@ export function ReturnCard({
       </View>
       <Text style={styles.muted}>
         {date} · {record.warehouseName}
-        {record.returnPersonName ? ` · ${record.returnPersonName}` : ''}
+        {` · ${record.returnPersonName ?? record.createdByFullName}`}
       </Text>
       {record.items.slice(0, 4).map((item) => {
         const matches = Boolean(needle) && (item.productCode.includes(needle!) || item.batchNumber.includes(needle!));

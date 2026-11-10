@@ -725,7 +725,7 @@ export default function CreateOrderScreen() {
 
           <View style={styles.headerText}>
             <Text style={styles.headerCaption}>
-              GRANDWALL
+              RAMZI
             </Text>
 
             <Text style={styles.headerTitle}>

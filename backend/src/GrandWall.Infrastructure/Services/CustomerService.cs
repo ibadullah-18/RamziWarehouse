@@ -127,7 +127,7 @@ public sealed class CustomerService : ICustomerService
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        if (_user.Role != UserRole.Admin) throw new ForbiddenException("Müştərini yalnız admin silə bilər.");
+        if (!_user.Has(Permission.CustomersDelete)) throw new ForbiddenException("Müştərini silmək icazəniz yoxdur.");
         var customer = await _dbContext.Customers.FirstOrDefaultAsync(c=>c.Id==id && !c.IsDeleted,cancellationToken) ?? throw new NotFoundException("Müştəri tapılmadı.");
         customer.IsDeleted=true; customer.IsActive=false;
         await _dbContext.SaveChangesAsync(cancellationToken);

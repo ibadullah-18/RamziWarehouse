@@ -13,10 +13,14 @@ import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { router, type Href } from "expo-router";
 import { useAuth } from "../../auth/auth-context";
-import { UserRole } from "../../auth/auth-types";
+import { can, Permission } from "../../auth/permissions";
 import { registerPushDevice } from "../../api/push-api";
 import { savePushToken, unregisterPush } from "./push-registration";
+import { enableWebPush, webPermission, webPushSupport } from "./web-push";
+
 import { colors } from "../../theme";
+const IOS_INSTALL_HINT =
+  "iPhone-da bildirişlər üçün: Safari-də Paylaş → “Ana ekrana əlavə et”, sonra ana ekrandakı ikondan açıb bu düyməyə basın.";
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -32,6 +36,7 @@ const Context = createContext<{
 }>({ status: "", enable: () => {}, busy: false });
 export function PushNotificationProvider({ children }: PropsWithChildren) {
   const { session } = useAuth();
+  const canNotify = can(session, Permission.ReturnsNotify);
   const current = useRef(session);
   useEffect(() => {
     current.current = session;
@@ -40,22 +45,51 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
     [busy, setBusy] = useState(false);
   const flight = useRef(false),
     handled = useRef<string | null>(null);
-  const enable = useCallback(async () => {
+  const enable = useCallback(async (fromPress = false) => {
     const user = current.current;
-    if (
-      !user ||
-      user.role !== UserRole.Manager ||
-      flight.current ||
-      Platform.OS === "web"
-    )
+    if (!user || !can(user, Permission.ReturnsNotify) || flight.current) return;
+    if (Platform.OS === "web") {
+      const support = webPushSupport();
+      if (support !== "supported") {
+        setStatus(
+          support === "ios-needs-install"
+            ? IOS_INSTALL_HINT
+            : "Bu brauzer bildirişləri dəstəkləmir. Chrome və ya Safari ilə açın.",
+        );
+        return;
+      }
+      flight.current = true;
+      setBusy(true);
+      try {
+        // Only a button press may show the permission question; on start we renew silently.
+        const ok = await enableWebPush(user.accessToken, !fromPress);
+        if (current.current?.userId !== user.userId) return;
+        setStatus(
+          ok
+            ? "Yeni vazvrad və vitrin bildirişləri aktivdir."
+            : webPermission() === "denied"
+              ? "Bildiriş icazəsi bağlıdır. Telefon ayarlarında tətbiq (və ya brauzer) üçün bildirişləri açın."
+              : "Bildirişləri almaq üçün düyməyə basın.",
+        );
+      } catch (e) {
+        setStatus(
+          e instanceof Error && e.message.startsWith("Serverdə")
+            ? e.message
+            : "Bildirişləri aktivləşdirmək mümkün olmadı. İnterneti yoxlayıb təkrar basın.",
+        );
+      } finally {
+        flight.current = false;
+        setBusy(false);
+      }
       return;
+    }
     flight.current = true;
     setBusy(true);
     try {
       if (!Device.isDevice)
         throw new Error("Bildirişləri telefonda aktivləşdirin.");
       if (Constants.executionEnvironment === "storeClient")
-        throw new Error("Bildirişlər üçün GrandWall tətbiqini quraşdırın.");
+        throw new Error("Bildirişlər üçün Ramzi tətbiqini quraşdırın.");
       if (Platform.OS === "android")
         await Notifications.setNotificationChannelAsync("returns", {
           name: "Yeni vazvrad və vitrin",
@@ -82,7 +116,7 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
       await savePushToken(token);
       if (
         current.current?.userId !== user.userId ||
-        current.current?.role !== UserRole.Manager
+        !can(current.current, Permission.ReturnsNotify)
       ) {
         await unregisterPush(user.accessToken).catch(() => {});
         return;
@@ -93,7 +127,7 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
         e instanceof Error &&
           [
             "Bildirişləri telefonda aktivləşdirin.",
-            "Bildirişlər üçün GrandWall tətbiqini quraşdırın.",
+            "Bildirişlər üçün Ramzi tətbiqini quraşdırın.",
           ].includes(e.message)
           ? e.message
           : "Bildirişləri aktivləşdirmək mümkün olmadı. Tətbiqi yeniləyib təkrar yoxlayın.",
@@ -104,7 +138,7 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
     }
   }, []);
   useEffect(() => {
-    if (session?.role !== UserRole.Manager) return;
+    if (!canNotify) return;
     const timer = setTimeout(() => void enable(), 0);
     const sub = AppState.addEventListener("change", (s) => {
       if (s === "active") void enable();
@@ -113,13 +147,13 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
       clearTimeout(timer);
       sub.remove();
     };
-  }, [enable, session?.role, session?.userId]);
+  }, [enable, canNotify, session?.userId]);
   useEffect(() => {
     const open = (response: Notifications.NotificationResponse | null) => {
       if (
         !response ||
         !current.current ||
-        current.current.role !== UserRole.Manager
+        !can(current.current, Permission.ReturnsNotify)
       )
         return;
       const notification = response.notification,
@@ -141,12 +175,12 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
       void Notifications.clearLastNotificationResponseAsync();
     };
     const sub = Notifications.addNotificationResponseReceivedListener(open);
-    if (session?.role === UserRole.Manager)
+    if (canNotify)
       void Notifications.getLastNotificationResponseAsync().then(open);
     return () => sub.remove();
-  }, [session?.role, session?.userId]);
+  }, [canNotify, session?.userId]);
   return (
-    <Context.Provider value={{ status, busy, enable: () => void enable() }}>
+    <Context.Provider value={{ status, busy, enable: () => void enable(true) }}>
       {children}
     </Context.Provider>
   );
@@ -154,7 +188,7 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
 export function PushNotificationSettings() {
   const { session } = useAuth();
   const { status, busy, enable } = useContext(Context);
-  if (session?.role !== UserRole.Manager || Platform.OS === "web") return null;
+  if (!can(session, Permission.ReturnsNotify)) return null;
   return (
     <View
       style={{

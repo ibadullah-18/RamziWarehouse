@@ -1,10 +1,11 @@
-﻿using System.Data;
+using System.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using GrandWall.Application.Abstractions.Authentication;
 using GrandWall.Application.Common.Exceptions;
 using GrandWall.Application.Features.Auth.Dtos;
 using GrandWall.Domain.Entities;
+using GrandWall.Domain.Enums;
 using GrandWall.Infrastructure.Persistence;
 
 namespace GrandWall.Infrastructure.Services;
@@ -228,7 +229,8 @@ public sealed class AuthService : IAuthService
             UserId = user.Id,
             FullName = user.FullName,
             Username = user.Username,
-            Role = user.Role
+            Role = user.Role,
+            Permissions = Permission.Effective(user)
         };
     }
 }

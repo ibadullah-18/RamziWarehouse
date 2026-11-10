@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using GrandWall.Application.Abstractions.Identity;
 using GrandWall.Application.Abstractions.Users;
@@ -53,23 +53,13 @@ public sealed class UserService : IUserService
                 user.Username.Contains(searchText));
         }
 
-        return await query
+        var users = await query
             .OrderByDescending(user =>
                 user.Role == UserRole.Admin)
             .ThenBy(user => user.FullName)
-            .Select(user => new UserDto
-            {
-                Id = user.Id,
-                FullName = user.FullName,
-                Username = user.Username,
-                Role = user.Role,
-                IsActive = user.IsActive,
-                LastLoginAtUtc =
-                    user.LastLoginAtUtc,
-                CreatedAtUtc =
-                    user.CreatedAtUtc
-            })
             .ToListAsync(cancellationToken);
+
+        return users.Select(MapToDto).ToList();
     }
 
     public async Task<UserDto> GetByIdAsync(
@@ -97,6 +87,7 @@ public sealed class UserService : IUserService
         CancellationToken cancellationToken = default)
     {
         EnsureAdmin();
+        EnsureMayTouchAdmin(request.Role);
 
         var username = request.Username
             .Trim()
@@ -122,6 +113,8 @@ public sealed class UserService : IUserService
             Username = username,
 
             Role = request.Role,
+
+            Permissions = StoredPermissions(request.Role, request.Permissions),
 
             IsActive = true
         };
@@ -156,6 +149,15 @@ public sealed class UserService : IUserService
         {
             throw new NotFoundException(
                 "İstifadəçi tapılmadı.");
+        }
+
+        EnsureMayTouchAdmin(user.Role);
+        EnsureMayTouchAdmin(request.Role);
+        if (id == _currentUserService.UserId &&
+            !Permission.Effective(request.Role, StoredPermissions(request.Role, request.Permissions)).Contains(Permission.UsersManage))
+        {
+            throw new ConflictException(
+                "Öz hesabınızdan istifadəçiləri idarə etmə icazəsini götürə bilməzsiniz.");
         }
 
         var username = request.Username
@@ -219,6 +221,7 @@ public sealed class UserService : IUserService
 
         user.Username = username;
         user.Role = request.Role;
+        user.Permissions = StoredPermissions(request.Role, request.Permissions);
         user.IsActive = newIsActive;
 
         if (wasActive && !newIsActive)
@@ -253,6 +256,8 @@ public sealed class UserService : IUserService
                 "İstifadəçi tapılmadı.");
         }
 
+        EnsureMayTouchAdmin(user.Role);
+
         user.PasswordHash =
             _passwordHasher.HashPassword(
                 user,
@@ -271,6 +276,7 @@ public sealed class UserService : IUserService
         EnsureAdmin();
         if(id == _currentUserService.UserId) throw new ConflictException("Daxil olduğunuz hesabı silə bilməzsiniz.");
         var user = await _dbContext.Users.FirstOrDefaultAsync(u=>u.Id==id && !u.IsDeleted,cancellationToken) ?? throw new NotFoundException("İstifadəçi tapılmadı.");
+        EnsureMayTouchAdmin(user.Role);
         if(user.Role==UserRole.Admin && user.IsActive && !await _dbContext.Users.AnyAsync(u=>u.Id!=id && u.Role==UserRole.Admin && u.IsActive && !u.IsDeleted,cancellationToken)) throw new ConflictException("Ən azı bir aktiv admin qalmalıdır.");
         user.IsDeleted=true; user.IsActive=false;
         await RevokeActiveTokensAsync(id,cancellationToken);
@@ -279,11 +285,31 @@ public sealed class UserService : IUserService
 
     private void EnsureAdmin()
     {
-        if (!_currentUserService.Role.IsAdmin())
+        if (!_currentUserService.Has(Permission.UsersManage))
         {
             throw new ForbiddenException(
-                "İşçi hesablarını yalnız Admin " +
-                "idarə edə bilər.");
+                "İstifadəçiləri idarə etmək icazəniz yoxdur.");
+        }
+    }
+
+    private void EnsureMayTouchAdmin(UserRole role)
+    {
+        if (role == UserRole.Admin && !_currentUserService.Role.IsAdmin())
+        {
+            throw new ForbiddenException(
+                "Admin hesabını yalnız Admin yarada və dəyişə bilər.");
+        }
+    }
+
+    private static string? StoredPermissions(UserRole role, IReadOnlyList<string>? chosen)
+    {
+        try
+        {
+            return Permission.ToStored(role, chosen);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new ConflictException(exception.Message);
         }
     }
 
@@ -323,7 +349,9 @@ public sealed class UserService : IUserService
             LastLoginAtUtc =
                 user.LastLoginAtUtc,
             CreatedAtUtc =
-                user.CreatedAtUtc
+                user.CreatedAtUtc,
+            Permissions = Permission.Effective(user),
+            HasCustomPermissions = user.Permissions is not null
         };
     }
 }

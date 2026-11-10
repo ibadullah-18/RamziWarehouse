@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using GrandWall.Infrastructure.Persistence;
@@ -47,7 +47,11 @@ public static class AuthenticationExtensions
                     if(!Guid.TryParse(idClaim,out var id)) { context.Fail("Invalid user."); return; }
                     var db=context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
                     var user=await db.Users.AsNoTracking().FirstOrDefaultAsync(u=>u.Id==id,context.HttpContext.RequestAborted);
-                    if(user==null || !user.IsActive || user.IsDeleted || context.Principal?.FindFirstValue(ClaimTypes.Role)!=user.Role.ToString()) context.Fail("User account is unavailable.");
+                    if(user==null || !user.IsActive || user.IsDeleted || context.Principal?.FindFirstValue(ClaimTypes.Role)!=user.Role.ToString()) { context.Fail("User account is unavailable."); return; }
+                    // Permissions come from the database, so a change by the admin applies at once.
+                    if(context.Principal?.Identity is ClaimsIdentity identity)
+                        foreach(var permission in Permission.Effective(user))
+                            identity.AddClaim(new Claim(GrandWall.Api.Services.CurrentUserService.PermissionClaimType, permission));
                 }};
                 options.TokenValidationParameters =
                     new TokenValidationParameters
@@ -74,6 +78,15 @@ public static class AuthenticationExtensions
 
         services.AddAuthorization(options =>
         {
+            foreach (var permission in Permission.All)
+            {
+                options.AddPolicy(
+                    RequirePermissionAttribute.PolicyPrefix + permission,
+                    policy => policy.RequireAssertion(context =>
+                        context.User.IsInRole(nameof(UserRole.Admin)) ||
+                        context.User.HasClaim(GrandWall.Api.Services.CurrentUserService.PermissionClaimType, permission)));
+            }
+
             options.AddPolicy(
                 AuthorizationPolicies.AdminOnly,
                 policy => policy.RequireRole(

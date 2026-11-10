@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using GrandWall.Api.Authorization;
+using GrandWall.Domain.Enums;
 using GrandWall.Application.Abstractions.Customers;
 using GrandWall.Application.Features.Customers.Dtos;
 
@@ -50,6 +52,7 @@ public sealed class CustomersController : ControllerBase
     }
 
     [HttpPost]
+    [RequirePermission(Permission.CustomersCreate)]
     public async Task<ActionResult<CustomerDto>> Create(
         [FromBody] CreateCustomerRequestDto request,
         CancellationToken cancellationToken)
@@ -66,7 +69,7 @@ public sealed class CustomersController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = "ManagerOrAdmin")]
+    [RequirePermission(Permission.CustomersEdit)]
     public async Task<ActionResult<CustomerDto>> Update(
         Guid id,
         [FromBody] UpdateCustomerRequestDto request,
@@ -81,7 +84,7 @@ public sealed class CustomersController : ControllerBase
         return Ok(customer);
     }
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = "AdminOnly")]
+    [RequirePermission(Permission.CustomersDelete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         await _customerService.DeleteAsync(id, cancellationToken);

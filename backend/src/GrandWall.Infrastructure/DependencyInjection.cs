@@ -53,6 +53,7 @@ public static class DependencyInjection
         });
 
         services.AddScoped<PushNotificationQueue>();
+        services.AddSingleton<IWebPushSender, WebPushSender>();
         services.AddHttpClient<PushDeliveryProcessor>(client=>{client.BaseAddress=new Uri("https://exp.host/--/api/v2/push/");client.Timeout=TimeSpan.FromSeconds(20);}).RemoveAllLoggers();
         services.AddScoped<DatabaseSeeder>();
 

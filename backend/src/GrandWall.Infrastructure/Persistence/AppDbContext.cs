@@ -21,6 +21,8 @@ public sealed class AppDbContext : DbContext
 
     public DbSet<PushDevice> PushDevices => Set<PushDevice>();
     public DbSet<PushDelivery> PushDeliveries => Set<PushDelivery>();
+    public DbSet<WebPushSubscription> WebPushSubscriptions => Set<WebPushSubscription>();
+    public DbSet<AppBranding> AppBranding => Set<AppBranding>();
 
     public DbSet<User> Users => Set<User>();
 
@@ -96,6 +98,15 @@ public sealed class AppDbContext : DbContext
         modelBuilder.Entity<AccountSettlement>().Property(x => x.ReturnsKey).HasMaxLength(2500);
 
         modelBuilder.Entity<PushDevice>().HasKey(x=>x.Token);
+        modelBuilder.Entity<WebPushSubscription>().Property(x => x.Endpoint).HasMaxLength(800);
+        modelBuilder.Entity<WebPushSubscription>().Property(x => x.P256dh).HasMaxLength(200);
+        modelBuilder.Entity<WebPushSubscription>().Property(x => x.Auth).HasMaxLength(100);
+        modelBuilder.Entity<WebPushSubscription>().HasIndex(x => x.Endpoint).IsUnique();
+        modelBuilder.Entity<WebPushSubscription>().HasIndex(x => x.UserId);
+        modelBuilder.Entity<AppBranding>().ToTable("AppBranding");
+        modelBuilder.Entity<AppBranding>().Property(x => x.Id).ValueGeneratedNever();
+        modelBuilder.Entity<AppBranding>().Property(x => x.AppName).HasMaxLength(40);
+        modelBuilder.Entity<AppBranding>().Property(x => x.LogoContentType).HasMaxLength(40);
         modelBuilder.Entity<PushDevice>().Property(x=>x.Token).HasMaxLength(200);
         modelBuilder.Entity<PushDelivery>().Property(x=>x.Token).HasMaxLength(200);
         modelBuilder.Entity<PushDelivery>().Property(x=>x.Body).HasMaxLength(500);

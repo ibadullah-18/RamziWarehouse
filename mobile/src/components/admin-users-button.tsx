@@ -12,7 +12,8 @@ import {
 
 import { useAuth } from '../auth/auth-context';
 import {
-    canManageUsers,
+    can,
+    Permission,
 } from '../auth/permissions';
 import {
     colors,
@@ -24,7 +25,7 @@ import {
 export function AdminUsersButton() {
   const { session } = useAuth();
 
-  if (!canManageUsers(session?.role)) {
+  if (!can(session, Permission.UsersManage)) {
     return null;
   }
 

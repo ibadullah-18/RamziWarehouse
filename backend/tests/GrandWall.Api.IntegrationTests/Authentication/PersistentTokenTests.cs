@@ -22,10 +22,10 @@ public sealed class PersistentTokenTests
         var user = new User { Username = "driver", FullName = "Driver" };
         var first = service.CreateTokens(user);
         Assert.Equal(clock.Now.UtcDateTime.AddMinutes(15), first.AccessTokenExpiresAtUtc);
-        Assert.Equal(clock.Now.UtcDateTime.AddDays(3650), first.RefreshTokenExpiresAtUtc);
+        Assert.Equal(clock.Now.UtcDateTime.AddDays(10), first.RefreshTokenExpiresAtUtc);
         clock.Now = clock.Now.AddDays(1);
         var renewed = service.CreateTokens(user);
-        Assert.Equal(clock.Now.UtcDateTime.AddDays(3650), renewed.RefreshTokenExpiresAtUtc);
+        Assert.Equal(clock.Now.UtcDateTime.AddDays(10), renewed.RefreshTokenExpiresAtUtc);
         Assert.NotEqual(first.RefreshToken, renewed.RefreshToken);
         Assert.Equal(service.HashRefreshToken(renewed.RefreshToken), renewed.RefreshTokenHash);
     }

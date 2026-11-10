@@ -147,6 +147,26 @@ app.UseForwardedHeaders();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
+// The installed web app (iPhone/Android home screen) is served from wwwroot when the image
+// contains it. index.html, sw.js and manifest.json are never cached so updates arrive at once;
+// hashed bundles under /_expo are cached by the browser.
+static void NoCacheForAppShell(Microsoft.AspNetCore.StaticFiles.StaticFileResponseContext context)
+{
+    if (context.File.Name is "index.html" or "sw.js" or "manifest.json")
+        context.Context.Response.Headers.CacheControl = "no-cache";
+}
+
+var webIndexPath = app.Environment.WebRootPath is { } webRoot
+    ? Path.Combine(webRoot, "index.html")
+    : null;
+var hasWebApp = webIndexPath is not null && File.Exists(webIndexPath);
+
+if (hasWebApp)
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse = NoCacheForAppShell });
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwaggerDocumentation();
@@ -176,6 +196,25 @@ app.MapHealthChecks("/health")
     .AllowAnonymous();
 
 app.MapControllers();
+
+if (hasWebApp)
+{
+    // Deep links such as /return-detail/{id} (notification taps) load the web app; unknown
+    // /api paths stay 404.
+    app.MapFallback(context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api")
+            || context.Request.Path.StartsWithSegments("/health"))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return Task.CompletedTask;
+        }
+
+        context.Response.ContentType = "text/html; charset=utf-8";
+        context.Response.Headers.CacheControl = "no-cache";
+        return context.Response.SendFileAsync(webIndexPath!);
+    });
+}
 
 app.Run();
 

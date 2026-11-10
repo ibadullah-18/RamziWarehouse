@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using GrandWall.Api.Authorization;
+using GrandWall.Domain.Enums;
 using GrandWall.Application.Abstractions.CustomerAccounts;
 using GrandWall.Application.Features.CustomerAccounts.Dtos;
 
 namespace GrandWall.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin,Accountant,Driver")]
+[Authorize, RequirePermission(Permission.AccountsUse)]
 [Route("api/customer-accounts")]
 public sealed class CustomerAccountsController(ICustomerAccountService service) : ControllerBase
 {
@@ -63,13 +65,13 @@ public sealed class CustomerAccountsController(ICustomerAccountService service) 
 
     /// <summary>Removes everything written for this customer today, as if nothing happened.</summary>
     [HttpPost("{customerId:guid}/reset-today")]
-    [Authorize(Roles = "Admin,Accountant")]
+    [RequirePermission(Permission.AccountsResetToday)]
     public async Task<ActionResult<CustomerAccountDetailsDto>> ResetToday(Guid customerId, AccountResetRequestDto request, CancellationToken cancellationToken)
         => Ok(await service.ResetTodayAsync(customerId, request, cancellationToken));
 
     /// <summary>Clears the whole account of this customer: no debt, no payments, like a new customer.</summary>
     [HttpPost("{customerId:guid}/wipe")]
-    [Authorize(Roles = "Admin")]
+    [RequirePermission(Permission.AccountsWipe)]
     public async Task<ActionResult<CustomerAccountDetailsDto>> Wipe(Guid customerId, AccountResetRequestDto request, CancellationToken cancellationToken)
         => Ok(await service.WipeAccountAsync(customerId, request, cancellationToken));
 
@@ -79,7 +81,7 @@ public sealed class CustomerAccountsController(ICustomerAccountService service) 
         => Ok(await service.AdjustDebtAsync(request, cancellationToken));
 
     [HttpPut("previous-debt")]
-    [Authorize(Roles = "Admin,Accountant")]
+    [RequirePermission(Permission.AccountsOldDebt)]
     public async Task<ActionResult<CustomerAccountDetailsDto>> CorrectPreviousDebt(CorrectPreviousDebtRequestDto request, CancellationToken cancellationToken)
         => Ok(await service.CorrectPreviousDebtAsync(request, cancellationToken));
 }

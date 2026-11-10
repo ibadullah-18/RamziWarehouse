@@ -1,4 +1,4 @@
-﻿using GrandWall.Domain.Enums;
+using GrandWall.Domain.Enums;
 
 namespace GrandWall.Application.Features.Users.Dtos;
 
@@ -11,4 +11,7 @@ public sealed class UpdateUserRequestDto
     public UserRole Role { get; init; }
 
     public bool? IsActive { get; init; }
+
+    /// <summary>Chosen permissions; null keeps the role's defaults.</summary>
+    public IReadOnlyList<string>? Permissions { get; init; }
 }

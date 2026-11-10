@@ -20,7 +20,7 @@ public sealed partial class CustomerAccountService
     /// </summary>
     public async Task<CustomerAccountDetailsDto> CompleteSettlementAsync(CompleteSettlementRequest r, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         Money(r.Cash);
         Money(r.Card);
         Money(r.Bonus);
@@ -116,7 +116,7 @@ public sealed partial class CustomerAccountService
 
     public async Task<CustomerAccountDetailsDto> CorrectPreviousDebtAsync(CorrectPreviousDebtRequestDto r, CancellationToken cancellationToken = default)
     {
-        Allow(UserRole.Admin, UserRole.Accountant);
+        Allow(Permission.AccountsOldDebt);
         Money(r.CorrectedPreviousDebt);
         EnsureReason(r.Reason);
         await Mutate(r.CustomerId, async (_, entries) =>
@@ -133,12 +133,12 @@ public sealed partial class CustomerAccountService
 
     public async Task<CustomerAccountDetailsDto> CorrectDailyAsync(CorrectDailyDebtRequestDto r, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         Money(r.Amount);
         EnsureReason(r.Reason);
         var date = r.Date ?? Today;
         if (date > Today) throw new ConflictException("Gələcək tarix üçün düzəliş edilə bilməz.");
-        if (date < Today && user.Role != UserRole.Admin)
+        if (date < Today && !user.Has(Permission.AccountsPastDays))
             throw new ForbiddenException("Bitmiş günü yalnız admin düzəldə bilər.");
 
         await Mutate(r.CustomerId, async (_, entries) =>
@@ -158,7 +158,7 @@ public sealed partial class CustomerAccountService
 
     public async Task<CustomerAccountDetailsDto> CorrectPaymentAsync(CorrectAccountPaymentRequestDto r, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         Money(r.Amount);
         if (r.Amount <= 0 || r.PaymentMethod is not ("cash" or "card"))
             throw new ConflictException("Məbləği və ödəniş üsulunu yoxlayın.");
@@ -168,7 +168,7 @@ public sealed partial class CustomerAccountService
         {
             var entry = entries.SingleOrDefault(e => e.Id == r.EntryId && e.EntryType == CustomerAccountEntryType.Payment)
                 ?? throw new NotFoundException("Ödəniş tapılmadı.");
-            if (user.Role != UserRole.Admin && entry.BusinessDate != Today)
+            if (!user.Has(Permission.AccountsPastDays) && entry.BusinessDate != Today)
                 throw new ForbiddenException("Keçmiş günün ödənişini yalnız admin düzəldə bilər.");
             if (entry.Amount != r.ExpectedAmount || entry.PaymentMethod != r.ExpectedPaymentMethod)
                 throw new ConflictException("Ödəniş dəyişdirilib. Səhifəni yeniləyin.");
@@ -194,10 +194,10 @@ public sealed partial class CustomerAccountService
     /// </summary>
     public async Task<CustomerAccountDetailsDto> AdjustDebtAsync(AdjustDebtRequestDto r, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         Money(r.Amount);
         EnsureReason(r.Reason);
-        if (r.Target == "old") Allow(UserRole.Admin, UserRole.Accountant);
+        if (r.Target == "old") Allow(Permission.AccountsOldDebt);
         if (r.Target is not ("old" or "daily") || r.Mode is not ("add" or "set"))
             throw new ConflictException("Əməliyyat düzgün deyil.");
         if (r.Mode == "add" && r.Amount <= 0)

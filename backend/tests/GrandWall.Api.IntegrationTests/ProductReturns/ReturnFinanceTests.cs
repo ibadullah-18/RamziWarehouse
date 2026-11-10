@@ -81,19 +81,20 @@ public sealed class ReturnFinanceTests
         using var manager = await LoginManager(factory);
         var customer = await CreateCustomer(admin, "Maliyyə dükanı", shop: true);
         var warehouse = await Warehouse(admin);
-        var person = (await (await admin.PostAsJsonAsync("/api/return-persons", new { name = "Babək", isActive = true })).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         await WriteDebt(admin, customer, 100, old: 400);
 
         var created = await admin.PostAsJsonAsync("/api/product-returns", new
         {
-            customerId = customer, warehouseId = warehouse, amount = 20, returnPersonId = person,
+            customerId = customer, warehouseId = warehouse, amount = 20,
             items = new[] { new { productCode = "510", batchNumber = "611-1", quantity = 1, productType = 1 } }
         });
         created.EnsureSuccessStatusCode();
         var record = await created.Content.ReadFromJsonAsync<JsonElement>();
         var id = record.GetProperty("id").GetGuid();
         Assert.Equal(1, record.GetProperty("status").GetInt32());
-        Assert.Equal("Babək", record.GetProperty("returnPersonName").GetString());
+        // No name picker any more: the signed-in user is the creator.
+        Assert.Equal(JsonValueKind.Null, record.GetProperty("returnPersonName").ValueKind);
+        Assert.False(string.IsNullOrWhiteSpace(record.GetProperty("createdByFullName").GetString()));
         Assert.Equal(500, await Remaining(admin, customer));
 
         (await admin.PostAsync($"/api/product-returns/{id}/submit", null)).EnsureSuccessStatusCode();
@@ -207,7 +208,7 @@ public sealed class ReturnFinanceTests
     }
 
     [Fact]
-    public async Task EmployeeNameIsRequiredWhenNamesAreConfiguredAndSearchFindsByCode()
+    public async Task SearchFindsByCodeAndNoEmployeeNameIsAsked()
     {
         using var factory = new GrandWallApiFactory();
         using var admin = await LoginAdmin(factory);
@@ -227,6 +228,6 @@ public sealed class ReturnFinanceTests
             customerId = customer, warehouseId = warehouse,
             items = new[] { new { productCode = "101", batchNumber = "10", quantity = 1, productType = 1 } }
         });
-        Assert.Equal(HttpStatusCode.Conflict, withoutName.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, withoutName.StatusCode);
     }
 }

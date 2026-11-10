@@ -10,10 +10,10 @@ import {
   getProductReturnById,
   submitProductReturn,
 } from '../../../api/product-return-api';
-import { canManageOperations } from '../../../auth/permissions';
+import { can, Permission } from '../../../auth/permissions';
 import { confirmAction, showMessage } from '../../../components/dialogs';
 import { useAuth } from '../../../auth/auth-context';
-import { UserRole } from '../../../auth/auth-types';
+
 import { AuthenticatedProductReturnPhoto } from '../../../components/authenticated-product-return-photo';
 import { ReturnPhotoGallery } from '../../../components/return-photo-gallery';
 import {
@@ -74,8 +74,8 @@ export default function ReturnDetailScreen() {
   const parameters = useLocalSearchParams<{ id?: string | string[] }>();
   const returnId = Array.isArray(parameters.id) ? parameters.id[0] : parameters.id;
   const token = session?.accessToken;
-  const isAdmin = session?.role === UserRole.Admin;
-  const isManager = canManageOperations(session?.role);
+  const isAdmin = can(session, Permission.ReturnsAdmin);
+  const isManager = can(session, Permission.ReturnsReview);
 
   const [record, setRecord] = useState<ProductReturn | null>(null);
   const [loading, setLoading] = useState(true);
@@ -232,7 +232,7 @@ export default function ReturnDetailScreen() {
 
       <Card>
         <Line label="Anbar" value={record.warehouseName} />
-        <Line label="Vazvratı yaradan" value={record.returnPersonName ?? '—'} />
+        <Line label="Vazvratı yaradan" value={record.returnPersonName ?? record.createdByFullName} />
         <Line label="Status" value={getReturnStatusLabel(record.status)} strong />
         {record.processedByFullName ? (
           <Line label="Təsdiqləyən / işləyən" value={record.processedByFullName} />

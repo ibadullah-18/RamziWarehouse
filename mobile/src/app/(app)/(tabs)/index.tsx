@@ -14,6 +14,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useAuth } from '../../../auth/auth-context';
+import { can, Permission } from '../../../auth/permissions';
+import { useBranding } from '../../../features/branding/branding-provider';
 import { AppUpdateBanner } from '../../../components/app-update-banner';
 import { QuickActionCard } from '../../../components/quick-action-card';
 import { ScreenContainer } from '../../../components/screen-container';
@@ -41,6 +43,11 @@ function getInitials(fullName?: string) {
 
 export default function AdminManagementScreen() {
   const { session } = useAuth();
+  const { appName } = useBranding();
+  const canUsers = can(session, Permission.UsersManage);
+  const canSettings = can(session, Permission.SettingsManage);
+  const canCustomers = can(session, Permission.CustomersEdit);
+  const canCreateCustomer = can(session, Permission.CustomersCreate);
 
   return (
     <ScreenContainer>
@@ -50,7 +57,7 @@ export default function AdminManagementScreen() {
       >
         <View style={styles.headerText}>
           <Text style={styles.brand}>
-            GRANDWALL
+            {appName.toUpperCase()}
           </Text>
 
           <Text
@@ -73,8 +80,12 @@ export default function AdminManagementScreen() {
       </Animated.View>
 
       <AppUpdateBanner />
-      <QuickActionCard title="Vazvrat yaradanlar" description="Adları və aktivliyi idarə et" icon="people-outline" onPress={() => router.push('/return-persons' as Href)} />
-      <QuickActionCard title="Vazvrad kod qaydası" description="Kod neçə rəqəmli olsun, ikinci rəqəm 0" icon="barcode-outline" onPress={() => router.push('/return-code-rules' as Href)} />
+      {canSettings ? (
+        <>
+          <QuickActionCard title="Tətbiqin adı və loqosu" description={`İndi: ${appName}`} icon="color-palette-outline" onPress={() => router.push('/app-settings' as Href)} />
+          <QuickActionCard title="Vazvrad kod qaydası" description="Kod neçə rəqəmli olsun, ikinci rəqəm 0" icon="barcode-outline" onPress={() => router.push('/return-code-rules' as Href)} />
+        </>
+      ) : null}
 
       <Animated.View
         entering={FadeInDown
@@ -107,6 +118,7 @@ export default function AdminManagementScreen() {
         </View>
       </Animated.View>
 
+      {canUsers ? (
       <Animated.View
         entering={FadeInDown
           .duration(350)
@@ -138,7 +150,9 @@ export default function AdminManagementScreen() {
           }}
         />
       </Animated.View>
+      ) : null}
 
+      {canCustomers || canCreateCustomer ? (
       <Animated.View
         entering={FadeInDown
           .duration(350)
@@ -150,6 +164,7 @@ export default function AdminManagementScreen() {
           description="Müştəri məlumatlarına rahat və sürətli keçid"
         />
 
+        {canCustomers ? (
         <QuickActionCard
           title="Müştəri siyahısı"
           description="Müştəriləri axtar, məlumatlarına bax və redaktə et"
@@ -158,7 +173,9 @@ export default function AdminManagementScreen() {
             router.push('/customers' as Href);
           }}
         />
+        ) : null}
 
+        {canCreateCustomer ? (
         <QuickActionCard
           title="Yeni müştəri"
           description="Sistemə yeni müştəri əlavə et"
@@ -169,7 +186,9 @@ export default function AdminManagementScreen() {
             );
           }}
         />
+        ) : null}
       </Animated.View>
+      ) : null}
     </ScreenContainer>
   );
 }

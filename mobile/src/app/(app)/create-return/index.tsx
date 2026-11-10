@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { type Href, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type Href, router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Image, Pressable, Text, TextInput, View } from 'react-native';
 
 import { getActiveWarehouses } from '../../../api/create-order-api';
@@ -8,7 +8,6 @@ import { createProductReturn } from '../../../api/product-return-api';
 import { getPriceRules } from '../../../api/customer-account-api';
 import type { PriceRule } from '../../../features/customer-accounts/customer-account-types';
 import { priceReturn } from '../../../features/customer-accounts/return-pricing';
-import { ReturnPerson, returnPersonRequest } from '../../../api/return-person-api';
 import { useAuth } from '../../../auth/auth-context';
 import { CustomerPickerModal } from '../../../components/customer-picker-modal';
 import { dismissKeyboard } from '../../../components/keyboard-form';
@@ -64,9 +63,6 @@ export default function CreateReturnScreen() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [warehouseId, setWarehouseId] = useState('');
   const [warehouseError, setWarehouseError] = useState('');
-  const [people, setPeople] = useState<ReturnPerson[]>([]);
-  const [personId, setPersonId] = useState<string | null>(null);
-  const [peopleError, setPeopleError] = useState('');
 
   const [items, setItems] = useState<DraftProductReturnItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -102,24 +98,6 @@ export default function CreateReturnScreen() {
     };
   }, [token]);
 
-  const loadPeople = useCallback(async () => {
-    if (!token) return;
-    try {
-      const all = await returnPersonRequest<ReturnPerson[]>(token);
-      const active = all.filter((person) => person.isActive);
-      setPeople(active);
-      setPeopleError('');
-      setPersonId((current) => (active.some((p) => p.id === current) ? current : null));
-    } catch (e) {
-      setPeopleError(errorMessage(e));
-    }
-  }, [token]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadPeople();
-    }, [loadPeople]),
-  );
 
   const customerId = customer?.id;
   useEffect(() => {
@@ -207,10 +185,6 @@ export default function CreateReturnScreen() {
 
   async function submit() {
     if (!token || saving || saveLock.current) return;
-    if (people.length > 0 && !personId) {
-      Alert.alert('İşçi seçilməyib', 'Vazvratı yaradan işçinin adını seçin.');
-      return;
-    }
     if (!customer) {
       Alert.alert('Müştəri seçilməyib', 'Vazvrad üçün müştəri seçin.');
       return;
@@ -249,7 +223,6 @@ export default function CreateReturnScreen() {
       const created = await createProductReturn(token, {
         customerId: customer.id,
         amount: value,
-        returnPersonId: personId,
         warehouseId,
         additionalNote: note.trim() || null,
         items: finalItems.map(({ productCode, batchNumber, quantity: count, productType: type }) => ({
@@ -284,32 +257,12 @@ export default function CreateReturnScreen() {
       }
     >
       <Card>
-        <SectionTitle>1. Vazvratı kim yaradır?</SectionTitle>
-        {peopleError ? (
-          <Pressable onPress={() => void loadPeople()}>
-            <Text style={{ color: colors.danger }}>{peopleError} · Yenidən sına</Text>
-          </Pressable>
-        ) : null}
-        {people.length === 0 && !peopleError ? (
-          <Text style={{ color: colors.textSecondary }}>
-            Admin “Vazvrat yaradanlar” bölməsində işçi adlarını əlavə edə bilər. Ad olmadan da davam etmək olar.
-          </Text>
-        ) : (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {people.map((person) => (
-              <Chip
-                key={person.id}
-                label={`${personId === person.id ? '✓ ' : ''}${person.name}`}
-                selected={personId === person.id}
-                onPress={() => setPersonId(person.id)}
-              />
-            ))}
-          </View>
-        )}
+        <SectionTitle>Vazvratı yaradan</SectionTitle>
+        <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>{session?.fullName}</Text>
       </Card>
 
       <Card>
-        <SectionTitle>2. Müştəri</SectionTitle>
+        <SectionTitle>1. Müştəri</SectionTitle>
         <Pressable
           accessibilityRole="button"
           onPress={() => setPicker(true)}
@@ -347,7 +300,7 @@ export default function CreateReturnScreen() {
       </Card>
 
       <Card>
-        <SectionTitle>{editingId ? '3. Məhsulu düzəlt' : '3. Məhsullar'}</SectionTitle>
+        <SectionTitle>{editingId ? '2. Məhsulu düzəlt' : '2. Məhsullar'}</SectionTitle>
         <CodeInput
           ref={codeRef}
           label="Məhsul kodu"
@@ -441,7 +394,7 @@ export default function CreateReturnScreen() {
       </Card>
 
       <Card>
-        <SectionTitle>4. Vazvrad məbləği</SectionTitle>
+        <SectionTitle>3. Vazvrad məbləği</SectionTitle>
         {rules.length > 0 ? (
           <View style={{ gap: 4 }}>
             {pricing.lines.map((line, index) => (
@@ -478,7 +431,7 @@ export default function CreateReturnScreen() {
       </Card>
 
       <Card>
-        <SectionTitle>5. Şəkillər (istəyə görə)</SectionTitle>
+        <SectionTitle>4. Şəkillər (istəyə görə)</SectionTitle>
         <Btn
           icon="camera"
           variant="secondary"

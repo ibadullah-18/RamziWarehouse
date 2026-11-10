@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using GrandWall.Domain.Entities;
 
@@ -29,6 +29,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(user => user.Role)
             .HasConversion<int>();
+
+        builder.Property(user => user.Permissions)
+            .HasMaxLength(1000);
 
         builder.Property(user => user.IsActive)
             .HasDefaultValue(true);

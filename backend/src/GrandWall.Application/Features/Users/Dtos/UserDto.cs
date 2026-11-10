@@ -1,4 +1,4 @@
-﻿using GrandWall.Domain.Enums;
+using GrandWall.Domain.Enums;
 
 namespace GrandWall.Application.Features.Users.Dtos;
 
@@ -17,4 +17,10 @@ public sealed class UserDto
     public DateTime? LastLoginAtUtc { get; init; }
 
     public DateTime CreatedAtUtc { get; init; }
+
+    /// <summary>Effective permissions.</summary>
+    public IReadOnlyList<string> Permissions { get; init; } = [];
+
+    /// <summary>True when the admin changed the role's default permissions.</summary>
+    public bool HasCustomPermissions { get; init; }
 }

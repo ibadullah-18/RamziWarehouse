@@ -19,8 +19,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getCustomers } from '../../api/customers-api';
 import { useAuth } from '../../auth/auth-context';
+import { useBranding } from '../../features/branding/branding-provider';
 import {
-    canManageOperations,
+    can,
+    Permission,
 } from '../../auth/permissions';
 import type {
     Customer,
@@ -42,8 +44,9 @@ function getErrorMessage(error: unknown): string {
 
 export default function CustomersScreen() {
   const { session } = useAuth();
+  const { appName } = useBranding();
   const accessToken = session?.accessToken;
-  const canManage = canManageOperations(session?.role);
+  const canManage = can(session, Permission.CustomersEdit);
 
   const [customers, setCustomers] =
     useState<readonly Customer[]>([]);
@@ -166,7 +169,7 @@ export default function CustomersScreen() {
 
           <View style={styles.headerText}>
             <Text style={styles.eyebrow}>
-              GRANDWALL
+              {appName.toUpperCase()}
             </Text>
             <Text style={styles.title}>Müştərilər</Text>
           </View>

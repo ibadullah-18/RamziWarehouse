@@ -28,7 +28,7 @@ const stateText = {
 
 /** The Açot tab: today's date, the day's state, the three main actions and the totals. */
 export default function AccountHomeScreen() {
-  const { token, canUse, isAdmin } = useAccountSession();
+  const { token, canUse, canCustomers } = useAccountSession();
   const [day, setDay] = useState<AccountDay | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -199,7 +199,7 @@ export default function AccountHomeScreen() {
               title="Sədərək müştəriləri"
               onPress={() => open(accountDestination('shops') as Href)}
             />
-            {isAdmin ? (
+            {canCustomers ? (
               <Btn
                 icon="people-outline"
                 variant="secondary"

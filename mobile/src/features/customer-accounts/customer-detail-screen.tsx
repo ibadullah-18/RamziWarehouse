@@ -65,7 +65,7 @@ const entryLabels: Partial<Record<CustomerAccountEntryType, string>> = {
 
 /** One customer: balances, the month's payments and the history with corrections. */
 export default function CustomerDetailScreen({ customerId }: { customerId: string }) {
-  const { token, canUse, isAdmin, canWriteOldDebt } = useAccountSession();
+  const { token, canUse, canWriteOldDebt, canPriceRules, canResetToday, canWipe, canFixPastDays } = useAccountSession();
   const [details, setDetails] = useState<CustomerAccountDetails | null>(null);
   const [month, setMonth] = useState(monthKey(todayKey()));
   const [monthData, setMonthData] = useState<CustomerMonth | null>(null);
@@ -106,7 +106,7 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
     }, [load]),
   );
 
-  const canCorrect = (day: CustomerAccountDay) => isAdmin || !day.isLocked;
+  const canCorrect = (day: CustomerAccountDay) => canFixPastDays || !day.isLocked;
 
   return (
     <AccountPageShell
@@ -152,7 +152,7 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
             <PayoutCard details={details} token={token} onSaved={(updated) => { setDetails(updated); void load(); }} />
           ) : null}
 
-          <PriceListCard customerId={details.customerId} token={token} canEdit={canWriteOldDebt} />
+          <PriceListCard customerId={details.customerId} token={token} canEdit={canPriceRules} />
 
           <SectionTitle>{monthLabel(month)} ödənişləri</SectionTitle>
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -274,8 +274,8 @@ export default function CustomerDetailScreen({ customerId }: { customerId: strin
             customerId={details.customerId}
             customerName={details.customerName}
             token={token}
-            canResetToday={canWriteOldDebt}
-            canWipe={isAdmin}
+            canResetToday={canResetToday}
+            canWipe={canWipe}
             onSaved={(updated) => {
               setDetails(updated);
               void load();

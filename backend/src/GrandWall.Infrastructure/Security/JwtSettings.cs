@@ -1,4 +1,4 @@
-﻿namespace GrandWall.Infrastructure.Security;
+namespace GrandWall.Infrastructure.Security;
 
 public sealed class JwtSettings
 {
@@ -12,5 +12,5 @@ public sealed class JwtSettings
 
     public int AccessTokenMinutes { get; init; } = 15;
 
-    public int RefreshTokenDays { get; init; } = 3650;
+    public int RefreshTokenDays { get; init; } = 10;
 }

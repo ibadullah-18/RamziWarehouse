@@ -1,4 +1,4 @@
-﻿using GrandWall.Domain.Enums;
+using GrandWall.Domain.Enums;
 
 namespace GrandWall.Application.Features.Users.Dtos;
 
@@ -11,4 +11,6 @@ public sealed class CurrentUserDto
     public string Username { get; init; } = string.Empty;
 
     public UserRole Role { get; init; }
+
+    public IReadOnlyList<string> Permissions { get; init; } = [];
 }

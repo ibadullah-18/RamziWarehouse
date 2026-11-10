@@ -6,7 +6,7 @@ Açotda müştəri ilə hesablaşanda vazvrat təsdiqi gözləmədən seçilib d
 
 ## Yaratma
 
-1. **Kim yaradır?** Admin “Vazvrat yaradanlar” bölməsində işçi adlarını əlavə edir. Yaratma səhifəsində bu adlar düymə kimi çıxır; işçi öz adını seçib davam edir. Ad siyahısı doludursa, ad seçmədən saxlamaq olmur.
+1. **Kim yaradır?** Ad seçilmir: vazvradı daxil olmuş istifadəçi yaradır və onun adı göstərilir (köhnə qeydlərdə əvvəl seçilmiş ad qalır). Vazvrad yaratmaq üçün istifadəçidə “Vazvrad / vitrin yaratmaq” icazəsi olmalıdır.
 2. **Müştəri.** Vazvradda bütün müştərilər görünür (“Sədərək dükanı” açarından asılı deyil).
 3. **Kod və partiya.** Yalnız **rəqəm və `-`** yazılır (məsələn `1019`, `340-1`); hərflər avtomatik silinir. Rəqəm klaviaturasında tire olmadığı üçün hər kod sahəsinin yanında ayrıca `-` düyməsi var. Server də eyni qaydanı yoxlayır.
 4. **Məbləğ** istəyə görədir; açotda müştəri ilə hesablaşanda da yazıla bilər.
@@ -22,7 +22,7 @@ Vazvrad və Axtarış səhifələrində bir axtarış xanası müştəri adını
 
 ## Düzəliş və silmə
 
-Menecer təsdiqindən əvvəl vazvradı hər işçi düzəldə və silə bilər; səbəb tələb olunur, əvvəlki/yeni dəyər və icraçı tarixçədə qalır. Təsdiqdən sonra dəyişiklik və silinmə yalnız adminə açıqdır; məbləği dəyişəndə və ya silinəndə borc cari tarixə fərq və ya geri qaytarma kimi düzəldilir.
+Menecer təsdiqindən əvvəl vazvradı hər işçi düzəldə və silə bilər; səbəb tələb olunur, əvvəlki/yeni dəyər və icraçı tarixçədə qalır. Təsdiqdən sonra dəyişiklik və silinmə yalnız “Təsdiqdən sonra dəyişmək və silmək” icazəsi olanlara açıqdır; məbləği dəyişəndə və ya silinəndə borc cari tarixə fərq və ya geri qaytarma kimi düzəldilir.
 
 ## Borca tətbiq
 

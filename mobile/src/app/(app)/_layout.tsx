@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 
 import { useAuth } from "../../auth/auth-context";
+import { can, Permission } from "../../auth/permissions";
 import { colors } from "../../theme";
 
 const legacyModulesEnabled = false;
@@ -8,7 +9,9 @@ const legacyModulesEnabled = false;
 export default function AppStackLayout() {
   const { session } = useAuth();
 
-  const isAdmin = session?.role === 4;
+  const canUsers = can(session, Permission.UsersManage);
+  const canSettings = can(session, Permission.SettingsManage);
+  const canCustomers = can(session, Permission.CustomersEdit);
 
   return (
     <Stack
@@ -31,15 +34,22 @@ export default function AppStackLayout() {
 
       <Stack.Screen name="edit-return/[id]" />
       <Stack.Screen name="create-customer" />
-      <Stack.Protected guard={isAdmin}>
-        <Stack.Screen name="return-persons" />
+      <Stack.Protected guard={canSettings}>
         <Stack.Screen name="return-code-rules" />
+        <Stack.Screen name="app-settings" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={canUsers}>
         <Stack.Screen name="users" />
         <Stack.Screen name="create-user" />
         <Stack.Screen name="edit-user/[id]" />
       </Stack.Protected>
 
-      <Stack.Protected guard={isAdmin || session?.role === 1}>
+      <Stack.Protected guard={false}>
+        <Stack.Screen name="return-persons" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={canCustomers}>
         <Stack.Screen name="customers" />
         <Stack.Screen name="edit-customer/[id]" />
       </Stack.Protected>

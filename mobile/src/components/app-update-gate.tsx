@@ -15,8 +15,10 @@ import {
   openAppUpdate,
 } from '../api/app-version-api';
 import { colors, spacing } from '../theme';
+import { useBranding } from '../features/branding/branding-provider';
 
 export function AppUpdateGate() {
+  const { appName } = useBranding();
   const [versionInfo, setVersionInfo] =
     useState<AndroidAppVersion | null>(null);
 
@@ -46,7 +48,7 @@ export function AppUpdateGate() {
         }
       } catch (error) {
         console.warn(
-          'GrandWall update yoxlaması uğursuz oldu:',
+          'Ramzi update yoxlaması uğursuz oldu:',
           error,
         );
       }
@@ -69,7 +71,7 @@ export function AppUpdateGate() {
       await openAppUpdate(versionInfo.downloadUrl);
     } catch (error) {
       console.warn(
-        'GrandWall update linki açıla bilmədi:',
+        'Ramzi update linki açıla bilmədi:',
         error,
       );
     } finally {
@@ -81,7 +83,7 @@ export function AppUpdateGate() {
     return null;
   }
 
-  // GrandWall yeniləmələri istifadəçini bloklamır.
+  // Yeniləmələr istifadəçini bloklamır.
   // Yeni versiya barədə məlumat verilir,
   // amma tətbiqdən istifadə etməyə davam etmək mümkündür.
   const isForced = false;
@@ -107,11 +109,11 @@ export function AppUpdateGate() {
           </View>
 
           <Text style={styles.title}>
-            GrandWall yeniləndi
+            {appName} yeniləndi
           </Text>
 
           <Text style={styles.description}>
-            GrandWall {versionInfo.latestVersion} versiyası
+            {appName} {versionInfo.latestVersion} versiyası
             hazırdır. Ən son funksiyalardan istifadə etmək
             üçün tətbiqi yeniləyin.
           </Text>

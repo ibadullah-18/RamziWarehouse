@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 import { useAuth } from '../auth/auth-context';
-import { canManageOperations } from '../auth/permissions';
+import { can, Permission } from '../auth/permissions';
 import {
     colors,
     fontSize,
@@ -21,7 +21,7 @@ import {
 
 export function CustomersButton() {
   const { session } = useAuth();
-  const canManage = canManageOperations(session?.role);
+  const canManage = can(session, Permission.CustomersEdit);
 
   return (
     <Pressable

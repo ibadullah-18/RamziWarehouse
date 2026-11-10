@@ -3,6 +3,8 @@ using GrandWall.Application.Common.Exceptions;
 using GrandWall.Domain.Entities;
 using GrandWall.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
+using GrandWall.Api.Authorization;
+using GrandWall.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,7 +28,7 @@ public sealed class CustomerPriceRulesController(AppDbContext db) : ControllerBa
             .ToListAsync(ct));
 
     /// <summary>Replaces the whole list; send every rule that should remain.</summary>
-    [HttpPut, Authorize(Roles = "Admin,Accountant")]
+    [HttpPut, RequirePermission(Permission.AccountsPriceRules)]
     public async Task<ActionResult<IReadOnlyList<PriceRuleDto>>> Replace(Guid customerId, List<PriceRuleDto> rules, CancellationToken ct)
     {
         if (!await db.Customers.AnyAsync(c => c.Id == customerId && !c.IsDeleted, ct))

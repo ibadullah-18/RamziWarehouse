@@ -1,4 +1,4 @@
-﻿using GrandWall.Domain.Common;
+using GrandWall.Domain.Common;
 using GrandWall.Domain.Enums;
 
 namespace GrandWall.Domain.Entities;
@@ -12,6 +12,9 @@ public sealed class User : BaseEntity
     public string PasswordHash { get; set; } = string.Empty;
 
     public UserRole Role { get; set; }
+
+    /// <summary>Chosen permissions ("a,b,c"); null = the role's defaults. See <see cref="Permission"/>.</summary>
+    public string? Permissions { get; set; }
 
     public bool IsDeleted { get; set; }
 

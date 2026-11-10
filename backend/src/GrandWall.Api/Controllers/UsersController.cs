@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using GrandWall.Domain.Enums;
 using GrandWall.Api.Authorization;
 using GrandWall.Application.Abstractions.Identity;
 using GrandWall.Application.Abstractions.Users;
@@ -41,7 +42,11 @@ public sealed class UsersController : ControllerBase
             Username =
                 _currentUserService.Username,
             Role =
-                _currentUserService.Role
+                _currentUserService.Role,
+            Permissions =
+                _currentUserService.Permissions
+                    .OrderBy(permission => permission)
+                    .ToList()
         });
     }
 
@@ -75,8 +80,7 @@ public sealed class UsersController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(
-        Policy = AuthorizationPolicies.AdminOnly)]
+    [RequirePermission(Permission.UsersManage)]
     public async Task<ActionResult<UserDto>>
         Create(
             [FromBody]
@@ -98,8 +102,7 @@ public sealed class UsersController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(
-        Policy = AuthorizationPolicies.AdminOnly)]
+    [RequirePermission(Permission.UsersManage)]
     public async Task<ActionResult<UserDto>>
         Update(
             Guid id,
@@ -117,8 +120,7 @@ public sealed class UsersController : ControllerBase
     }
 
     [HttpPut("{id:guid}/password")]
-    [Authorize(
-        Policy = AuthorizationPolicies.AdminOnly)]
+    [RequirePermission(Permission.UsersManage)]
     public async Task<IActionResult>
         ChangePassword(
             Guid id,
@@ -134,7 +136,7 @@ public sealed class UsersController : ControllerBase
         return NoContent();
     }
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = "AdminOnly")]
+    [RequirePermission(Permission.UsersManage)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         await _userService.DeleteAsync(id, cancellationToken);

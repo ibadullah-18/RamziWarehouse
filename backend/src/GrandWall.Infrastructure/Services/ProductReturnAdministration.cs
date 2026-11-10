@@ -70,7 +70,7 @@ public sealed partial class ProductReturnService
     }
     private void EnsureReturnChangeAllowed(ProductReturn record)
     {
-        if(!_currentUserService.Role.IsAdmin() && record.Status is not (ReturnStatus.Pending or ReturnStatus.Submitted))
+        if(!_currentUserService.Has(Permission.ReturnsAdmin) && record.Status is not (ReturnStatus.Pending or ReturnStatus.Submitted))
             throw new ForbiddenException("Menecer təsdiqindən sonra qeydi yalnız admin dəyişə və silə bilər.");
     }
     private void AddAdministrationAudit(ProductReturn record,string note) => _dbContext.ProductReturnStatusHistories.Add(new ProductReturnStatusHistory {

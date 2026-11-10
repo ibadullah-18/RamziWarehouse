@@ -17,14 +17,13 @@ namespace GrandWall.Infrastructure.Services;
 /// </summary>
 public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUserService user, TimeProvider clock) : ICustomerAccountService
 {
-    private static readonly UserRole[] AccountRoles = [UserRole.Admin, UserRole.Accountant, UserRole.Driver];
 
     /// <summary>The açot date: the calendar date in Baku (UTC+4).</summary>
     private DateOnly Today => DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromHours(4)).DateTime);
 
-    private void Allow(params UserRole[] roles)
+    private void Allow(string permission)
     {
-        if (!roles.Contains(user.Role)) throw new ForbiddenException("Bu əməliyyat üçün icazəniz yoxdur.");
+        if (!user.Has(permission)) throw new ForbiddenException("Bu əməliyyat üçün icazəniz yoxdur.");
     }
 
     private static void Money(decimal amount)
@@ -123,7 +122,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
 
     public async Task<AccountDayDto> GetDayAsync(DateOnly date, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         if (date > Today) throw new ConflictException("Gələcək tarix üçün açot yoxdur.");
 
         var entries = await db.CustomerAccountEntries.AsNoTracking().Where(e => e.BusinessDate <= date).ToListAsync(cancellationToken);
@@ -207,14 +206,14 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
 
     public async Task<AccountDayDto> StartDayAsync(CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         await InTransaction(async () => { await TouchTodayAsync(cancellationToken); return 0; }, cancellationToken);
         return await GetDayAsync(Today, cancellationToken);
     }
 
     public async Task<AccountDayDto> CloseDayAsync(CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         await InTransaction(async () =>
         {
             var day = await db.AccountDays.FirstOrDefaultAsync(d => d.BusinessDate == Today, cancellationToken);
@@ -244,7 +243,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
 
     public async Task<AccountDayDto> SaveDailyDebtsAsync(SaveDailyDebtsRequestDto request, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         foreach (var item in request.Items)
         {
             Money(item.DailyDebt);
@@ -267,7 +266,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
 
                 if (oldDebt > 0)
                 {
-                    if (user.Role is not (UserRole.Admin or UserRole.Accountant))
+                    if (!user.Has(Permission.AccountsOldDebt))
                         throw new ForbiddenException("Köhnə borcu yalnız admin və ya açot operatoru yaza bilər.");
                     if (own.Any(e => e.EntryType == CustomerAccountEntryType.OpeningBalance))
                         throw new ConflictException($"{customer.Name}: köhnə borc artıq yazılıb. Dəyişmək üçün düzəliş edin.");
@@ -316,7 +315,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
 
     public async Task<CustomerAccountListDto> GetAllAsync(CustomerAccountListQueryDto query, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         var date = query.Date ?? Today;
         var search = query.Search?.Trim();
         var customers = await db.Customers.AsNoTracking()
@@ -374,7 +373,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
 
     public async Task<CustomerAccountDetailsDto> GetByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         var customer = await db.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == customerId, cancellationToken)
             ?? throw new NotFoundException("Müştəri tapılmadı.");
         var entries = await db.CustomerAccountEntries.AsNoTracking().Where(e => e.CustomerId == customerId)
@@ -440,7 +439,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
 
     public async Task<AccountHistoryMonthDto> GetHistoryAsync(string month, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         var (from, to) = MonthRange(month);
         var entries = await db.CustomerAccountEntries.AsNoTracking()
             .Where(e => e.BusinessDate >= from && e.BusinessDate <= to).ToListAsync(cancellationToken);
@@ -467,7 +466,7 @@ public sealed partial class CustomerAccountService(AppDbContext db, ICurrentUser
 
     public async Task<CustomerMonthDto> GetCustomerMonthAsync(Guid customerId, string month, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         var (from, to) = MonthRange(month);
         var customer = await db.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == customerId, cancellationToken)
             ?? throw new NotFoundException("Müştəri tapılmadı.");

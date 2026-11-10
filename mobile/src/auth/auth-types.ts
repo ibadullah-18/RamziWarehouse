@@ -23,6 +23,8 @@ export interface AuthSession {
   fullName: string;
   username: string;
   role: UserRole;
+  /** Effective permissions from the server (missing in sessions saved by older versions). */
+  permissions?: string[];
 }
 
 export interface ApiProblemDetails {

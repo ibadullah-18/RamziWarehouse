@@ -1,6 +1,5 @@
 import { dismissKeyboard } from '../../../components/keyboard-form';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { UserRole } from '../../../auth/auth-types';
 import { Ionicons } from '@expo/vector-icons';
 import {
     router,
@@ -22,7 +21,7 @@ import {
 } from '../../../api/customers-api';
 import { useAuth } from '../../../auth/auth-context';
 import { ShopSwitch } from '../../../components/shop-switch';
-import { canManageOperations } from '../../../auth/permissions';
+import { can, Permission } from '../../../auth/permissions';
 import type {
     Customer,
 } from '../../../features/customers/customer-types';
@@ -47,7 +46,7 @@ export default function EditCustomerScreen() {
 
   const { session } = useAuth();
   const accessToken = session?.accessToken;
-  const canManage = canManageOperations(session?.role);
+  const canManage = can(session, Permission.CustomersEdit);
 
   const nameInputRef = useRef<TextInput>(null);
   const phoneInputRef = useRef<TextInput>(null);
@@ -396,7 +395,7 @@ export default function EditCustomerScreen() {
               {isSubmitting ? 'Yadda saxlanılır...' : 'Dəyişiklikləri saxla'}
             </Text>
           </Pressable>
-          {session?.role === UserRole.Admin && <Pressable accessibilityRole="button" disabled={isSubmitting} onPress={() => Alert.alert('Müştərini sil', 'Siyahıdan silinəcək. Əvvəlki əməliyyatlar tarixçədə saxlanacaq.', [{text:'Geri',style:'cancel'},{text:'Sil',style:'destructive',onPress: async()=>{ if(!accessToken || !customerId) return; setIsSubmitting(true); try { await deleteCustomer(accessToken, customerId); if(router.canGoBack()) router.back(); else router.replace('/customers'); } catch(e) { Alert.alert('Silinmədi', e instanceof Error ? e.message : 'Yenidən yoxlayın.'); } finally {setIsSubmitting(false);} }}])} style={{padding:18,alignItems:'center',borderWidth:1,borderColor:colors.danger,borderRadius:12,marginTop:20}}><Text style={{color:colors.danger,fontSize:17,fontWeight:'600'}}> Müştərini sil </Text></Pressable>}
+          {can(session, Permission.CustomersDelete) && <Pressable accessibilityRole="button" disabled={isSubmitting} onPress={() => Alert.alert('Müştərini sil', 'Siyahıdan silinəcək. Əvvəlki əməliyyatlar tarixçədə saxlanacaq.', [{text:'Geri',style:'cancel'},{text:'Sil',style:'destructive',onPress: async()=>{ if(!accessToken || !customerId) return; setIsSubmitting(true); try { await deleteCustomer(accessToken, customerId); if(router.canGoBack()) router.back(); else router.replace('/customers'); } catch(e) { Alert.alert('Silinmədi', e instanceof Error ? e.message : 'Yenidən yoxlayın.'); } finally {setIsSubmitting(false);} }}])} style={{padding:18,alignItems:'center',borderWidth:1,borderColor:colors.danger,borderRadius:12,marginTop:20}}><Text style={{color:colors.danger,fontSize:17,fontWeight:'600'}}> Müştərini sil </Text></Pressable>}
         </KeyboardAwareScrollView>
       </View>
     </SafeAreaView>

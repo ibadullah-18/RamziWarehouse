@@ -30,7 +30,7 @@ type Sort = 'name' | 'debt';
  * its name. A tap opens the shop page where the old and daily debt can be added or corrected.
  */
 export default function ShopsScreen() {
-  const { token, canUse } = useAccountSession();
+  const { token, canUse, canCreateCustomer } = useAccountSession();
   const [items, setItems] = useState<CustomerAccountSummary[]>([]);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<Sort>('name');
@@ -92,11 +92,13 @@ export default function ShopsScreen() {
         <Tile label="Ümumi köhnə borc" value={money(totalOld)} tone={totalOld > 0 ? 'warn' : undefined} />
         <Tile label="Ümumi borc" value={money(totalDebt)} tone={totalDebt > 0 ? 'warn' : 'good'} />
       </TileRow>
-      <Btn
-        icon="storefront-outline"
-        title="Yeni Sədərək müştərisi"
-        onPress={() => open('/create-customer?shop=1')}
-      />
+      {canCreateCustomer ? (
+        <Btn
+          icon="storefront-outline"
+          title="Yeni Sədərək müştərisi"
+          onPress={() => open('/create-customer?shop=1')}
+        />
+      ) : null}
       <TextField label="Müştəri axtar" value={search} onChangeText={setSearch} placeholder="Ad yazın" autoCorrect={false} />
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Chip label="Ada görə" selected={sort === 'name'} onPress={() => setSort('name')} />

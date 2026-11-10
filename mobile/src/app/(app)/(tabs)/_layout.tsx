@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../../auth/auth-context';
 import { UserRole } from '../../../auth/auth-types';
+import { can, Permission } from '../../../auth/permissions';
 import { colors } from '../../../theme';
 
 const legacyModulesEnabled = false;
@@ -13,16 +14,14 @@ export default function MainTabsLayout() {
   const insets = useSafeAreaInsets();
 
   const role = session?.role;
-  const isAdmin = role === UserRole.Admin;
+  const isAdmin = can(session, Permission.AdminPanel);
 
-  const canUseAccounts =
-    role === UserRole.Admin ||
-    role === UserRole.Accountant ||
-    role === UserRole.Driver;
+  const canUseAccounts = can(session, Permission.AccountsUse);
 
   const opensAccountsFirst =
-    role === UserRole.Accountant ||
-    role === UserRole.Driver;
+    canUseAccounts &&
+    (role === UserRole.Accountant ||
+      role === UserRole.Driver);
 
   return (
     <Tabs

@@ -1,5 +1,6 @@
 import { useAuth } from '../../auth/auth-context';
 import { UserRole } from '../../auth/auth-types';
+import { can, Permission } from '../../auth/permissions';
 
 /** Who may do what in the açot (mirrors the server rules). */
 export function useAccountSession() {
@@ -10,10 +11,15 @@ export function useAccountSession() {
     token: session?.accessToken ?? '',
     role,
     isAdmin,
-    /** Admin, açot operator and driver. */
-    canUse: isAdmin || role === UserRole.Accountant || role === UserRole.Driver,
-    /** The first (old) debt of a customer is written by an admin or the açot operator. */
-    canWriteOldDebt: isAdmin || role === UserRole.Accountant,
+    canUse: can(session, Permission.AccountsUse),
+    canWriteOldDebt: can(session, Permission.AccountsOldDebt),
+    canPriceRules: can(session, Permission.AccountsPriceRules),
+    canResetToday: can(session, Permission.AccountsResetToday),
+    canWipe: can(session, Permission.AccountsWipe),
+    canFixPastDays: can(session, Permission.AccountsPastDays),
+    canCreateCustomer: can(session, Permission.CustomersCreate),
+    canCustomers: can(session, Permission.CustomersEdit),
+    canCreateReturn: can(session, Permission.ReturnsCreate),
   };
 }
 

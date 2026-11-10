@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using GrandWall.Application.Abstractions.Identity;
 using GrandWall.Application.Common.Exceptions;
 using GrandWall.Domain.Enums;
@@ -58,6 +58,15 @@ public sealed class CurrentUserService : ICurrentUserService
             return role;
         }
     }
+
+    /// <summary>Loaded fresh from the database on every request (see AuthenticationExtensions).</summary>
+    public IReadOnlyCollection<string> Permissions =>
+        CurrentPrincipal.FindAll(PermissionClaimType).Select(claim => claim.Value).ToHashSet();
+
+    public bool Has(string permission) =>
+        Role == UserRole.Admin || Permissions.Contains(permission);
+
+    public const string PermissionClaimType = "perm";
 
     private ClaimsPrincipal CurrentPrincipal =>
         _httpContextAccessor.HttpContext?.User

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getProductReturns } from '../../api/product-return-api';
 import { useAuth } from '../../auth/auth-context';
+import { can, Permission } from '../../auth/permissions';
 import { AppUpdateBanner } from '../../components/app-update-banner';
 import { CustomerPickerModal } from '../../components/customer-picker-modal';
 import { CodeSearchField } from '../../components/code-search-field';
@@ -144,7 +145,7 @@ export default function ReturnsBrowser({
             <AppUpdateBanner />
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.muted}>{description}</Text>
-            {allowCreate ? (
+            {allowCreate && can(session, Permission.ReturnsCreate) ? (
               <Btn icon="add-circle-outline" title="Yeni vazvrad yarat" onPress={() => open('/create-return')} />
             ) : null}
             <CodeSearchField value={text} onChangeText={setText} />

@@ -8,6 +8,9 @@ export type WarehouseUser = {
   isActive: boolean;
   lastLoginAtUtc: string | null;
   createdAtUtc: string;
+  /** Effective permissions. */
+  permissions?: string[];
+  hasCustomPermissions?: boolean;
 };
 
 export type CreateUserRequest = {
@@ -15,6 +18,7 @@ export type CreateUserRequest = {
   username: string;
   password: string;
   role: UserRole;
+  permissions?: string[];
 };
 
 export type UpdateUserRequest = {
@@ -22,6 +26,7 @@ export type UpdateUserRequest = {
   username: string;
   role: UserRole;
   isActive: boolean;
+  permissions?: string[];
 };
 
 export type ChangeUserPasswordRequest = {

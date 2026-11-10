@@ -1,4 +1,4 @@
-﻿using GrandWall.Domain.Enums;
+using GrandWall.Domain.Enums;
 
 namespace GrandWall.Application.Features.Auth.Dtos;
 
@@ -17,4 +17,7 @@ public sealed class AuthResponseDto
     public string Username { get; init; } = string.Empty;
 
     public UserRole Role { get; init; }
+
+    /// <summary>What the user may do; the app shows and hides screens by it.</summary>
+    public IReadOnlyList<string> Permissions { get; init; } = [];
 }

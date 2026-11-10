@@ -268,7 +268,7 @@ export default function AttendanceScreen() {
 
           <View style={styles.headerText}>
             <Text style={styles.pageEyebrow}>
-              GRANDWALL
+              RAMZI
             </Text>
 
             <Text style={styles.pageTitle}>

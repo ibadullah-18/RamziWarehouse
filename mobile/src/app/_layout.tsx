@@ -17,6 +17,7 @@ import {
   AppToastProvider,
 } from '../components/app-toast';
 import { BrandLogo } from '../components/brand-logo';
+import { BrandingProvider } from '../features/branding/branding-provider';
 import {
   colors,
   spacing,
@@ -75,6 +76,7 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <KeyboardProvider>
+    <BrandingProvider>
     <AuthProvider>
       <PushNotificationProvider>
       <AppToastProvider>
@@ -84,6 +86,7 @@ export default function RootLayout() {
       </AppToastProvider>
       </PushNotificationProvider>
     </AuthProvider>
+    </BrandingProvider>
     </KeyboardProvider>
   );
 }

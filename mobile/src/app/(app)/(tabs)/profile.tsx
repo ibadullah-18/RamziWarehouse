@@ -1,4 +1,5 @@
 import {PushNotificationSettings} from '../../../features/notifications/push-provider';
+import {InstallAppCard} from '../../../features/notifications/install-app-card';
 ﻿import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useState } from 'react';
@@ -202,6 +203,7 @@ export default function ProfileScreen() {
         <AdminUsersButton />
 
         <CustomersButton />
+        <InstallAppCard/>
         <PushNotificationSettings/>
 
         <Pressable

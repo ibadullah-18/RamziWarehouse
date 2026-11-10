@@ -18,7 +18,7 @@ import {
   getProductReturnById,
 } from "../../../api/product-return-api";
 import { useAuth } from "../../../auth/auth-context";
-import { UserRole } from "../../../auth/auth-types";
+import { can, Permission } from "../../../auth/permissions";
 import {
   ProductReturn,
   ReturnStatus,
@@ -140,7 +140,7 @@ export default function EditReturnScreen() {
     !!session &&
     record &&
     !record.isDeleted &&
-    (session.role === UserRole.Admin ||
+    (can(session, Permission.ReturnsAdmin) ||
       record.status === ReturnStatus.Pending ||
       record.status === ReturnStatus.Submitted);
   return (

@@ -15,7 +15,7 @@ public sealed partial class CustomerAccountService
     /// </summary>
     public async Task<CustomerAccountDetailsDto> PayOutAsync(PayoutRequestDto r, CancellationToken cancellationToken = default)
     {
-        Allow(AccountRoles);
+        Allow(Permission.AccountsUse);
         Money(r.Cash);
         Money(r.Card);
         if (r.OperationId == Guid.Empty) throw new ConflictException("Əməliyyat identifikatoru düzgün deyil.");
@@ -54,7 +54,7 @@ public sealed partial class CustomerAccountService
     /// </summary>
     public async Task<CustomerAccountDetailsDto> ResetTodayAsync(Guid customerId, AccountResetRequestDto request, CancellationToken cancellationToken = default)
     {
-        Allow(UserRole.Admin, UserRole.Accountant);
+        Allow(Permission.AccountsResetToday);
         EnsureReason(request.Reason);
         await Mutate(customerId, async (customer, entries) =>
         {
@@ -74,7 +74,7 @@ public sealed partial class CustomerAccountService
     /// </summary>
     public async Task<CustomerAccountDetailsDto> WipeAccountAsync(Guid customerId, AccountResetRequestDto request, CancellationToken cancellationToken = default)
     {
-        Allow(UserRole.Admin);
+        Allow(Permission.AccountsWipe);
         EnsureReason(request.Reason);
         await Mutate(customerId, async (customer, entries) =>
         {

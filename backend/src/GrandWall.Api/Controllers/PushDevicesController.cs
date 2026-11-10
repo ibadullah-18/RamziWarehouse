@@ -1,9 +1,11 @@
+using GrandWall.Domain.Enums;
+using GrandWall.Api.Authorization;
 using GrandWall.Application.Abstractions.Identity;
 using GrandWall.Infrastructure.Notifications.Push;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 namespace GrandWall.Api.Controllers;
-[ApiController,Route("api/push-devices"),Authorize(Roles="Manager,Admin")]
+[ApiController,Route("api/push-devices"),Authorize, RequirePermission(Permission.ReturnsNotify)]
 public sealed class PushDevicesController(PushNotificationQueue queue,ICurrentUserService user) : ControllerBase
 {
     public sealed record TokenRequest(string Token);

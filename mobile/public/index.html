@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="az">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <!-- viewport-fit=cover lets the installed app use the whole iPhone screen; safe areas are handled in the app. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Ramzi</title>
+
+    <!-- Installable app (iPhone: Share → Add to Home Screen; Android: Install app). -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1D4ED8" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Ramzi" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+        background-color: #f3f6fb;
+      }
+      body {
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+
+    <!-- The service worker shows push notifications; it does not cache the app, so updates arrive at once. -->
+    <script>
+      // Android Chrome: keep the install offer for the "Tətbiqi quraşdır" button.
+      window.addEventListener('beforeinstallprompt', function (event) {
+        window.__grandwallInstallPrompt = event;
+      });
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+    </script>
+  </head>
+
+  <body>
+    <noscript>Ramzi üçün JavaScript açıq olmalıdır.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

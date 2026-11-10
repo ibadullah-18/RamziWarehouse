@@ -19,12 +19,16 @@ import {
     getUserById,
     updateUser,
 } from '../../../api/users-api';
+import { PermissionChecklist } from '../../../features/users/permission-checklist';
 import { useAuth } from '../../../auth/auth-context';
 import {
     UserRole,
 } from '../../../auth/auth-types';
 import {
-    canManageUsers,
+    can,
+    Permission,
+    rolePermissionDefaults,
+    type PermissionCode,
 } from '../../../auth/permissions';
 import {
     UserRoleOption,
@@ -109,7 +113,7 @@ export default function EditUserScreen() {
     session?.accessToken;
 
   const hasPermission =
-    canManageUsers(session?.role);
+    can(session, Permission.UsersManage);
 
   const [user, setUser] =
     useState<WarehouseUser | null>(null);
@@ -124,6 +128,9 @@ export default function EditUserScreen() {
     useState<UserRole>(
       UserRole.WarehouseWorker,
     );
+
+  const [permissions, setPermissions] =
+    useState<PermissionCode[]>([]);
 
   const [isActive, setIsActive] =
     useState(true);
@@ -181,6 +188,10 @@ export default function EditUserScreen() {
         setFullName(result.fullName);
         setUsername(result.username);
         setRole(result.role);
+        setPermissions(
+          (result.permissions as PermissionCode[] | undefined) ??
+            rolePermissionDefaults(result.role),
+        );
         setIsActive(result.isActive);
         setErrorMessage(null);
       })
@@ -224,7 +235,8 @@ export default function EditUserScreen() {
         )
       : userRoleOptions.filter(
           (option) =>
-            option.value !== UserRole.Admin,
+            option.value !== UserRole.Admin ||
+            session?.role === UserRole.Admin,
         );
 
   async function saveUserChanges() {
@@ -287,6 +299,7 @@ export default function EditUserScreen() {
             isCurrentAccount
               ? true
               : isActive,
+          permissions,
         },
       );
 
@@ -604,11 +617,23 @@ export default function EditUserScreen() {
                     }
                     onPress={() => {
                       setRole(option.value);
+                      setPermissions(
+                        rolePermissionDefaults(option.value),
+                      );
                     }}
                   />
                 ),
               )}
             </View>
+          </View>
+
+          <View style={styles.card}>
+            <PermissionChecklist
+              role={isAdminAccount ? UserRole.Admin : role}
+              value={permissions}
+              onChange={setPermissions}
+              disabled={isSaving}
+            />
           </View>
 
           <View style={styles.card}>

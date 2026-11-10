@@ -17,8 +17,10 @@ import {
   openAppUpdate,
 } from "../api/app-version-api";
 import { colors, fontSize, radius, spacing } from "../theme";
+import { useBranding } from "../features/branding/branding-provider";
 
 export function AppUpdateBanner() {
+  const { appName } = useBranding();
   const [versionInfo, setVersionInfo] = useState<AndroidAppVersion | null>(
     null,
   );
@@ -51,7 +53,7 @@ export function AppUpdateBanner() {
             setVersionInfo(info);
           } else {setVersionInfo(null);}
         } catch (error) {
-          console.warn("GrandWall update yoxlaması uğursuz oldu:", error);
+          console.warn("Ramzi update yoxlaması uğursuz oldu:", error);
         } finally {
           checking=false;
         }
@@ -78,7 +80,7 @@ export function AppUpdateBanner() {
       setIsOpening(true);
       await openAppUpdate(versionInfo.downloadUrl);
     } catch (error) {
-      console.warn("GrandWall update linki açıla bilmədi:", error);
+      console.warn("Ramzi update linki açıla bilmədi:", error);
     } finally {
       setIsOpening(false);
     }
@@ -102,7 +104,7 @@ export function AppUpdateBanner() {
         <Text style={styles.title}>Yeni versiya mövcuddur</Text>
 
         <Text style={styles.description}>
-          GrandWall {versionInfo.latestVersion}
+          {appName} {versionInfo.latestVersion}
         </Text>
       </View>
 

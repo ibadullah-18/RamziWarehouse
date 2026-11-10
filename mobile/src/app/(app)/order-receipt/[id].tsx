@@ -354,7 +354,7 @@ await Share.shareSingle(
       >
         <View style={styles.receiptPaper}>
           <Text style={styles.brand}>
-            GRANDWALL
+            RAMZI
           </Text>
 
           <Text style={styles.receiptTitle}>
@@ -500,7 +500,7 @@ await Share.shareSingle(
           />
 
           <Text style={styles.footer}>
-            GrandWall
+            Ramzi
           </Text>
         </View>
       </ScrollView>

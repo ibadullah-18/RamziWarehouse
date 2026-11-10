@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using GrandWall.Api.Authorization;
 using GrandWall.Application.Abstractions.ProductReturns;
@@ -87,8 +87,7 @@ public sealed class ProductReturnsController : ControllerBase
     }
 
     [HttpPost("{productReturnId:guid}/complete")]
-    [Authorize(
-        Policy = AuthorizationPolicies.ManagerOrAdmin)]
+    [RequirePermission(Permission.ReturnsReview)]
     [ProducesResponseType(
         typeof(ProductReturnDto),
         StatusCodes.Status200OK)]
@@ -108,8 +107,7 @@ public sealed class ProductReturnsController : ControllerBase
     } 
 
     [HttpPost("{productReturnId:guid}/cancel")]
-    [Authorize(
-        Policy = AuthorizationPolicies.ManagerOrAdmin)]
+    [RequirePermission(Permission.ReturnsReview)]
     [ProducesResponseType(
         typeof(ProductReturnDto),
         StatusCodes.Status200OK)]

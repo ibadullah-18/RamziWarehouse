@@ -12,6 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError } from '../api/auth-api';
 import { useAuth } from '../auth/auth-context';
 import { BrandLogo } from '../components/brand-logo';
+import { InstallAppCard } from '../features/notifications/install-app-card';
+import { useBranding } from '../features/branding/branding-provider';
 import {
   cardShadow,
   colors,
@@ -22,6 +24,7 @@ import {
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
+  const { appName } = useBranding();
 
   const [username, setUsername] =
     useState('');
@@ -312,6 +315,8 @@ export default function LoginScreen() {
               </View>
             </Animated.View>
 
+            <InstallAppCard />
+
             <View style={styles.sessionInfo}>
               <Ionicons
                 name="shield-checkmark-outline"
@@ -331,7 +336,7 @@ export default function LoginScreen() {
           </View>
 
           <Text style={styles.footer}>
-            GrandWall • Daxili anbar sistemi
+            {appName} • Daxili anbar sistemi
           </Text>
         </KeyboardAwareScrollView>
       </View>

@@ -158,7 +158,7 @@ public sealed partial class ProductReturnService : IProductReturnService
                     currentReturn.Id == productReturnId,
                 cancellationToken);
 
-        if (productReturn is null || (productReturn.IsDeleted && _currentUserService.Role != UserRole.Admin))
+        if (productReturn is null || (productReturn.IsDeleted && !_currentUserService.Has(Permission.ReturnsAdmin)))
         {
             throw new NotFoundException(
                 "Vazvrad məlumatı tapılmadı.");
@@ -172,6 +172,8 @@ public sealed partial class ProductReturnService : IProductReturnService
         CancellationToken cancellationToken = default)
     {
         EnsureAuthenticated();
+        if (!_currentUserService.Has(Permission.ReturnsCreate))
+            throw new ForbiddenException("Vazvrad yaratmaq icazəniz yoxdur.");
 
         var customerExists = await _dbContext.Customers
             .AnyAsync(
@@ -232,12 +234,6 @@ public sealed partial class ProductReturnService : IProductReturnService
         if (codeProblem is not null) throw new ConflictException(codeProblem);
 
         ValidateReturnAmount(request.Amount);
-        ReturnPerson? person = null;
-        if(request.ReturnPersonId.HasValue)
-            person=await _dbContext.ReturnPersons.FirstOrDefaultAsync(p=>p.Id==request.ReturnPersonId&&p.IsActive,cancellationToken)
-                ?? throw new ConflictException("Aktiv vazvrat yaradan şəxs seçin.");
-        else if(await _dbContext.ReturnPersons.AnyAsync(p=>p.IsActive,cancellationToken))
-            throw new ConflictException("Vazvratı yaradan işçinin adını seçin.");
         // No amount typed: price the wallpaper lines from the customer's code-prefix list.
         var amount = request.Amount;
         if (amount == 0)
@@ -253,7 +249,7 @@ public sealed partial class ProductReturnService : IProductReturnService
 
         var productReturn = new ProductReturn
         {
-            Amount=amount, ReturnPersonId=person?.Id,ReturnPersonName=person?.Name,
+            Amount=amount, 
             ReturnDateUtc = utcNow,
             CustomerId = request.CustomerId,
             WarehouseId = request.WarehouseId,
@@ -490,12 +486,10 @@ public sealed partial class ProductReturnService : IProductReturnService
     {
         EnsureAuthenticated();
 
-        if (!_currentUserService.Role
-        .CanManageOperations())
+        if (!_currentUserService.Has(Permission.ReturnsReview))
         {
             throw new ForbiddenException(
-                "Bu əməliyyatı yalnız Menecer " +
-                "və ya Admin edə bilər.");
+                "Vazvradı yoxlamaq icazəniz yoxdur.");
         }
     }
 

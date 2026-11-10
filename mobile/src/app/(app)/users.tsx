@@ -23,7 +23,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getUsers } from '../../api/users-api';
 import { useAuth } from '../../auth/auth-context';
 import {
-    canManageUsers,
+    can,
+    Permission,
 } from '../../auth/permissions';
 import {
     getUserRoleLabel,
@@ -176,7 +177,7 @@ export default function UsersScreen() {
     session?.accessToken;
 
   const hasPermission =
-    canManageUsers(session?.role);
+    can(session, Permission.UsersManage);
 
   const [users, setUsers] =
     useState<WarehouseUser[]>([]);

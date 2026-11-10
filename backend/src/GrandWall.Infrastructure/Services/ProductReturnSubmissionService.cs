@@ -71,8 +71,7 @@ public sealed class ProductReturnSubmissionService
             productReturn.CreatedByUserId == currentUserId;
 
         var isManager =
-            _currentUserService.Role
-                .CanManageOperations();
+            _currentUserService.Has(Permission.ReturnsReview);
 
         if (!isCreator && !isManager)
         {

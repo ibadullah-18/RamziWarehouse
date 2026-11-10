@@ -13,13 +13,17 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createUser } from '../../api/users-api';
+import { PermissionChecklist } from '../../features/users/permission-checklist';
 import { useAuth } from '../../auth/auth-context';
 import { useAppToast } from '../../components/app-toast';
 import {
     UserRole,
 } from '../../auth/auth-types';
 import {
-    canManageUsers,
+    can,
+    Permission,
+    rolePermissionDefaults,
+    type PermissionCode,
 } from '../../auth/permissions';
 import {
     UserRoleOption,
@@ -119,7 +123,7 @@ export default function CreateUserScreen() {
     session?.accessToken;
 
   const hasPermission =
-    canManageUsers(session?.role);
+    can(session, Permission.UsersManage);
 
   const [fullName, setFullName] =
     useState('');
@@ -138,6 +142,11 @@ export default function CreateUserScreen() {
       UserRole.WarehouseWorker,
     );
 
+  const [permissions, setPermissions] =
+    useState<PermissionCode[]>(() =>
+      rolePermissionDefaults(UserRole.WarehouseWorker),
+    );
+
   const [passwordVisible, setPasswordVisible] =
     useState(false);
 
@@ -148,9 +157,10 @@ export default function CreateUserScreen() {
     () =>
       userRoleOptions.filter(
         (option) =>
-          option.value !== UserRole.Admin,
+          option.value !== UserRole.Admin ||
+          session?.role === UserRole.Admin,
       ),
-    [],
+    [session?.role],
   );
 
   function validateForm(): string | null {
@@ -185,7 +195,6 @@ export default function CreateUserScreen() {
     }
 
     if (
-      role === UserRole.Admin ||
       !creatableRoleOptions.some(
         (option) => option.value === role,
       )
@@ -218,7 +227,7 @@ export default function CreateUserScreen() {
       showToast({
         title: 'İcazə yoxdur',
         message:
-          'İşçini yalnız Admin yarada bilər.',
+          'İstifadəçi yaratmaq icazəniz yoxdur.',
         variant: 'error',
       });
 
@@ -237,6 +246,7 @@ export default function CreateUserScreen() {
             .toLowerCase(),
           password,
           role,
+          permissions,
         },
       );
 
@@ -485,11 +495,23 @@ export default function CreateUserScreen() {
                     }
                     onPress={() => {
                       setRole(option.value);
+                      setPermissions(
+                        rolePermissionDefaults(option.value),
+                      );
                     }}
                   />
                 ),
               )}
             </View>
+          </View>
+
+          <View style={styles.roleSection}>
+            <PermissionChecklist
+              role={role}
+              value={permissions}
+              onChange={setPermissions}
+              disabled={isSubmitting}
+            />
           </View>
 
           <Pressable
