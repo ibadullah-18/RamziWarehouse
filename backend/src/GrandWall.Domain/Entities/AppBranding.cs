@@ -13,5 +13,12 @@ public sealed class AppBranding
 
     public string? LogoContentType { get; set; }
 
+    /// <summary>Square home-screen icons made from the logo (PNG): 512, 192 and 180 (iPhone) px.</summary>
+    public byte[]? Icon512 { get; set; }
+
+    public byte[]? Icon192 { get; set; }
+
+    public byte[]? Icon180 { get; set; }
+
     public DateTime UpdatedAtUtc { get; set; }
 }

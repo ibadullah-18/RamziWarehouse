@@ -8,13 +8,13 @@
     <title>Ramzi</title>
 
     <!-- Installable app (iPhone: Share → Add to Home Screen; Android: Install app). -->
-    <link rel="manifest" href="/manifest.json" />
+    <!-- Name and icons come from the server, so a new logo/name set by the admin is used on install. -->
+    <link rel="manifest" href="/api/branding/manifest" />
     <meta name="theme-color" content="#1D4ED8" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Ramzi" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/api/branding/icon/180" />
 
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
@@ -36,6 +36,26 @@
 
     <!-- The service worker shows push notifications; it does not cache the app, so updates arrive at once. -->
     <script>
+      // iPhone zooms in when a text field is tapped. That is fine while typing, but iOS never
+      // zooms back out: when the keyboard closes, briefly cap the zoom so the page returns to
+      // normal size (pinch zoom keeps working afterwards).
+      (function () {
+        var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        var meta = document.querySelector('meta[name="viewport"]');
+        if (!ios || !meta) return;
+        var normal = meta.getAttribute('content');
+        var isField = function (el) { return !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName); };
+        document.addEventListener('focusout', function (event) {
+          if (!isField(event.target)) return;
+          setTimeout(function () {
+            if (isField(document.activeElement)) return; // moved to the next field: keep the zoom
+            meta.setAttribute('content', normal + ', maximum-scale=1');
+            setTimeout(function () { meta.setAttribute('content', normal); }, 400);
+          }, 60);
+        });
+      })();
+
       // Android Chrome: keep the install offer for the "Tətbiqi quraşdır" button.
       window.addEventListener('beforeinstallprompt', function (event) {
         window.__grandwallInstallPrompt = event;

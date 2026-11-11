@@ -17,6 +17,7 @@ import {
   AppToastProvider,
 } from '../components/app-toast';
 import { BrandLogo } from '../components/brand-logo';
+import { BrandIntro } from '../components/brand-intro';
 import { BrandingProvider } from '../features/branding/branding-provider';
 import {
   colors,
@@ -82,6 +83,7 @@ export default function RootLayout() {
       <AppToastProvider>
         <StatusBar style="dark" />
         <RootNavigator />
+        <BrandIntro />
         <KeyboardToolbar doneText="Tamam"/>
       </AppToastProvider>
       </PushNotificationProvider>

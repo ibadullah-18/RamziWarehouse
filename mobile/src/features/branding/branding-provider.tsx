@@ -17,6 +17,8 @@ const CACHE_KEY = "ramzi.branding.v1";
 const fallback: Branding = { appName: DEFAULT_APP_NAME, logoUrl: null };
 
 type BrandingContext = Branding & {
+  /** True once the saved name/logo has been read from the device (for the start animation). */
+  ready: boolean;
   /** Re-reads the name and logo from the server. */
   refresh: () => Promise<void>;
   /** Shows a just-saved value at once (settings screen). */
@@ -25,6 +27,7 @@ type BrandingContext = Branding & {
 
 const Context = createContext<BrandingContext>({
   ...fallback,
+  ready: true,
   refresh: async () => {},
   apply: () => {},
 });
@@ -57,6 +60,7 @@ const cache = {
 
 export function BrandingProvider({ children }: PropsWithChildren) {
   const [branding, setBranding] = useState<Branding>(fallback);
+  const [ready, setReady] = useState(false);
 
   const apply = useCallback((value: Branding) => {
     setBranding(value);
@@ -76,6 +80,7 @@ export function BrandingProvider({ children }: PropsWithChildren) {
     const start = async () => {
       const stored = await cache.read();
       if (alive && stored) setBranding(stored);
+      if (alive) setReady(true);
       await refresh();
     };
     void start();
@@ -94,8 +99,8 @@ export function BrandingProvider({ children }: PropsWithChildren) {
   }, [branding.appName]);
 
   const value = useMemo(
-    () => ({ ...branding, refresh, apply }),
-    [branding, refresh, apply],
+    () => ({ ...branding, ready, refresh, apply }),
+    [branding, ready, refresh, apply],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

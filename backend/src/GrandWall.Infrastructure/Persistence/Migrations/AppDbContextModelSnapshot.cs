@@ -157,6 +157,15 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
 
+                    b.Property<byte[]>("Icon180")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<byte[]>("Icon192")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<byte[]>("Icon512")
+                        .HasColumnType("varbinary(max)");
+
                     b.Property<byte[]>("Logo")
                         .HasColumnType("varbinary(max)");
 

@@ -38,8 +38,20 @@ Tətbiqin adı standart olaraq **Ramzi**-dir. İdarəetmə → **Tətbiqin adı 
 - adı dəyişmək (1–40 simvol);
 - loqo yükləmək (PNG, JPG, WEBP, ən çox 1 MB) və ya silmək. Loqo yoxdursa ad yazı kimi göstərilir.
 
-Ad və loqo giriş səhifəsində, başlıqlarda, yeniləmə mesajlarında və saytın başlığında dərhal dəyişir. Telefonun ana ekranındakı tətbiq adı və ikonu yalnız tətbiqin yeni versiyası quraşdırılanda dəyişir (`app.json`-da ad artıq “Ramzi”-dir; ikon şəkilləri `assets/images` və `public/` qovluğundadır).
+Ad və loqo giriş səhifəsində, başlıqlarda, açılış animasiyasında, yeniləmə mesajlarında və saytın başlığında dərhal dəyişir.
+
+**Ana ekran ikonu (sayt / iPhone / Android “Ana ekrana əlavə et”).** Loqo yüklənəndə server ondan avtomatik kvadrat ikonlar düzəldir (ağ fon, loqo ortada: 512, 192, 180 px). Saytın manifesti və iPhone ikonu artıq serverdən gəlir. Telefon ikonu yalnız **əlavə etmə anında** götürür: köhnə ikon ana ekranda qalırsa, onu silib saytı yenidən “Ana ekrana əlavə et” edin.
+
+**Quraşdırılmış Android tətbiqinin ikonu** (APK) tətbiqin içində dəyişə bilməz: Android ikonu quraşdırma faylının içindədir. Yeni ikon üçün loqo faylı ilə yeni versiya (build) lazımdır. Tətbiqin içində ad və loqo dərhal dəyişir.
+
+## Açılış animasiyası
+
+Tətbiq açılanda (telefon və sayt) cari loqo böyüyərək görünür, altında xətt çəkilir, sonra yavaşca itir (~2 saniyə). Telefonun öz açılış ekranı boşdur ki, köhnə loqo görünməsin.
+
+## iPhone-da yazanda böyümə
+
+Xanaya yazanda Safari ekranı böyüdür; klaviatura bağlananda ekran avtomatik əvvəlki ölçüyə qayıdır.
 
 ## Server
 
-Miqrasiya `PermissionsAndBranding`: `Users.Permissions` sütunu (boş = rolun standartı) və `AppBranding` cədvəli. Server açılanda avtomatik tətbiq olunur. Köhnə istifadəçilərin icazələri dəyişmir (rolun standartı ilə işləyirlər).
+Miqrasiyalar `PermissionsAndBranding` (`Users.Permissions`, `AppBranding`) və `BrandIcons` (loqodan düzəldilən ikonlar). Server açılanda avtomatik tətbiq olunur. Köhnə istifadəçilərin icazələri dəyişmir (rolun standartı ilə işləyirlər).

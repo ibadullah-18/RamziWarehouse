@@ -93,7 +93,13 @@ public sealed class PermissionTests
 
         using var admin = await Login(factory, GrandWallApiFactory.AdminUsername, GrandWallApiFactory.AdminPassword);
         (await admin.PutAsJsonAsync("/api/branding/name", new { appName = "Ramzi Anbar" })).EnsureSuccessStatusCode();
-        var png = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0 };
+        byte[] png;
+        using (var bitmap = new SkiaSharp.SKBitmap(300, 100))
+        {
+            bitmap.Erase(SkiaSharp.SKColors.Red);
+            using var encoded = bitmap.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+            png = encoded.ToArray();
+        }
         using var form = new MultipartFormDataContent { { new ByteArrayContent(png), "file", "logo.png" } };
         (await admin.PutAsync("/api/branding/logo", form)).EnsureSuccessStatusCode();
 
@@ -101,6 +107,20 @@ public sealed class PermissionTests
         Assert.Equal("Ramzi Anbar", updated.GetProperty("appName").GetString());
         var logo = await anonymous.GetAsync(updated.GetProperty("logoUrl").GetString());
         Assert.Equal("image/png", logo.Content.Headers.ContentType?.MediaType);
+
+        // The home-screen icon and the install manifest follow the logo and the name.
+        var icon = await anonymous.GetAsync("/api/branding/icon/512");
+        Assert.Equal("image/png", icon.Content.Headers.ContentType?.MediaType);
+        using (var decoded = SkiaSharp.SKBitmap.Decode(await icon.Content.ReadAsByteArrayAsync()))
+        {
+            Assert.Equal(512, decoded.Width);
+            Assert.Equal(512, decoded.Height);
+            Assert.Equal(SkiaSharp.SKColors.White, decoded.GetPixel(5, 5));
+            Assert.Equal(SkiaSharp.SKColors.Red, decoded.GetPixel(256, 256));
+        }
+        var manifest = await anonymous.GetFromJsonAsync<JsonElement>("/api/branding/manifest");
+        Assert.Equal("Ramzi Anbar", manifest.GetProperty("name").GetString());
+        Assert.StartsWith("/api/branding/icon/192", manifest.GetProperty("icons")[0].GetProperty("src").GetString());
 
         using var text = new MultipartFormDataContent { { new StringContent("not an image"), "file", "logo.png" } };
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsync("/api/branding/logo", text)).StatusCode);

@@ -1,4 +1,5 @@
 using GrandWall.Api.Authorization;
+using GrandWall.Api.Services;
 using GrandWall.Application.Common.Exceptions;
 using GrandWall.Domain.Entities;
 using GrandWall.Domain.Enums;
@@ -11,7 +12,7 @@ namespace GrandWall.Api.Controllers;
 
 /// <summary>App name and logo. Everyone (also the login screen) reads them; "settings.manage" changes them.</summary>
 [ApiController, Route("api/branding")]
-public sealed class BrandingController(AppDbContext db, TimeProvider clock) : ControllerBase
+public sealed class BrandingController(AppDbContext db, TimeProvider clock, IWebHostEnvironment environment) : ControllerBase
 {
     private const int MaxLogoBytes = 1024 * 1024;
 
@@ -39,6 +40,57 @@ public sealed class BrandingController(AppDbContext db, TimeProvider clock) : Co
         return File(row.Logo, row.LogoContentType ?? "image/png");
     }
 
+    /// <summary>
+    /// Home-screen icon (iPhone "Add to Home Screen", Android install) made from the logo; the
+    /// built-in icon until a logo is uploaded.
+    /// </summary>
+    [HttpGet("icon/{size:int}"), AllowAnonymous]
+    public async Task<IActionResult> Icon(int size, CancellationToken ct)
+    {
+        if (size is not (180 or 192 or 512)) return NotFound();
+        var bytes = await db.AppBranding.AsNoTracking()
+            .Select(b => size == 512 ? b.Icon512 : size == 192 ? b.Icon192 : b.Icon180)
+            .FirstOrDefaultAsync(ct);
+        Response.Headers.CacheControl = "no-cache";
+        if (bytes is not null) return File(bytes, "image/png");
+        var builtIn = size switch { 512 => "icon-512.png", 192 => "icon-192.png", _ => "apple-touch-icon.png" };
+        var path = environment.WebRootPath is { } root ? Path.Combine(root, builtIn) : null;
+        return path is not null && System.IO.File.Exists(path) ? PhysicalFile(path, "image/png") : NotFound();
+    }
+
+    /// <summary>Web app manifest with the current name and icons (read when the app is installed).</summary>
+    [HttpGet("manifest"), AllowAnonymous]
+    public async Task<IActionResult> Manifest(CancellationToken ct)
+    {
+        var row = await db.AppBranding.AsNoTracking()
+            .Select(b => new { b.AppName, b.UpdatedAtUtc })
+            .FirstOrDefaultAsync(ct);
+        var name = row?.AppName ?? AppBranding.DefaultName;
+        var version = row?.UpdatedAtUtc.Ticks ?? 0;
+        Response.Headers.CacheControl = "no-cache";
+        return new JsonResult(new
+        {
+            id = "/",
+            name,
+            short_name = name,
+            description = name + " anbar idarəetmə sistemi",
+            lang = "az",
+            start_url = "/",
+            scope = "/",
+            display = "standalone",
+            orientation = "any",
+            theme_color = "#1D4ED8",
+            background_color = "#F3F6FB",
+            icons = new object[]
+            {
+                new { src = $"/api/branding/icon/192?v={version}", sizes = "192x192", type = "image/png", purpose = "any" },
+                new { src = $"/api/branding/icon/512?v={version}", sizes = "512x512", type = "image/png", purpose = "any" },
+                new { src = $"/api/branding/icon/512?v={version}", sizes = "512x512", type = "image/png", purpose = "maskable" },
+            },
+        })
+        { ContentType = "application/manifest+json; charset=utf-8" };
+    }
+
     [HttpPut("name"), Authorize, RequirePermission(Permission.SettingsManage)]
     public async Task<ActionResult<BrandingDto>> SetName(NameRequest request, CancellationToken ct)
     {
@@ -59,9 +111,13 @@ public sealed class BrandingController(AppDbContext db, TimeProvider clock) : Co
         await file.CopyToAsync(stream, ct);
         var bytes = stream.ToArray();
         var type = ImageType(bytes) ?? throw new ConflictException("Loqo PNG, JPG və ya WEBP şəkli olmalıdır.");
+        var icons = BrandIconRenderer.Render(bytes) ?? throw new ConflictException("Şəkil oxunmadı. Başqa PNG və ya JPG seçin.");
         var row = await Row(ct);
         row.Logo = bytes;
         row.LogoContentType = type;
+        row.Icon512 = icons.Icon512;
+        row.Icon192 = icons.Icon192;
+        row.Icon180 = icons.Icon180;
         row.UpdatedAtUtc = clock.GetUtcNow().UtcDateTime;
         await db.SaveChangesAsync(ct);
         return await Get(ct);
@@ -73,6 +129,9 @@ public sealed class BrandingController(AppDbContext db, TimeProvider clock) : Co
         var row = await Row(ct);
         row.Logo = null;
         row.LogoContentType = null;
+        row.Icon512 = null;
+        row.Icon192 = null;
+        row.Icon180 = null;
         row.UpdatedAtUtc = clock.GetUtcNow().UtcDateTime;
         await db.SaveChangesAsync(ct);
         return await Get(ct);

@@ -49,7 +49,7 @@
                                      "expo-splash-screen",
                                      {
                                          "backgroundColor":  "#F3F6FB",
-                                         "image":  "./assets/images/grandwall-wordmark.png",
+                                         "image":  "./assets/images/splash-blank.png",
                                          "imageWidth":  280
                                      }
                                  ],
