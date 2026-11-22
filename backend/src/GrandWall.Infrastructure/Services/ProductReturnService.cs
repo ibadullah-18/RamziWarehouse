@@ -106,7 +106,7 @@ public sealed partial class ProductReturnService : IProductReturnService
 
         if (filter.Unapplied == true)
         {
-            query = query.Where(r => r.AppliedAmount == 0 && r.Status != ReturnStatus.Cancelled);
+            query = query.Where(r => r.AppliedAmount == 0 && !r.DoNotDeductFromDebt && r.Status != ReturnStatus.Cancelled);
         }
 
         if (filter.AcceptedDate.HasValue)
@@ -249,7 +249,7 @@ public sealed partial class ProductReturnService : IProductReturnService
 
         var productReturn = new ProductReturn
         {
-            Amount=amount, 
+            Amount=amount, DoNotDeductFromDebt=request.DoNotDeductFromDebt, 
             ReturnDateUtc = utcNow,
             CustomerId = request.CustomerId,
             WarehouseId = request.WarehouseId,
@@ -505,7 +505,7 @@ public sealed partial class ProductReturnService : IProductReturnService
     {
         return new ProductReturnDto
         {
-            Amount=productReturn.Amount,AppliedAmount=productReturn.AppliedAmount,ReturnPersonName=productReturn.ReturnPersonName,
+            Amount=productReturn.Amount,AppliedAmount=productReturn.AppliedAmount,DoNotDeductFromDebt=productReturn.DoNotDeductFromDebt,ReturnPersonName=productReturn.ReturnPersonName,
             IsDeleted = productReturn.IsDeleted,
             Revision = productReturn.Revision,
             Id = productReturn.Id,

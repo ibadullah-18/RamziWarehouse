@@ -50,7 +50,7 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
 
                     b.HasKey("BusinessDate");
 
-                    b.ToTable("AccountDays");
+                    b.ToTable("AccountDays", (string)null);
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.AccountEntryAudit", b =>
@@ -88,7 +88,7 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.ToTable("AccountEntryAudits");
+                    b.ToTable("AccountEntryAudits", (string)null);
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.AccountSettlement", b =>
@@ -144,7 +144,7 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.ToTable("AccountSettlements");
+                    b.ToTable("AccountSettlements", (string)null);
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.AppBranding", b =>
@@ -365,7 +365,7 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.HasIndex("CustomerId", "CodePrefix")
                         .IsUnique();
 
-                    b.ToTable("CustomerPriceRules");
+                    b.ToTable("CustomerPriceRules", (string)null);
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.DeliveryPhoto", b =>
@@ -417,6 +417,91 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_DeliveryPhotos_FileSize_Positive", "[FileSizeBytes] > 0");
                         });
+                });
+
+            modelBuilder.Entity("GrandWall.Domain.Entities.Handover", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByFullName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperationId")
+                        .IsUnique();
+
+                    b.HasIndex("BusinessDate", "IsDeleted");
+
+                    b.HasIndex("CreatedByUserId", "BusinessDate");
+
+                    b.ToTable("Handovers", (string)null);
+                });
+
+            modelBuilder.Entity("GrandWall.Domain.Entities.HandoverPhoto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("HandoverId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StoragePublicId")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HandoverId");
+
+                    b.ToTable("HandoverPhotos", (string)null);
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.Order", b =>
@@ -701,6 +786,9 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("DeleteAfterUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("DoNotDeductFromDebt")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -911,6 +999,9 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("ExpiresAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("NextAttemptUtc")
                         .HasColumnType("datetime2");
 
@@ -939,7 +1030,7 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.HasIndex("ProductReturnId", "Token")
                         .IsUnique();
 
-                    b.ToTable("PushDeliveries");
+                    b.ToTable("PushDeliveries", (string)null);
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.PushDevice", b =>
@@ -956,7 +1047,7 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Token");
 
-                    b.ToTable("PushDevices");
+                    b.ToTable("PushDevices", (string)null);
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.RefreshToken", b =>
@@ -1012,7 +1103,7 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ReturnCodeRules");
+                    b.ToTable("ReturnCodeRules", (string)null);
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.ReturnPerson", b =>
@@ -1031,7 +1122,7 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ReturnPersons");
+                    b.ToTable("ReturnPersons", (string)null);
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.User", b =>
@@ -1151,7 +1242,7 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("WebPushSubscriptions");
+                    b.ToTable("WebPushSubscriptions", (string)null);
                 });
 
             modelBuilder.Entity("GrandWall.Infrastructure.Notifications.Telegram.Outbox.TelegramOutboxMessage", b =>
@@ -1316,6 +1407,15 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                     b.Navigation("OrderDelivery");
 
                     b.Navigation("UploadedByUser");
+                });
+
+            modelBuilder.Entity("GrandWall.Domain.Entities.HandoverPhoto", b =>
+                {
+                    b.HasOne("GrandWall.Domain.Entities.Handover", null)
+                        .WithMany("Photos")
+                        .HasForeignKey("HandoverId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.Order", b =>
@@ -1523,6 +1623,11 @@ namespace GrandWall.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("TelegramOutboxMessage");
+                });
+
+            modelBuilder.Entity("GrandWall.Domain.Entities.Handover", b =>
+                {
+                    b.Navigation("Photos");
                 });
 
             modelBuilder.Entity("GrandWall.Domain.Entities.Order", b =>

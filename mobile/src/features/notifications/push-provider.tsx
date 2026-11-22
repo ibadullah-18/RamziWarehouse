@@ -36,7 +36,7 @@ const Context = createContext<{
 }>({ status: "", enable: () => {}, busy: false });
 export function PushNotificationProvider({ children }: PropsWithChildren) {
   const { session } = useAuth();
-  const canNotify = can(session, Permission.ReturnsNotify);
+  const canNotify = can(session, Permission.ReturnsNotify) || can(session, Permission.HandoversNotify);
   const current = useRef(session);
   useEffect(() => {
     current.current = session;
@@ -47,7 +47,7 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
     handled = useRef<string | null>(null);
   const enable = useCallback(async (fromPress = false) => {
     const user = current.current;
-    if (!user || !can(user, Permission.ReturnsNotify) || flight.current) return;
+    if (!user || !(can(user, Permission.ReturnsNotify) || can(user, Permission.HandoversNotify)) || flight.current) return;
     if (Platform.OS === "web") {
       const support = webPushSupport();
       if (support !== "supported") {
@@ -116,7 +116,7 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
       await savePushToken(token);
       if (
         current.current?.userId !== user.userId ||
-        !can(current.current, Permission.ReturnsNotify)
+        !(can(current.current, Permission.ReturnsNotify) || can(current.current, Permission.HandoversNotify))
       ) {
         await unregisterPush(user.accessToken).catch(() => {});
         return;
@@ -150,12 +150,7 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
   }, [enable, canNotify, session?.userId]);
   useEffect(() => {
     const open = (response: Notifications.NotificationResponse | null) => {
-      if (
-        !response ||
-        !current.current ||
-        !can(current.current, Permission.ReturnsNotify)
-      )
-        return;
+      if (!response || !current.current) return;
       const notification = response.notification,
         data = notification.request.content.data ?? {};
       if (
@@ -163,11 +158,23 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
         data.userId !== current.current.userId
       )
         return;
+      const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      // "Mal təhvil": open that day's list with the handover in view.
       if (
+        typeof data.handoverId === "string" &&
+        guid.test(data.handoverId) &&
+        can(current.current, Permission.HandoversView)
+      ) {
+        handled.current = notification.request.identifier;
+        const date = typeof data.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.date) ? data.date : "";
+        router.push(`/handovers?date=${date}&focus=${data.handoverId}` as Href);
+        void Notifications.clearLastNotificationResponseAsync();
+        return;
+      }
+      if (
+        !can(current.current, Permission.ReturnsNotify) ||
         typeof data.returnId !== "string" ||
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          data.returnId,
-        )
+        !guid.test(data.returnId)
       )
         return;
       handled.current = notification.request.identifier;
@@ -188,7 +195,7 @@ export function PushNotificationProvider({ children }: PropsWithChildren) {
 export function PushNotificationSettings() {
   const { session } = useAuth();
   const { status, busy, enable } = useContext(Context);
-  if (!can(session, Permission.ReturnsNotify)) return null;
+  if (!can(session, Permission.ReturnsNotify) && !can(session, Permission.HandoversNotify)) return null;
   return (
     <View
       style={{

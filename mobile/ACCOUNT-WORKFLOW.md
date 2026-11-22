@@ -33,7 +33,9 @@ Qaydalar:
 
 - Alınan pul, vazvrat və bonus **əvvəl bu günkü borcdan, sonra dünənki saxlanılandan, sonra köhnə borcdan** çıxılır. Hələ artıq qalan məbləğ **avans** kimi qeyd olunur və növbəti borcdan avtomatik çıxılır.
 - **Sabaha saxla** açıqdırsa, bu günkü ödənilməyən borc sabah “dünənki” kimi çıxır. Bağlıdırsa, ödənilməyən hissə həmin an köhnə borca keçir.
-- Dünənki saxlanılan borc ödənilməyibsə, bu gün yenidən “sabaha saxla” seçsəniz belə **köhnə borca qatılır**; yalnız bu günkü borc saxlanılır. Saxlama bir gecəlikdir, beləcə nə nədir qarışmır.
+- Dünənki saxlanılan borc ödənilməyibsə, bu gün yenidən “sabaha saxla” seçsəniz belə **köhnə borca qatılır**; yalnız bu günkü borc saxlanılır.
+- “Sabaha saxla” növbəti iş gününə qədər qalır: arada 2 günə qədər açot olmayan gün (məsələn şənbə → bazar ertəsi) olsa da müştəri növbəti açot siyahısında “dünənki” borcla çıxır. Daha uzun fasilədə borc köhnə borca keçir.
+- Tətbiqdə “bu gün” serverin saatı ilə (Bakı vaxtı) hesablanır; telefonun saatı səhv olsa da düzgün gün açılır.
 - Müştəri ilə heç bir seçim edilməyibsə (“−” qalıbsa), bu günkü borc bir gecə “dünənki” kimi qalır, sonra köhnəyə qatılır.
 - Köhnə borcun əməliyyatla dəyişməsi ayrıca qeyd kimi yazılır; heç nə silinmir.
 

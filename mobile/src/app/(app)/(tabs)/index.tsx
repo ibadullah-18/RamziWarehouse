@@ -48,6 +48,7 @@ export default function AdminManagementScreen() {
   const canSettings = can(session, Permission.SettingsManage);
   const canCustomers = can(session, Permission.CustomersEdit);
   const canCreateCustomer = can(session, Permission.CustomersCreate);
+  const canHandovers = can(session, Permission.HandoversView);
 
   return (
     <ScreenContainer>
@@ -80,6 +81,9 @@ export default function AdminManagementScreen() {
       </Animated.View>
 
       <AppUpdateBanner />
+      {canHandovers ? (
+        <QuickActionCard title="Mal təhvil" description="Bu günün təhvil şəkilləri, tarixə görə baxmaq, paylaşmaq" icon="bus-outline" onPress={() => router.push('/handovers' as Href)} />
+      ) : null}
       {canSettings ? (
         <>
           <QuickActionCard title="Tətbiqin adı və loqosu" description={`İndi: ${appName}`} icon="color-palette-outline" onPress={() => router.push('/app-settings' as Href)} />

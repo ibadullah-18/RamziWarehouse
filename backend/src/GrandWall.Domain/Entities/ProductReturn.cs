@@ -1,4 +1,4 @@
-﻿using GrandWall.Domain.Common;
+using GrandWall.Domain.Common;
 using GrandWall.Domain.Enums;
 
 namespace GrandWall.Domain.Entities;
@@ -7,6 +7,9 @@ public sealed class ProductReturn : ExpirableEntity
 {
     public decimal Amount { get; set; }
     public decimal AppliedAmount { get; set; }
+
+    /// <summary>Sədərək: "məbləğ borcdan çıxılmasın" — the amount is recorded but never credited to the debt.</summary>
+    public bool DoNotDeductFromDebt { get; set; }
     public Guid? ReturnPersonId { get; set; }
     public string? ReturnPersonName { get; set; }
     public bool IsDeleted { get; set; }

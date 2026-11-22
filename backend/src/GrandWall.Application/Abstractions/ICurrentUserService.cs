@@ -17,5 +17,6 @@ public interface ICurrentUserService
     /// <summary>Effective permissions of the signed-in user (role defaults unless overridden).</summary>
     IReadOnlyCollection<string> Permissions => Permission.Defaults(Role);
 
-    bool Has(string permission) => Role == UserRole.Admin || Permissions.Contains(permission);
+    bool Has(string permission) =>
+        (Role == UserRole.Admin && !Permission.Notifications.Contains(permission)) || Permissions.Contains(permission);
 }

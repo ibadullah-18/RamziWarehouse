@@ -1,10 +1,11 @@
+import { serverNow } from '../../lib/server-clock';
 const monthNames = [
   'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun',
   'İyul', 'Avqust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr',
 ];
 
 /** The açot date: the calendar date in Baku (UTC+4). */
-export const todayKey = (now: number = Date.now()) =>
+export const todayKey = (now: number = serverNow()) =>
   new Date(now + 4 * 3600000).toISOString().slice(0, 10);
 
 /** 2026-10-24 → 24.10.2026 */

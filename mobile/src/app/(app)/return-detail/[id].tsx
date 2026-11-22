@@ -233,6 +233,7 @@ export default function ReturnDetailScreen() {
       <Card>
         <Line label="Anbar" value={record.warehouseName} />
         <Line label="Vazvratı yaradan" value={record.returnPersonName ?? record.createdByFullName} />
+        {record.doNotDeductFromDebt ? <Line label="Borc" value="Məbləğ borcdan çıxılmır" /> : null}
         <Line label="Status" value={getReturnStatusLabel(record.status)} strong />
         {record.processedByFullName ? (
           <Line label="Təsdiqləyən / işləyən" value={record.processedByFullName} />

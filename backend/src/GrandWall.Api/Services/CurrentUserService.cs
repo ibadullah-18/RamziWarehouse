@@ -64,7 +64,7 @@ public sealed class CurrentUserService : ICurrentUserService
         CurrentPrincipal.FindAll(PermissionClaimType).Select(claim => claim.Value).ToHashSet();
 
     public bool Has(string permission) =>
-        Role == UserRole.Admin || Permissions.Contains(permission);
+        (Role == UserRole.Admin && !Permission.Notifications.Contains(permission)) || Permissions.Contains(permission);
 
     public const string PermissionClaimType = "perm";
 

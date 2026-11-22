@@ -12,6 +12,9 @@ export const Permission = {
   ReturnsReview: 'returns.review',
   ReturnsNotify: 'returns.notify',
   ReturnsAdmin: 'returns.admin',
+  HandoversCreate: 'handovers.create',
+  HandoversView: 'handovers.view',
+  HandoversNotify: 'handovers.notify',
   AccountsUse: 'accounts.use',
   AccountsOldDebt: 'accounts.oldDebt',
   AccountsPriceRules: 'accounts.priceRules',
@@ -36,6 +39,14 @@ export const permissionGroups: PermissionGroup[] = [
       { code: Permission.ReturnsReview, label: '“Sistemə işlənildi” və rədd etmək', hint: 'Menecer təsdiqi: vazvradı qəbul edir və ya rədd edir.' },
       { code: Permission.ReturnsNotify, label: 'Yeni vazvrad bildirişləri', hint: 'Vazvrad menecerə göndəriləndə telefona bildiriş gəlir.' },
       { code: Permission.ReturnsAdmin, label: 'Təsdiqdən sonra dəyişmək və silmək', hint: 'İşlənmiş vazvradı dəyişir, silir, silinənləri görür.' },
+    ],
+  },
+  {
+    title: 'Mal təhvil',
+    items: [
+      { code: Permission.HandoversCreate, label: 'Mal təhvil vermək', hint: '“Təhvil” vərəqi: şəkil çəkir, müştəri seçir, menecerə göndərir.' },
+      { code: Permission.HandoversView, label: 'Bütün təhvilləri görmək', hint: 'Hər günün təhvil şəkilləri, tarixə görə baxmaq və paylaşmaq.' },
+      { code: Permission.HandoversNotify, label: 'Yeni təhvil bildirişləri', hint: 'Hər təhvil göndəriləndə telefona bildiriş gəlir.' },
     ],
   },
   {
@@ -67,6 +78,9 @@ export const permissionGroups: PermissionGroup[] = [
   },
 ];
 
+/** Notifications: an Admin chooses them; every other permission is always on for an Admin. */
+export const notificationPermissions: PermissionCode[] = [Permission.ReturnsNotify, Permission.HandoversNotify];
+
 export const allPermissions: PermissionCode[] = permissionGroups.flatMap((group) =>
   group.items.map((item) => item.code),
 );
@@ -75,13 +89,13 @@ export const allPermissions: PermissionCode[] = permissionGroups.flatMap((group)
 export function rolePermissionDefaults(role: UserRole): PermissionCode[] {
   switch (role) {
     case UserRole.Admin:
-      return allPermissions.filter((code) => code !== Permission.ReturnsNotify);
+      return allPermissions.filter((code) => !notificationPermissions.includes(code));
     case UserRole.Manager:
-      return [Permission.CustomersCreate, Permission.CustomersEdit, Permission.ReturnsCreate, Permission.ReturnsReview, Permission.ReturnsNotify];
+      return [Permission.CustomersCreate, Permission.CustomersEdit, Permission.ReturnsCreate, Permission.ReturnsReview, Permission.ReturnsNotify, Permission.HandoversView, Permission.HandoversNotify];
     case UserRole.Accountant:
       return [Permission.CustomersCreate, Permission.ReturnsCreate, Permission.AccountsUse, Permission.AccountsOldDebt, Permission.AccountsPriceRules, Permission.AccountsResetToday];
     case UserRole.Driver:
-      return [Permission.CustomersCreate, Permission.ReturnsCreate, Permission.AccountsUse];
+      return [Permission.CustomersCreate, Permission.ReturnsCreate, Permission.AccountsUse, Permission.HandoversCreate];
     case UserRole.WarehouseWorker:
       return [Permission.CustomersCreate, Permission.ReturnsCreate];
     default:
@@ -98,7 +112,7 @@ export function can(
   permission: PermissionCode,
 ): boolean {
   if (!session) return false;
-  if (session.role === UserRole.Admin && permission !== Permission.ReturnsNotify) return true;
+  if (session.role === UserRole.Admin && !notificationPermissions.includes(permission)) return true;
   const list = session.permissions ?? rolePermissionDefaults(session.role);
   return list.includes(permission);
 }

@@ -21,6 +21,10 @@ public static class Permission
     public const string ReturnsNotify = "returns.notify";
     public const string ReturnsAdmin = "returns.admin";
 
+    public const string HandoversCreate = "handovers.create";
+    public const string HandoversView = "handovers.view";
+    public const string HandoversNotify = "handovers.notify";
+
     public const string AccountsUse = "accounts.use";
     public const string AccountsOldDebt = "accounts.oldDebt";
     public const string AccountsPriceRules = "accounts.priceRules";
@@ -33,17 +37,21 @@ public static class Permission
         AdminPanel, UsersManage, SettingsManage,
         CustomersCreate, CustomersEdit, CustomersDelete,
         ReturnsCreate, ReturnsReview, ReturnsNotify, ReturnsAdmin,
+        HandoversCreate, HandoversView, HandoversNotify,
         AccountsUse, AccountsOldDebt, AccountsPriceRules, AccountsResetToday, AccountsWipe, AccountsPastDays,
     ];
+
+    /// <summary>Notification permissions: the Admin role chooses them, everything else is always on.</summary>
+    public static readonly IReadOnlySet<string> Notifications = new HashSet<string> { ReturnsNotify, HandoversNotify };
 
     /// <summary>The starting set of each role: exactly what the role could do before permissions existed.</summary>
     public static IReadOnlyList<string> Defaults(UserRole role) => role switch
     {
-        // Admin can do everything; return notifications stay opt-in (ticked per admin).
-        UserRole.Admin => All.Where(code => code != ReturnsNotify).ToList(),
-        UserRole.Manager => [CustomersCreate, CustomersEdit, ReturnsCreate, ReturnsReview, ReturnsNotify],
+        // Admin can do everything; notifications stay opt-in (ticked per admin).
+        UserRole.Admin => All.Where(code => !Notifications.Contains(code)).ToList(),
+        UserRole.Manager => [CustomersCreate, CustomersEdit, ReturnsCreate, ReturnsReview, ReturnsNotify, HandoversView, HandoversNotify],
         UserRole.Accountant => [CustomersCreate, ReturnsCreate, AccountsUse, AccountsOldDebt, AccountsPriceRules, AccountsResetToday],
-        UserRole.Driver => [CustomersCreate, ReturnsCreate, AccountsUse],
+        UserRole.Driver => [CustomersCreate, ReturnsCreate, AccountsUse, HandoversCreate],
         UserRole.WarehouseWorker => [CustomersCreate, ReturnsCreate],
         _ => [],
     };
@@ -53,7 +61,10 @@ public static class Permission
     {
         if (stored is null) return Defaults(role);
         if (role == UserRole.Admin)
-            return stored.Split(',').Contains(ReturnsNotify) ? All : Defaults(role);
+        {
+            var notify = stored.Split(',').Where(Notifications.Contains).ToHashSet();
+            return All.Where(code => !Notifications.Contains(code) || notify.Contains(code)).ToList();
+        }
         var chosen = stored.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
         return All.Where(chosen.Contains).ToList();
     }
@@ -65,7 +76,11 @@ public static class Permission
     {
         if (chosen is null) return null;
         var set = chosen.ToHashSet();
-        if (role == UserRole.Admin) return set.Contains(ReturnsNotify) ? ReturnsNotify : null;
+        if (role == UserRole.Admin)
+        {
+            var notify = All.Where(code => Notifications.Contains(code) && set.Contains(code)).ToList();
+            return notify.Count == 0 ? null : string.Join(',', notify);
+        }
         var unknown = set.FirstOrDefault(code => !All.Contains(code));
         if (unknown is not null) throw new ArgumentException($"Naməlum icazə: {unknown}");
         var ordered = All.Where(set.Contains).ToList();

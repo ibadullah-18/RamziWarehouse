@@ -51,12 +51,29 @@ public sealed class PushNotificationQueue(AppDbContext db, TimeProvider clock)
         }
     }
 
-    /// <summary>Active users who receive new-return notifications ("returns.notify").</summary>
-    public async Task<HashSet<Guid>> NotifiedUserIdsAsync(CancellationToken ct)
+    /// <summary>Active users with the notification permission ("returns.notify" / "handovers.notify").</summary>
+    public async Task<HashSet<Guid>> NotifiedUserIdsAsync(CancellationToken ct, string permission = Permission.ReturnsNotify)
     {
         var users = await db.Users.AsNoTracking().Where(u => u.IsActive && !u.IsDeleted)
             .Select(u => new { u.Id, u.Role, u.Permissions }).ToListAsync(ct);
-        return users.Where(u => Permission.Effective(u.Role, u.Permissions).Contains(Permission.ReturnsNotify)).Select(u => u.Id).ToHashSet();
+        return users.Where(u => Permission.Effective(u.Role, u.Permissions).Contains(permission)).Select(u => u.Id).ToHashSet();
+    }
+
+    /// <summary>"Mal təhvil": every user with "handovers.notify" except the one who sent it.</summary>
+    public async Task EnqueueHandoverAsync(Handover handover, CancellationToken ct)
+    {
+        var notified = await NotifiedUserIdsAsync(ct, Permission.HandoversNotify);
+        notified.Remove(handover.CreatedByUserId);
+        if (notified.Count == 0) return;
+        var now = clock.GetUtcNow().UtcDateTime;
+        var body = $"{handover.CustomerName} · {handover.Photos.Count} şəkil · {handover.CreatedByFullName}";
+        if (body.Length > 500) body = body[..500];
+        foreach (var device in (await db.PushDevices.ToListAsync(ct)).Where(d => notified.Contains(d.UserId)))
+            db.PushDeliveries.Add(new PushDelivery { Kind = PushDelivery.KindHandover, ProductReturnId = handover.Id, UserId = device.UserId, Token = device.Token,
+                Body = body, NextAttemptUtc = now, ExpiresAtUtc = now.AddDays(1) });
+        foreach (var subscription in (await db.WebPushSubscriptions.ToListAsync(ct)).Where(w => notified.Contains(w.UserId)))
+            db.PushDeliveries.Add(new PushDelivery { Kind = PushDelivery.KindHandover, ProductReturnId = handover.Id, UserId = subscription.UserId,
+                Token = WebTokenPrefix + subscription.Id.ToString("N"), Body = body, NextAttemptUtc = now, ExpiresAtUtc = now.AddDays(1) });
     }
 
     public async Task EnqueueReturnAsync(ProductReturn record,CancellationToken ct)

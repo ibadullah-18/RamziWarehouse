@@ -49,7 +49,7 @@ public sealed partial class CustomerAccountService
             var returns = returnIds.Count == 0
                 ? []
                 : await db.ProductReturns.Where(x => returnIds.Contains(x.Id)).ToListAsync(cancellationToken);
-            if (returns.Count != returnIds.Count || returns.Any(x => x.CustomerId != r.CustomerId || x.IsDeleted || x.AppliedAmount != 0 || x.Status == ReturnStatus.Cancelled))
+            if (returns.Count != returnIds.Count || returns.Any(x => x.CustomerId != r.CustomerId || x.IsDeleted || x.AppliedAmount != 0 || x.DoNotDeductFromDebt || x.Status == ReturnStatus.Cancelled))
                 throw new ConflictException("Seçilmiş vazvrat bu müştəriyə aid deyil və ya artıq borca tətbiq olunub.");
 
             db.AccountSettlements.Add(new AccountSettlement

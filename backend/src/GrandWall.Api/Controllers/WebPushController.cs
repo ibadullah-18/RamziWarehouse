@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace GrandWall.Api.Controllers;
 
 /// <summary>Notifications for the installed web app (iPhone home screen, Android Chrome).</summary>
-[ApiController, Route("api/push/web"), Authorize, RequirePermission(Permission.ReturnsNotify)]
+[ApiController, Route("api/push/web"), Authorize, RequirePermission(Permission.ReturnsNotify, Permission.HandoversNotify)]
 public sealed class WebPushController(PushNotificationQueue queue, IWebPushSender sender, ICurrentUserService user) : ControllerBase
 {
     public sealed record PublicKeyDto(string? PublicKey);

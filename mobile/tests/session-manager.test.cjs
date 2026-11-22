@@ -90,7 +90,7 @@ test('valid access token does not need a network refresh', async () => {
   assert.equal(state.refreshes, 0);
 });
 function fetchClient(manager, fetch) {
-  return load('api/authenticated-fetch.ts', { 'expo/fetch': { fetch }, '../auth/app-session': { appSession: manager } }).authenticatedFetch;
+  return load('api/authenticated-fetch.ts', { 'expo/fetch': { fetch }, '../auth/app-session': { appSession: manager }, '../lib/server-clock': load('lib/server-clock.ts') }).authenticatedFetch;
 }
 test('a 401 retries once using the refreshed bearer token', async () => {
   const { manager } = setup({ load: async () => session('valid', 'refresh', false) });

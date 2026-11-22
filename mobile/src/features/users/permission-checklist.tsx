@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { UserRole } from '../../auth/auth-types';
 import {
-  Permission,
+  notificationPermissions,
   permissionGroups,
   rolePermissionDefaults,
   type PermissionCode,
@@ -49,7 +49,7 @@ export function PermissionChecklist({ role, value, onChange, disabled }: Props) 
       </View>
       <Text style={styles.note}>
         {isAdmin
-          ? 'Admin hər şeyi edə bilər. Yalnız vazvrad bildirişlərini seçin.'
+          ? 'Admin hər şeyi edə bilər. Yalnız bildirişləri seçin.'
           : custom
             ? 'Bu istifadəçi üçün icazələr rolun standartından fərqlidir.'
             : 'Rolun standart icazələri seçilib. İstənilən icazəni açıb-bağlaya bilərsiniz.'}
@@ -59,7 +59,7 @@ export function PermissionChecklist({ role, value, onChange, disabled }: Props) 
         <View key={group.title} style={styles.group}>
           <Text style={styles.groupTitle}>{group.title}</Text>
           {group.items.map((item) => {
-            const locked = isAdmin && item.code !== Permission.ReturnsNotify;
+            const locked = isAdmin && !notificationPermissions.includes(item.code);
             const on = locked || value.includes(item.code);
             return (
               <Pressable

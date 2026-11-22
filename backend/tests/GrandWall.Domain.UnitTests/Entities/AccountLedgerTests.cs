@@ -57,13 +57,14 @@ public sealed class AccountLedgerTests
     }
 
     [Fact]
-    public void ForgottenCustomerKeepsTheDebtForOneNightOnly()
+    public void ForgottenCustomerKeepsTheDebtOverAWeekendButNotLonger()
     {
         var entries = new[] { Daily(100, Day1) };
 
         Assert.Equal(new LedgerBalance(0, 100, 0, 0), AccountLedger.Opening(entries, Day2));
-        Assert.Equal(new LedgerBalance(100, 0, 0, 0), AccountLedger.Opening(entries, Day3));
-        Assert.Equal(new LedgerBalance(100, 0, 0, 0), AccountLedger.Opening(entries, Day4));
+        Assert.Equal(new LedgerBalance(0, 100, 0, 0), AccountLedger.Opening(entries, Day3));
+        Assert.Equal(new LedgerBalance(0, 100, 0, 0), AccountLedger.Opening(entries, Day4));
+        Assert.Equal(new LedgerBalance(100, 0, 0, 0), AccountLedger.Opening(entries, Day4.AddDays(1)));
     }
 
     [Fact]

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Image, Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, Switch, Text, TextInput, View } from 'react-native';
 
 import { getActiveWarehouses } from '../../../api/create-order-api';
 import { createProductReturn } from '../../../api/product-return-api';
@@ -46,6 +46,7 @@ export default function CreateReturnScreen() {
   const token = session?.accessToken;
   const params = useLocalSearchParams<{ customerId?: string; customerName?: string }>();
 
+  const [keepDebt, setKeepDebt] = useState(false);
   const [customer, setCustomer] = useState<Customer | null>(
     params.customerId
       ? {
@@ -223,6 +224,7 @@ export default function CreateReturnScreen() {
       const created = await createProductReturn(token, {
         customerId: customer.id,
         amount: value,
+        doNotDeductFromDebt: !!customer.isAccountCustomer && keepDebt,
         warehouseId,
         additionalNote: note.trim() || null,
         items: finalItems.map(({ productCode, batchNumber, quantity: count, productType: type }) => ({
@@ -416,7 +418,9 @@ export default function CreateReturnScreen() {
             setAmount(value);
           }}
           hint={
-            autoPriced
+            customer?.isAccountCustomer && keepDebt
+              ? 'Məbləğ yalnız qeyd olunur, müştərinin borcundan çıxılmır.'
+              : autoPriced
               ? 'Müştərinin qiymət siyahısından avtomatik hesablandı. Menecerə göndərəndə borcdan çıxılır.'
               : rules.length > 0
                 ? 'Əl ilə yazılıb.'
@@ -426,6 +430,36 @@ export default function CreateReturnScreen() {
         {amountTyped && rules.length > 0 ? (
           <Pressable accessibilityRole="button" onPress={() => setAmountTyped(false)}>
             <Text style={{ color: colors.primary, fontWeight: '700' }}>Avtomatik hesablamaya qayıt</Text>
+          </Pressable>
+        ) : null}
+        {customer?.isAccountCustomer ? (
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: keepDebt }}
+            onPress={() => setKeepDebt((v) => !v)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              padding: 14,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: keepDebt ? colors.warning : colors.border,
+              backgroundColor: keepDebt ? colors.warningSoft : colors.surface,
+            }}
+          >
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700' }}>Məbləğ borcdan çıxılmasın</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 18 }}>
+                Açıq olanda bu vazvradın pulu Sədərək müştərisinin borcundan çıxılmır və açotda da təklif olunmur.
+              </Text>
+            </View>
+            <Switch
+              value={keepDebt}
+              onValueChange={setKeepDebt}
+              trackColor={{ true: colors.warning, false: colors.border }}
+              thumbColor={colors.white}
+            />
           </Pressable>
         ) : null}
       </Card>

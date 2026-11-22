@@ -12,6 +12,7 @@ export default function AppStackLayout() {
   const canUsers = can(session, Permission.UsersManage);
   const canSettings = can(session, Permission.SettingsManage);
   const canCustomers = can(session, Permission.CustomersEdit);
+  const canHandovers = can(session, Permission.HandoversView);
 
   return (
     <Stack
@@ -37,6 +38,10 @@ export default function AppStackLayout() {
       <Stack.Protected guard={canSettings}>
         <Stack.Screen name="return-code-rules" />
         <Stack.Screen name="app-settings" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={canHandovers}>
+        <Stack.Screen name="handovers" />
       </Stack.Protected>
 
       <Stack.Protected guard={canUsers}>

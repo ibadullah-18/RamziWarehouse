@@ -17,16 +17,17 @@ public sealed class PushDeliveryProcessor(AppDbContext db,HttpClient http,IConfi
         foreach(var p in pending)
         {
             if(p.Token.StartsWith(PushNotificationQueue.WebTokenPrefix,StringComparison.Ordinal)) {await DeliverWebAsync(p,now,ct);continue;}
+            var subject=await DescribeAsync(p,ct);
             if(p.ExpiresAtUtc<=now || !await db.PushDevices.AnyAsync(d=>d.Token==p.Token && d.UserId==p.UserId,ct)
-                || !await CanReceiveAsync(p.UserId,ct)
-                || !await db.ProductReturns.AnyAsync(r=>r.Id==p.ProductReturnId && !r.IsDeleted && r.Status==ReturnStatus.Submitted,ct)) {p.Completed=true;continue;}
+                || !await CanReceiveAsync(p,ct)
+                || subject is null) {p.Completed=true;continue;}
             try
             {
                 var receipt=p.TicketId!=null;
                 using var request=new HttpRequestMessage(HttpMethod.Post,receipt?"getReceipts":"send");
                 var accessToken=configuration["Push:AccessToken"];
                 if(!string.IsNullOrWhiteSpace(accessToken)) request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",accessToken);
-                request.Content=receipt?JsonContent.Create(new{ids=new[]{p.TicketId}}):JsonContent.Create(new{to=p.Token,title="Yeni vazvrad / vitrin",body=p.Body,sound="default",channelId="returns",data=new{returnId=p.ProductReturnId,userId=p.UserId}});
+                request.Content=receipt?JsonContent.Create(new{ids=new[]{p.TicketId}}):JsonContent.Create(new{to=p.Token,title=subject.Title,body=p.Body,sound="default",channelId="returns",data=subject.Data});
                 using var response=await http.SendAsync(request,ct);response.EnsureSuccessStatusCode();
                 using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
                 if(!json.RootElement.TryGetProperty("data",out var data)) throw new InvalidOperationException("Push response has no data.");
@@ -61,10 +62,11 @@ public sealed class PushDeliveryProcessor(AppDbContext db,HttpClient http,IConfi
     {
         var id=Guid.TryParseExact(p.Token[PushNotificationQueue.WebTokenPrefix.Length..],"N",out var parsed)?parsed:Guid.Empty;
         var subscription=await db.WebPushSubscriptions.FirstOrDefaultAsync(s=>s.Id==id && s.UserId==p.UserId,ct);
+        var subject=await DescribeAsync(p,ct);
         if(webPush is null || subscription is null || p.ExpiresAtUtc<=now
-            || !await CanReceiveAsync(p.UserId,ct)
-            || !await db.ProductReturns.AnyAsync(r=>r.Id==p.ProductReturnId && !r.IsDeleted && r.Status==ReturnStatus.Submitted,ct)) {p.Completed=true;return;}
-        var result=await webPush.SendAsync(subscription,new{title="Yeni vazvrad / vitrin",body=p.Body,url="/return-detail/"+p.ProductReturnId,tag="return-"+p.ProductReturnId},ct);
+            || !await CanReceiveAsync(p,ct)
+            || subject is null) {p.Completed=true;return;}
+        var result=await webPush.SendAsync(subscription,new{title=subject.Title,body=p.Body,url=subject.Url,tag=subject.Tag},ct);
         switch(result)
         {
             case WebPushResult.Sent: p.Completed=true; break;
@@ -73,10 +75,26 @@ public sealed class PushDeliveryProcessor(AppDbContext db,HttpClient http,IConfi
             default: Retry(p,now); break;
         }
     }
-    private async Task<bool> CanReceiveAsync(Guid userId,CancellationToken ct)
+    private sealed record Subject(string Title,object Data,string Url,string Tag);
+
+    /// <summary>The notification's text and target, or null when its return/handover is no longer there.</summary>
+    private async Task<Subject?> DescribeAsync(PushDelivery p,CancellationToken ct)
     {
-        var u=await db.Users.AsNoTracking().FirstOrDefaultAsync(x=>x.Id==userId && x.IsActive && !x.IsDeleted,ct);
-        return u is not null && Permission.Effective(u).Contains(Permission.ReturnsNotify);
+        if(p.Kind==PushDelivery.KindHandover)
+        {
+            var handover=await db.Handovers.AsNoTracking().Where(h=>h.Id==p.ProductReturnId && !h.IsDeleted).Select(h=>new{h.Id,h.BusinessDate}).FirstOrDefaultAsync(ct);
+            if(handover is null) return null;
+            var date=handover.BusinessDate.ToString("yyyy-MM-dd");
+            return new Subject("Mal təhvil",new{handoverId=handover.Id,date,userId=p.UserId},$"/handovers?date={date}&focus={handover.Id}","handover-"+handover.Id);
+        }
+        if(!await db.ProductReturns.AnyAsync(r=>r.Id==p.ProductReturnId && !r.IsDeleted && r.Status==ReturnStatus.Submitted,ct)) return null;
+        return new Subject("Yeni vazvrad / vitrin",new{returnId=p.ProductReturnId,userId=p.UserId},"/return-detail/"+p.ProductReturnId,"return-"+p.ProductReturnId);
+    }
+    private async Task<bool> CanReceiveAsync(PushDelivery p,CancellationToken ct)
+    {
+        var u=await db.Users.AsNoTracking().FirstOrDefaultAsync(x=>x.Id==p.UserId && x.IsActive && !x.IsDeleted,ct);
+        var permission=p.Kind==PushDelivery.KindHandover?Permission.HandoversNotify:Permission.ReturnsNotify;
+        return u is not null && Permission.Effective(u).Contains(permission);
     }
     private static void Retry(PushDelivery p,DateTime now){p.Attempts++;p.NextAttemptUtc=now.AddSeconds(Math.Min(1800,30*Math.Pow(2,p.Attempts)));if(p.Attempts>=8)p.Completed=true;}
 }

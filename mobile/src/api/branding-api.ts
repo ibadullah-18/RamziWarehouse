@@ -1,5 +1,4 @@
-import { File } from "expo-file-system";
-import { Platform } from "react-native";
+import { appendLocalFile } from "../lib/upload-file";
 import { authenticatedFetch } from "./authenticated-fetch";
 
 /** App name and logo set by the admin (default name "Ramzi"). */
@@ -53,12 +52,7 @@ export async function uploadLogo(
 ): Promise<Branding> {
   const form = new FormData();
   const name = image.fileName || "logo." + (image.mimeType?.split("/")[1] ?? "png");
-  if (Platform.OS === "web") {
-    const blob = await (await fetch(image.uri)).blob();
-    form.append("file", blob, name);
-  } else {
-    form.append("file", new File(image.uri), name);
-  }
+  await appendLocalFile(form, "file", image.uri, name, image.mimeType ?? "image/png");
   return read(
     await authenticatedFetch(apiBase() + "/api/branding/logo", {
       method: "PUT",

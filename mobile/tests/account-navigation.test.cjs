@@ -18,7 +18,8 @@ function load(file, imports = {}) {
 }
 
 const nav = load('features/customer-accounts/account-navigation.ts');
-const dates = load('features/customer-accounts/account-dates.ts');
+const serverClock = load('lib/server-clock.ts');
+const dates = load('features/customer-accounts/account-dates.ts', { '../../lib/server-clock': serverClock });
 const math = load('features/customer-accounts/settlement-math.ts', {});
 
 test('each account destination renders its own page rather than the account menu', () => {

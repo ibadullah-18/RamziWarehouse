@@ -40,6 +40,7 @@ export type ProductReturnStatusHistory = {
 
 export type ProductReturn = {
   amount: number;
+  doNotDeductFromDebt?: boolean;
   /** The part already credited to the customer's debt (0 = not used yet). */
   appliedAmount: number;
   returnPersonName: string | null;
@@ -106,6 +107,8 @@ export type CreateProductReturnItemRequest = {
 
 export type CreateProductReturnRequest = {
   amount?: number;
+  /** Sədərək: the amount is recorded but not deducted from the debt. */
+  doNotDeductFromDebt?: boolean;
   returnPersonId?: string | null;
   customerId: string;
   warehouseId: string;

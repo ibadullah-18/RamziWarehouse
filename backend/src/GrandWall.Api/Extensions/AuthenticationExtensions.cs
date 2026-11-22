@@ -79,13 +79,8 @@ public static class AuthenticationExtensions
         services.AddAuthorization(options =>
         {
             foreach (var permission in Permission.All)
-            {
-                options.AddPolicy(
-                    RequirePermissionAttribute.PolicyPrefix + permission,
-                    policy => policy.RequireAssertion(context =>
-                        context.User.IsInRole(nameof(UserRole.Admin)) ||
-                        context.User.HasClaim(GrandWall.Api.Services.CurrentUserService.PermissionClaimType, permission)));
-            }
+                AddPermissionPolicy(options, [permission]);
+            AddPermissionPolicy(options, [Permission.ReturnsNotify, Permission.HandoversNotify]);
 
             options.AddPolicy(
                 AuthorizationPolicies.AdminOnly,
@@ -101,4 +96,11 @@ public static class AuthenticationExtensions
 
         return services;
     }
+
+    private static void AddPermissionPolicy(Microsoft.AspNetCore.Authorization.AuthorizationOptions options, string[] permissions)
+        => options.AddPolicy(
+            RequirePermissionAttribute.PolicyPrefix + string.Join('|', permissions),
+            policy => policy.RequireAssertion(context => permissions.Any(permission =>
+                (context.User.IsInRole(nameof(UserRole.Admin)) && !Permission.Notifications.Contains(permission)) ||
+                context.User.HasClaim(GrandWall.Api.Services.CurrentUserService.PermissionClaimType, permission))));
 }

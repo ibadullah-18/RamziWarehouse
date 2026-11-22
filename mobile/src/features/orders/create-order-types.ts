@@ -11,6 +11,8 @@ export type Customer = {
   phoneNumber: string | null;
   note: string | null;
   isActive: boolean;
+  /** Sədərək dükanı (açot customer). */
+  isAccountCustomer?: boolean;
   createdAtUtc: string;
   updatedAtUtc: string | null;
 };

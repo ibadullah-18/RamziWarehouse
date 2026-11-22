@@ -1,5 +1,5 @@
 import { authenticatedFetch } from "./authenticated-fetch";
-import { File } from "expo-file-system";
+import { appendLocalFile } from "../lib/upload-file";
 
 import {
   CreateProductReturnRequest,
@@ -183,23 +183,9 @@ export async function uploadProductReturnPhoto(
   productReturnId: string,
   photo: ProductReturnPhotoUpload,
 ): Promise<ProductReturnPhoto> {
-  const localFile = new File(photo.uri);
-
-  if (!localFile.exists) {
-    throw new Error("Çəkilmiş şəkil telefonun yaddaşında tapılmadı.");
-  }
-
-  if (localFile.size <= 0) {
-    throw new Error("Çəkilmiş şəkil boş fayldır.");
-  }
-
-  if (localFile.size > 10 * 1024 * 1024) {
-    throw new Error("Şəklin ölçüsü maksimum 10 MB ola bilər.");
-  }
-
   const formData = new FormData();
 
-  formData.append("file", localFile, photo.fileName);
+  await appendLocalFile(formData, "file", photo.uri, photo.fileName, photo.contentType);
   if(photo.operationId)formData.append('operationId',photo.operationId);
 
   const controller = new AbortController();

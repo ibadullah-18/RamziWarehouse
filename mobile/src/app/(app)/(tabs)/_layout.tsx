@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../auth/auth-context';
 import { UserRole } from '../../../auth/auth-types';
 import { can, Permission } from '../../../auth/permissions';
+import { handoverDraft } from '../../../features/handovers/handover-draft';
+import { captureForDraft } from '../../../features/handovers/new-handover';
 import { colors } from '../../../theme';
 
 const legacyModulesEnabled = false;
@@ -17,6 +19,8 @@ export default function MainTabsLayout() {
   const isAdmin = can(session, Permission.AdminPanel);
 
   const canUseAccounts = can(session, Permission.AccountsUse);
+  const canHandoverCreate = can(session, Permission.HandoversCreate);
+  const canHandover = canHandoverCreate || can(session, Permission.HandoversView);
 
   const opensAccountsFirst =
     canUseAccounts &&
@@ -143,6 +147,25 @@ export default function MainTabsLayout() {
                 size={size}
                 color={color}
               />
+            ),
+          }}
+        />
+      </Tabs.Protected>
+
+      <Tabs.Protected guard={canHandover}>
+        <Tabs.Screen
+          name="handover"
+          listeners={{
+            // Tapping "Təhvil" opens the camera at once when a new handover is started.
+            // Called right inside the tap, so the web app (iPhone) may open the camera too.
+            tabPress: () => {
+              if (canHandoverCreate && handoverDraft.get().photos.length === 0) void captureForDraft();
+            },
+          }}
+          options={{
+            title: 'Təhvil',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons name={focused ? 'bus' : 'bus-outline'} size={size} color={color} />
             ),
           }}
         />

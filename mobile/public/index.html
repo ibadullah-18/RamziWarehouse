@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-    <!-- viewport-fit=cover lets the installed app use the whole iPhone screen; safe areas are handled in the app. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- No zoom anywhere (also not when a field is tapped on iPhone); viewport-fit=cover uses the whole screen. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Ramzi</title>
 
     <!-- Installable app (iPhone: Share → Add to Home Screen; Android: Install app). -->
@@ -23,6 +23,12 @@
         height: 100%;
         background-color: #f3f6fb;
       }
+      html {
+        /* no double-tap zoom, no font boosting */
+        touch-action: manipulation;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
       body {
         overflow: hidden;
         overscroll-behavior: none;
@@ -36,25 +42,9 @@
 
     <!-- The service worker shows push notifications; it does not cache the app, so updates arrive at once. -->
     <script>
-      // iPhone zooms in when a text field is tapped. That is fine while typing, but iOS never
-      // zooms back out: when the keyboard closes, briefly cap the zoom so the page returns to
-      // normal size (pinch zoom keeps working afterwards).
-      (function () {
-        var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        var meta = document.querySelector('meta[name="viewport"]');
-        if (!ios || !meta) return;
-        var normal = meta.getAttribute('content');
-        var isField = function (el) { return !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName); };
-        document.addEventListener('focusout', function (event) {
-          if (!isField(event.target)) return;
-          setTimeout(function () {
-            if (isField(document.activeElement)) return; // moved to the next field: keep the zoom
-            meta.setAttribute('content', normal + ', maximum-scale=1');
-            setTimeout(function () { meta.setAttribute('content', normal); }, 400);
-          }, 60);
-        });
-      })();
+      // iOS Safari ignores user-scalable=no for pinch and double-tap; stop those gestures as well.
+      document.addEventListener('gesturestart', function (event) { event.preventDefault(); });
+      document.addEventListener('dblclick', function (event) { event.preventDefault(); }, { passive: false });
 
       // Android Chrome: keep the install offer for the "Tətbiqi quraşdır" button.
       window.addEventListener('beforeinstallprompt', function (event) {

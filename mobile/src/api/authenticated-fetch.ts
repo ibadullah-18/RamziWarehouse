@@ -1,8 +1,16 @@
 import { fetch as expoFetch } from 'expo/fetch';
 import { appSession } from '../auth/app-session';
+import { learnServerTime } from '../lib/server-clock';
 
 /** Retry only explicit 401 responses; never replay writes after network errors. */
 export async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const sentAt = Date.now();
+  const response = await send(url, options);
+  learnServerTime(response.headers?.get?.('date'), sentAt, Date.now());
+  return response;
+}
+
+async function send(url: string, options: RequestInit): Promise<Response> {
   const headers = new Headers(options.headers);
   const supplied = headers.get('Authorization');
   if (!supplied?.startsWith('Bearer ')) return expoFetch(url, options);

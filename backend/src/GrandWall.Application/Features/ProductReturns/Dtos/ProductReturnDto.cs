@@ -8,6 +8,7 @@ public sealed class ProductReturnDto
 
     /// <summary>The part already credited to the customer's debt (0 = not used yet).</summary>
     public decimal AppliedAmount { get; init; }
+    public bool DoNotDeductFromDebt { get; init; }
     public string? ReturnPersonName { get; init; }
     public bool IsDeleted { get; init; }
     public Guid Revision { get; init; }

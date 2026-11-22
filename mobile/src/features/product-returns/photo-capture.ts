@@ -1,6 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { Platform } from 'react-native';
 
 export type CapturedPhoto = {
   uri: string;
@@ -23,9 +24,13 @@ export class CameraPermissionError extends Error {
  * moderate quality up front and the picture is scaled down once before it is uploaded, so
  * the upload no longer sends a multi-megabyte original over the mobile network.
  */
-export async function captureReturnPhoto(): Promise<CapturedPhoto | null> {
-  const permission = await ImagePicker.requestCameraPermissionsAsync();
-  if (!permission.granted) throw new CameraPermissionError();
+export async function captureReturnPhoto(prefix = 'return'): Promise<CapturedPhoto | null> {
+  // Web app: the camera must open straight from the tap, so no permission round-trip first
+  // (the browser asks by itself).
+  if (Platform.OS !== 'web') {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) throw new CameraPermissionError();
+  }
 
   const result = await ImagePicker.launchCameraAsync({
     mediaTypes: ['images'],
@@ -48,7 +53,7 @@ export async function captureReturnPhoto(): Promise<CapturedPhoto | null> {
 
   return {
     uri: saved.uri,
-    fileName: `return-${Date.now()}.jpg`,
+    fileName: `${prefix}-${Date.now()}.jpg`,
     contentType: 'image/jpeg',
     operationId: randomUUID(),
   };

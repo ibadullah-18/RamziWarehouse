@@ -478,4 +478,39 @@ public sealed class AccountDayServiceTests
 
         await Assert.ThrowsAsync<ForbiddenException>(() => f.Service.GetDayAsync(f.Today));
     }
+
+    [Theory]
+    [InlineData(0, null, false)]
+    [InlineData(0, 300, false)]
+    [InlineData(50, 300, false)]
+    [InlineData(0, null, true)]
+    [InlineData(30, 200, true)]
+    public async Task KeptDebtIsListedOnTheNextDay(int cash, int? old, bool close)
+    {
+        using var f = new Fixture();
+        await f.Debts(f.Rafil, 100, old);
+        await f.Settle(f.Rafil, cash: cash, carry: true);
+        if (close) await f.Service.CloseDayAsync();
+        f.Clock.Now = f.Clock.Now.AddDays(1);
+        var day = await f.Service.GetDayAsync(f.Today);
+        var row = Assert.Single(day.Customers);
+        Assert.Equal(100 - cash, row.CarriedDebt);
+    }
+
+    [Fact]
+    public async Task KeptDebtSurvivesAWeekendButNotALongBreak()
+    {
+        using var f = new Fixture();
+        await f.Debts(f.Rafil, 100);
+        await f.Settle(f.Rafil, carry: true);
+
+        f.Clock.Now = f.Clock.Now.AddDays(2);                           // Saturday -> Monday
+        var monday = Assert.Single((await f.Service.GetDayAsync(f.Today)).Customers);
+        Assert.Equal(100, monday.CarriedDebt);
+
+        f.Clock.Now = f.Clock.Now.AddDays(3);                           // nobody touched it for 5 days
+        var later = await f.Service.GetDayAsync(f.Today);
+        Assert.Empty(later.Customers);
+        Assert.Equal(100, (await f.Service.GetByCustomerIdAsync(f.Rafil.Id)).OldDebt);
+    }
 }

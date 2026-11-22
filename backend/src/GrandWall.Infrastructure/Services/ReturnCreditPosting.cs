@@ -15,6 +15,8 @@ internal static class ReturnCreditPosting
 {
     public static void Apply(AppDbContext db, ProductReturn record, decimal amount, ICurrentUserService user, TimeProvider clock)
     {
+        // "Məbləğ borcdan çıxılmasın": nothing is credited (and nothing to give back).
+        if (record.DoNotDeductFromDebt && record.AppliedAmount == 0) return;
         var delta = amount - record.AppliedAmount;
         if (delta == 0) return;
         db.CustomerAccountEntries.Add(new CustomerAccountEntry

@@ -230,4 +230,37 @@ public sealed class ReturnFinanceTests
         });
         Assert.Equal(HttpStatusCode.Created, withoutName.StatusCode);
     }
+
+    [Fact]
+    public async Task ReturnMarkedKeepDebtIsNeverCreditedOrOfferedAtTheAcot()
+    {
+        using var factory = new GrandWallApiFactory();
+        using var admin = await LoginAdmin(factory);
+        var customer = await CreateCustomer(admin, "Borcdan çıxılmasın", shop: true);
+        var warehouse = await Warehouse(admin);
+        await WriteDebt(admin, customer, 100);
+
+        var created = await admin.PostAsJsonAsync("/api/product-returns", new
+        {
+            customerId = customer, warehouseId = warehouse, amount = 25, doNotDeductFromDebt = true,
+            items = new[] { new { productCode = "5012", batchNumber = "611-1", quantity = 1, productType = 1 } }
+        });
+        created.EnsureSuccessStatusCode();
+        var record = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = record.GetProperty("id").GetGuid();
+        Assert.True(record.GetProperty("doNotDeductFromDebt").GetBoolean());
+
+        (await admin.PostAsync($"/api/product-returns/{id}/submit", null)).EnsureSuccessStatusCode();
+        Assert.Equal(100, await Remaining(admin, customer));
+
+        var offered = await admin.GetFromJsonAsync<JsonElement>($"/api/product-returns?customerId={customer}&unapplied=true");
+        Assert.Equal(0, offered.GetProperty("totalCount").GetInt32());
+
+        var settle = await admin.PostAsJsonAsync("/api/customer-accounts/settlements", new
+        {
+            operationId = Guid.NewGuid(), customerId = customer, cash = 0m, card = 0m, bonus = 0m, carryToTomorrow = true,
+            returns = new[] { new { returnId = id, amount = 25m } }
+        });
+        Assert.Equal(HttpStatusCode.Conflict, settle.StatusCode);
+    }
 }

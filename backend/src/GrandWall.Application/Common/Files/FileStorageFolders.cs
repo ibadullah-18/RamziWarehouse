@@ -1,4 +1,4 @@
-﻿namespace GrandWall.Application.Common.Files;
+namespace GrandWall.Application.Common.Files;
 
 public static class FileStorageFolders
 {
@@ -10,4 +10,7 @@ public static class FileStorageFolders
 
     public const string ProductReturn =
         "grandwall-warehouse/returns";
+
+    public const string Handover =
+        "grandwall-warehouse/handovers";
 }

@@ -23,6 +23,8 @@ public sealed class AppDbContext : DbContext
     public DbSet<PushDelivery> PushDeliveries => Set<PushDelivery>();
     public DbSet<WebPushSubscription> WebPushSubscriptions => Set<WebPushSubscription>();
     public DbSet<AppBranding> AppBranding => Set<AppBranding>();
+    public DbSet<Handover> Handovers => Set<Handover>();
+    public DbSet<HandoverPhoto> HandoverPhotos => Set<HandoverPhoto>();
 
     public DbSet<User> Users => Set<User>();
 
@@ -69,6 +71,27 @@ public sealed class AppDbContext : DbContext
     public DbSet<TelegramOutboxPhoto> TelegramOutboxPhotos =>
         Set<TelegramOutboxPhoto>();
 
+    /// <summary>
+    /// Every DateTime is stored in UTC. SQL Server's datetime2 forgets that, so values read back
+    /// were "unspecified" and went to the app without the "Z" — phones then showed every time
+    /// 4 hours early (read as Baku time). Mark them UTC on the way out of the database.
+    /// </summary>
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+        configurationBuilder.Properties<DateTime?>().HaveConversion<NullableUtcDateTimeConverter>();
+    }
+
+    private sealed class UtcDateTimeConverter()
+        : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
+            value => value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : value,
+            value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+
+    private sealed class NullableUtcDateTimeConverter()
+        : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime?, DateTime?>(
+            value => value.HasValue && value.Value.Kind == DateTimeKind.Local ? value.Value.ToUniversalTime() : value,
+            value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : value);
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -103,6 +126,15 @@ public sealed class AppDbContext : DbContext
         modelBuilder.Entity<WebPushSubscription>().Property(x => x.Auth).HasMaxLength(100);
         modelBuilder.Entity<WebPushSubscription>().HasIndex(x => x.Endpoint).IsUnique();
         modelBuilder.Entity<WebPushSubscription>().HasIndex(x => x.UserId);
+        modelBuilder.Entity<Handover>().Property(x => x.CustomerName).HasMaxLength(200);
+        modelBuilder.Entity<Handover>().Property(x => x.CreatedByFullName).HasMaxLength(200);
+        modelBuilder.Entity<Handover>().Property(x => x.Note).HasMaxLength(Handover.MaxNoteLength);
+        modelBuilder.Entity<Handover>().HasIndex(x => x.OperationId).IsUnique();
+        modelBuilder.Entity<Handover>().HasIndex(x => new { x.BusinessDate, x.IsDeleted });
+        modelBuilder.Entity<Handover>().HasIndex(x => new { x.CreatedByUserId, x.BusinessDate });
+        modelBuilder.Entity<Handover>().HasMany(x => x.Photos).WithOne().HasForeignKey(x => x.HandoverId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<HandoverPhoto>().Property(x => x.StoragePublicId).HasMaxLength(500);
+        modelBuilder.Entity<HandoverPhoto>().Property(x => x.ContentType).HasMaxLength(100);
         modelBuilder.Entity<AppBranding>().ToTable("AppBranding");
         modelBuilder.Entity<AppBranding>().Property(x => x.Id).ValueGeneratedNever();
         modelBuilder.Entity<AppBranding>().Property(x => x.AppName).HasMaxLength(40);

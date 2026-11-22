@@ -8,6 +8,13 @@ public sealed class PushDevice
 }
 public sealed class PushDelivery : BaseEntity
 {
+    public const int KindReturn = 0;
+    public const int KindHandover = 1;
+
+    /// <summary>What the notification is about: <see cref="KindReturn"/> or <see cref="KindHandover"/>.</summary>
+    public int Kind { get; set; }
+
+    /// <summary>The return's id, or the handover's id when <see cref="Kind"/> is a handover.</summary>
     public Guid ProductReturnId { get; set; }
     public Guid UserId { get; set; }
     public string Token { get; set; } = string.Empty;

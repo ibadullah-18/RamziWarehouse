@@ -6,6 +6,7 @@ Açotda müştəri ilə hesablaşanda vazvrat təsdiqi gözləmədən seçilib d
 
 ## Yaratma
 
+1. **Sədərək müştərisi:** məbləğ yerinin altında **“Məbləğ borcdan çıxılmasın”** açarı var. Açıq olanda vazvrad yazılır, amma pulu müştərinin borcundan çıxılmır və açotda da təklif olunmur.
 1. **Kim yaradır?** Ad seçilmir: vazvradı daxil olmuş istifadəçi yaradır və onun adı göstərilir (köhnə qeydlərdə əvvəl seçilmiş ad qalır). Vazvrad yaratmaq üçün istifadəçidə “Vazvrad / vitrin yaratmaq” icazəsi olmalıdır.
 2. **Müştəri.** Vazvradda bütün müştərilər görünür (“Sədərək dükanı” açarından asılı deyil).
 3. **Kod və partiya.** Yalnız **rəqəm və `-`** yazılır (məsələn `1019`, `340-1`); hərflər avtomatik silinir. Rəqəm klaviaturasında tire olmadığı üçün hər kod sahəsinin yanında ayrıca `-` düyməsi var. Server də eyni qaydanı yoxlayır.

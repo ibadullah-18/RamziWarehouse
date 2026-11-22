@@ -25,6 +25,9 @@ public static class AccountLedger
     /// </summary>
     public static readonly DateOnly CarryRulesSince = new(2026, 10, 25);
 
+    /// <summary>Kept debt survives a break of this many calendar days (e.g. Saturday → Monday).</summary>
+    public const int MaxCarryGapDays = 3;
+
     /// <summary>State after every entry up to and including <paramref name="date"/>.</summary>
     public static LedgerBalance Closing(IEnumerable<LedgerItem> entries, DateOnly date)
         => Replay(entries.Where(e => e.Date <= date), date);
@@ -38,15 +41,16 @@ public static class AccountLedger
         decimal old = 0, carried = 0, today = 0, advance = 0;
         DateOnly? last = null;
 
-        // A day passes. Unpaid carried debt always joins the old debt. The unpaid debt of
-        // the day itself becomes tomorrow's carried debt, but only for one night: if nobody
-        // looks at the customer for two days it joins the old debt as well. Days before the
-        // new rules moved everything into the old debt at once.
+        // A day passes. Unpaid carried debt joins the old debt. The unpaid debt of the day
+        // itself becomes the carried ("dünənki") debt of the next day. Up to two days without any
+        // entry may lie in between (weekend, holiday), so a customer kept for tomorrow still shows
+        // up on the next working day's list; after a longer break it joins the old debt. Days
+        // before the new rules moved everything into the old debt at once.
         void Roll(DateOnly from, DateOnly to)
         {
             var days = to.DayNumber - from.DayNumber;
             if (days <= 0) return;
-            if (from >= AccountLedger.CarryRulesSince && days == 1)
+            if (from >= AccountLedger.CarryRulesSince && days <= MaxCarryGapDays)
             {
                 old += carried;
                 carried = today;
