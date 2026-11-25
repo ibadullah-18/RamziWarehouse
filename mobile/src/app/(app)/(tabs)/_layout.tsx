@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../../auth/auth-context';
@@ -21,6 +22,12 @@ export default function MainTabsLayout() {
   const canUseAccounts = can(session, Permission.AccountsUse);
   const canHandoverCreate = can(session, Permission.HandoversCreate);
   const canHandover = canHandoverCreate || can(session, Permission.HandoversView);
+
+  // Bring back an unfinished handover (photos already taken) after a call or app restart.
+  const userId = session?.userId;
+  useEffect(() => {
+    if (userId && canHandoverCreate) void handoverDraft.attach(userId);
+  }, [userId, canHandoverCreate]);
 
   const opensAccountsFirst =
     canUseAccounts &&

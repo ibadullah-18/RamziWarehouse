@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Image, Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, AppState, Image, Platform, Pressable, Switch, Text, TextInput, View } from 'react-native';
 
 import { getActiveWarehouses } from '../../../api/create-order-api';
 import { createProductReturn } from '../../../api/product-return-api';
@@ -31,9 +31,34 @@ import { enqueuePhoto } from '../../../features/product-returns/photo-upload-que
 import { codeRuleProblem, useReturnCodeRule } from '../../../features/product-returns/code-rule';
 import { DraftProductReturnItem, ProductType } from '../../../features/product-returns/product-return-types';
 import { colors } from '../../../theme';
+import { clearDraft, dropDraftPhotos, keepDraftPhoto, loadDraft, restoreDraftPhoto, saveDraft as storeDraft } from '../../../lib/draft-storage';
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Vazvrad yaradılmadı.');
 const localId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+/** A half-written return kept on the device (phone call, switching apps, app closed). */
+type SavedReturn = {
+  v: 1;
+  userId: string;
+  savedAt: number;
+  customer: Customer | null;
+  warehouseId: string;
+  items: DraftProductReturnItem[];
+  editingId: string | null;
+  code: string;
+  batch: string;
+  productType: ProductType;
+  quantityText: string;
+  amount: string;
+  amountTyped: boolean;
+  note: string;
+  keepDebt: boolean;
+  photos: CapturedPhoto[];
+};
+const DRAFT_NAME = 'return';
+const DRAFT_DAYS = 7;
+const hasContent = (d: Pick<SavedReturn, 'customer' | 'items' | 'code' | 'batch' | 'photos' | 'note' | 'amount'>) =>
+  !!d.customer || d.items.length > 0 || !!d.code.trim() || !!d.batch.trim() || d.photos.length > 0 || !!d.note.trim() || !!d.amount.trim();
+
 const same = (a: string, b: string) => a.trim().toLocaleUpperCase('az-AZ') === b.trim().toLocaleUpperCase('az-AZ');
 
 /**
@@ -82,6 +107,122 @@ export default function CreateReturnScreen() {
   const [saving, setSaving] = useState(false);
   const saveLock = useRef(false);
   const codeRef = useRef<TextInput>(null);
+  // Draft on the device: nothing is saved until the earlier draft has been read back.
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
+  const [otherDraft, setOtherDraft] = useState<SavedReturn | null>(null);
+  const latestDraft = useRef<SavedReturn | null>(null);
+  const userId = session?.userId ?? '';
+  const presetCustomerId = params.customerId;
+
+  function applyDraft(saved: SavedReturn) {
+    setCustomer(saved.customer);
+    if (saved.warehouseId) setWarehouseId(saved.warehouseId);
+    setItems(saved.items);
+    setEditingId(saved.editingId);
+    setCode(saved.code);
+    setBatch(saved.batch);
+    setProductType(saved.productType);
+    setQuantityText(saved.quantityText || '1');
+    setAmount(saved.amount);
+    setAmountTyped(saved.amountTyped);
+    setNote(saved.note);
+    setKeepDebt(saved.keepDebt);
+    setPhotos(saved.photos);
+    setOtherDraft(null);
+    setRestoredAt(saved.savedAt);
+  }
+
+  // Read back a return that was being written when the app was left (call, message...).
+  useEffect(() => {
+    let active = true;
+    const restore = async () => {
+      const saved = await loadDraft<SavedReturn>(DRAFT_NAME);
+      if (
+        saved?.v === 1 &&
+        saved.userId === userId &&
+        Date.now() - saved.savedAt < DRAFT_DAYS * 86400000 &&
+        hasContent(saved)
+      ) {
+        const photosBack = (
+          await Promise.all(
+            saved.photos.map(async (photo) => {
+              const uri = await restoreDraftPhoto(photo.operationId, photo.uri);
+              return uri ? { ...photo, uri } : null;
+            }),
+          )
+        ).filter((photo): photo is CapturedPhoto => photo !== null);
+        if (!active) return;
+        const draft = { ...saved, photos: photosBack };
+        // Opened for another customer (from the açot): offer the old draft instead of replacing.
+        if (presetCustomerId && draft.customer && draft.customer.id !== presetCustomerId) setOtherDraft(draft);
+        else applyDraft(draft);
+      }
+      if (active) setDraftLoaded(true);
+    };
+    void restore();
+    return () => {
+      active = false;
+    };
+    // Runs once when the screen opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save while typing, and at once when the phone leaves the app.
+  useEffect(() => {
+    if (!draftLoaded || !userId) return;
+    const draft: SavedReturn = {
+      v: 1, userId, savedAt: Date.now(), customer, warehouseId, items, editingId, code, batch, productType,
+      quantityText, amount, amountTyped, note, keepDebt, photos,
+    };
+    latestDraft.current = draft;
+    const timer = setTimeout(() => {
+      if (hasContent(draft)) void storeDraft(DRAFT_NAME, draft);
+      else if (!otherDraft) void clearDraft(DRAFT_NAME);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [draftLoaded, userId, customer, warehouseId, items, editingId, code, batch, productType, quantityText, amount, amountTyped, note, keepDebt, photos, otherDraft]);
+
+  useEffect(() => {
+    const flush = () => {
+      const draft = latestDraft.current;
+      if (draft && hasContent(draft)) void storeDraft(DRAFT_NAME, { ...draft, savedAt: Date.now() });
+    };
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') flush();
+    });
+    const web = Platform.OS === 'web' && typeof window !== 'undefined';
+    if (web) {
+      window.addEventListener('pagehide', flush);
+      document.addEventListener('visibilitychange', flush);
+    }
+    return () => {
+      sub.remove();
+      if (web) {
+        window.removeEventListener('pagehide', flush);
+        document.removeEventListener('visibilitychange', flush);
+      }
+    };
+  }, []);
+
+  function clearForm() {
+    void dropDraftPhotos(photos.map((photo) => photo.operationId));
+    void clearDraft(DRAFT_NAME);
+    latestDraft.current = null;
+    setCustomer(null);
+    setItems([]);
+    setEditingId(null);
+    setCode('');
+    setBatch('');
+    setProductType(ProductType.Product);
+    setQuantityText('1');
+    setAmount('');
+    setAmountTyped(false);
+    setNote('');
+    setKeepDebt(false);
+    setPhotos([]);
+    setRestoredAt(null);
+  }
 
   useEffect(() => {
     if (!token) return;
@@ -176,7 +317,10 @@ export default function CreateReturnScreen() {
     setCapturing(true);
     try {
       const photo = await captureReturnPhoto();
-      if (photo) setPhotos((current) => [...current, photo]);
+      if (photo) {
+        setPhotos((current) => [...current, photo]);
+        void keepDraftPhoto(photo.operationId, photo.uri);
+      }
     } catch (e) {
       Alert.alert(e instanceof CameraPermissionError ? 'Kamera icazəsi lazımdır' : 'Şəkil çəkilmədi', errorMessage(e));
     } finally {
@@ -236,6 +380,10 @@ export default function CreateReturnScreen() {
       });
       // The photos go up in the background: nobody waits for the network here.
       photos.forEach((photo) => enqueuePhoto(created.id, photo));
+      // Saved on the server: the device copy of the form is no longer needed.
+      latestDraft.current = null;
+      void clearDraft(DRAFT_NAME);
+      void dropDraftPhotos(photos.map((photo) => photo.operationId));
       router.replace(`/return-detail/${created.id}` as Href);
     } catch (e) {
       Alert.alert('Vazvrad yaradılmadı', errorMessage(e));
@@ -258,6 +406,40 @@ export default function CreateReturnScreen() {
         />
       }
     >
+      {restoredAt ? (
+        <Card>
+          <Text style={{ color: colors.success, fontSize: 15, fontWeight: '700' }}>
+            Yarımçıq qalan vazvrad bərpa olundu
+          </Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+            Tətbiqdən çıxanda yazılanlar telefonda saxlanılır. Davam edə və ya formu təmizləyə bilərsiniz.
+          </Text>
+          <Btn icon="trash-outline" variant="secondary" compact title="Formu təmizlə, yenidən başla" onPress={clearForm} />
+        </Card>
+      ) : null}
+      {otherDraft ? (
+        <Card>
+          <Text style={{ color: colors.warning, fontSize: 15, fontWeight: '700' }}>
+            Yarımçıq vazvrad var: {otherDraft.customer?.name ?? 'müştəri seçilməyib'}
+          </Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+            {otherDraft.items.length} məhsul, {otherDraft.photos.length} şəkil. Onu bərpa edib davam etmək istəyirsiniz?
+          </Text>
+          <Btn icon="refresh-outline" compact title="Yarımçıq vazvradı bərpa et" onPress={() => applyDraft(otherDraft)} />
+          <Btn
+            icon="trash-outline"
+            variant="secondary"
+            compact
+            title="Onu sil"
+            onPress={() => {
+              void dropDraftPhotos(otherDraft.photos.map((photo) => photo.operationId));
+              void clearDraft(DRAFT_NAME);
+              setOtherDraft(null);
+            }}
+          />
+        </Card>
+      ) : null}
+
       <Card>
         <SectionTitle>Vazvratı yaradan</SectionTitle>
         <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>{session?.fullName}</Text>

@@ -23,6 +23,16 @@
         height: 100%;
         background-color: #f3f6fb;
       }
+      /* iPhone Safari zooms into any field with text smaller than 16px (the customer
+         search, codes, notes...) and does not zoom back. 16px text in fields stops that
+         everywhere, also where Safari ignores maximum-scale. Only on iPhone/iPad. */
+      @supports (-webkit-touch-callout: none) {
+        input,
+        textarea,
+        select {
+          font-size: 16px !important;
+        }
+      }
       html {
         /* no double-tap zoom, no font boosting */
         touch-action: manipulation;
